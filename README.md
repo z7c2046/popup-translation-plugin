@@ -24,3 +24,9 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - Changes the floating dot activation mode from hover to click.
 - Reduces accidental translation popups while moving the mouse across a page.
 - Keeps the original translation, highlighting, cache, and Notion sync behavior.
+
+### 4.2.0 Animal Island UI
+
+- Replaces the popup and highlight styling with an Animal Island UI inspired visual system.
+- Adds warm paper colors, mint accents, rounded capsule controls, dotted texture, and pressed button shadows.
+- Keeps the 1.1 click activation behavior to avoid hover mis-triggering.

@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.1.8
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法，极致 UX 交互，无任何代码省略与压缩。
+// @version      4.2.0
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法，采用 Animal Island UI 风格弹窗。
 // @author       Gemini
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -69,16 +69,26 @@
     // ================= 注入主页面高亮 CSS =================
     GM_addStyle(`
         .${CONFIG.highlightClass} {
-            background: #fff176 !important;
-            color: #000 !important;
-            border-radius: 3px;
-            padding: 0 2px;
+            background:
+                radial-gradient(circle, rgba(247, 205, 103, .34) 1.5px, transparent 1.6px),
+                #fff8d7 !important;
+            background-size: 12px 12px !important;
+            color: #725d42 !important;
+            border: 1px solid rgba(247, 205, 103, .95);
+            border-bottom: 3px solid #d4b15a;
+            border-radius: 999px;
+            padding: 0 5px 1px;
             cursor: help;
-            box-shadow: inset 0 -1px 0 rgba(0,0,0,.18);
-            transition: background-color 0.2s;
+            box-shadow: 0 2px 0 rgba(189, 174, 160, .85);
+            transition: background-color .2s, transform .2s, box-shadow .2s;
         }
         .${CONFIG.highlightClass}:hover {
-            background: #fde047 !important;
+            background:
+                radial-gradient(circle, rgba(25, 200, 185, .28) 1.5px, transparent 1.6px),
+                #e8faf5 !important;
+            border-color: #82d5bb;
+            box-shadow: 0 3px 0 rgba(130, 213, 187, .9);
+            transform: translateY(-1px);
         }
     `);
 
@@ -91,14 +101,44 @@
     // 完整展开的 CSS 样式表，不再进行任何压缩
     const style = document.createElement('style');
     style.textContent = `
+        /* Animal Island UI inspired styling: https://github.com/guokaigdg/animal-island-ui */
+        :host {
+            --aiu-bg: #f7f0dc;
+            --aiu-card: #fff8e4;
+            --aiu-card-soft: #fffdf3;
+            --aiu-text: #725d42;
+            --aiu-text-soft: #9b8567;
+            --aiu-primary: #19c8b9;
+            --aiu-primary-dark: #12a99d;
+            --aiu-primary-soft: #e8faf5;
+            --aiu-yellow: #f7cd67;
+            --aiu-yellow-dark: #d6a943;
+            --aiu-border: #d8c8ab;
+            --aiu-shadow: rgba(114, 93, 66, .23);
+            --aiu-green: #6fba2c;
+            --aiu-red: #ef746f;
+            --aiu-radius: 24px;
+            --aiu-font: "Nunito", "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
         #imt-dot {
             position: absolute;
-            width: 14px;
-            height: 14px;
-            background-color: #ec4899;
-            border: 2px solid #fff;
+            width: 18px;
+            height: 18px;
+            background:
+                radial-gradient(circle at 34% 28%, rgba(255, 255, 255, .9) 0 3px, transparent 4px),
+                linear-gradient(180deg, #26d9c6, var(--aiu-primary));
+            border: 3px solid #fff8e4;
             border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+            box-shadow:
+                0 4px 0 var(--aiu-primary-dark),
+                0 8px 16px rgba(18, 169, 157, .26);
             cursor: pointer;
             pointer-events: auto;
             display: none;
@@ -108,29 +148,41 @@
         }
 
         #imt-dot:hover {
-            box-shadow: 0 4px 12px rgba(236, 72, 153, .5);
+            transform: translate(4px, 2px) scale(1.08);
+            box-shadow:
+                0 5px 0 var(--aiu-primary-dark),
+                0 12px 24px rgba(18, 169, 157, .34);
         }
 
         #imt-dot::before {
             content: '';
             position: absolute;
-            top: -12px;
-            right: -12px;
-            bottom: -12px;
-            left: -12px;
+            top: -13px;
+            right: -13px;
+            bottom: -13px;
+            left: -13px;
             background: transparent;
             border-radius: 50%;
         }
 
         .imt-particle {
             position: absolute;
-            width: 5px;
-            height: 5px;
-            background-color: #ec4899;
+            width: 6px;
+            height: 6px;
+            background-color: var(--aiu-yellow);
+            border: 1px solid rgba(114, 93, 66, .14);
             border-radius: 50%;
             pointer-events: none;
             z-index: 2147483647;
-            animation: imt-explode .4s ease-out forwards;
+            animation: imt-explode .42s ease-out forwards;
+        }
+
+        .imt-particle:nth-child(2n) {
+            background-color: var(--aiu-primary);
+        }
+
+        .imt-particle:nth-child(3n) {
+            background-color: #fff8d7;
         }
 
         @keyframes imt-explode {
@@ -144,84 +196,109 @@
             }
         }
 
-        #imt-tooltip {
-            position: absolute;
-            width: 390px;
-            min-width: 260px;
-            min-height: 100px;
-            background: rgba(255, 255, 255, .95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 0, 0, .1);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, .15);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            pointer-events: auto;
-            opacity: 0;
-            display: none;
-            flex-direction: column;
-            transition: opacity .15s ease-in-out;
-            resize: both;
-            overflow: hidden;
-        }
-
-        #imt-tooltip.imt-fixed-mode {
-            position: fixed !important;
-            box-shadow: 0 12px 48px rgba(0, 0, 0, .25);
-        }
-
+        #imt-tooltip,
         #imt-quick-tooltip {
-            position: absolute;
-            width: 320px;
-            min-width: 220px;
-            max-width: min(360px, calc(100vw - 16px));
-            background: rgba(255, 255, 255, .95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(0, 0, 0, .1);
-            border-radius: 10px;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, .16);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:
+                radial-gradient(circle, rgba(216, 200, 171, .42) 1.2px, transparent 1.4px),
+                linear-gradient(180deg, var(--aiu-card-soft), var(--aiu-card));
+            background-size: 16px 16px, auto;
+            border: 2px solid var(--aiu-border);
+            border-radius: var(--aiu-radius);
+            box-shadow:
+                0 7px 0 #bdae9d,
+                0 16px 34px var(--aiu-shadow);
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
             pointer-events: auto;
             opacity: 0;
-            display: none;
-            transition: opacity .15s ease-in-out;
+            transition: opacity .15s ease-in-out, transform .15s ease-in-out;
             overflow: hidden;
             z-index: 2147483647;
         }
 
-        #imt-quick-tooltip .imt-quick-content {
-            padding: 12px 14px 14px;
-            max-height: 340px;
-            font-size: 14.5px;
-            font-weight: 500;
-            color: #111;
-            line-height: 1.55;
-            overflow-y: auto;
+        #imt-tooltip {
+            position: absolute;
+            width: 410px;
+            min-width: 280px;
+            max-width: calc(100vw - 16px);
+            min-height: 116px;
+            max-height: calc(100vh - 16px);
+            display: none;
+            flex-direction: column;
+            resize: both;
         }
 
+        #imt-tooltip.imt-fixed-mode {
+            position: fixed !important;
+            box-shadow:
+                0 8px 0 #9f8d78,
+                0 22px 46px rgba(114, 93, 66, .3);
+        }
+
+        #imt-quick-tooltip {
+            position: absolute;
+            width: 336px;
+            min-width: 236px;
+            max-width: min(380px, calc(100vw - 16px));
+            display: none;
+        }
+
+        #imt-tooltip::before,
+        #imt-quick-tooltip::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(135deg, rgba(255, 255, 255, .42), transparent 38%),
+                radial-gradient(circle at 20% 0%, rgba(247, 205, 103, .22), transparent 35%);
+            pointer-events: none;
+        }
+
+        #imt-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 18px;
+            width: 12px;
+            height: 19px;
+            background: linear-gradient(180deg, #89d14f, var(--aiu-green));
+            border: 1px solid rgba(80, 132, 42, .4);
+            border-radius: 100% 0 100% 0;
+            transform: rotate(-28deg);
+            box-shadow: 0 2px 0 rgba(80, 132, 42, .25);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        #imt-tooltip > *,
+        #imt-quick-tooltip > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        #imt-header,
         #imt-quick-header {
             display: flex;
-            justify-content: flex-end;
             align-items: center;
-            padding: 6px 8px;
-            border-bottom: 1px solid rgba(0, 0, 0, .05);
-            background: rgba(0, 0, 0, .03);
+            background:
+                radial-gradient(circle, rgba(255, 248, 228, .42) 1.2px, transparent 1.4px),
+                linear-gradient(180deg, #ffe18d, var(--aiu-yellow));
+            background-size: 14px 14px, auto;
+            border-bottom: 2px solid var(--aiu-yellow-dark);
+            color: var(--aiu-text);
             user-select: none;
         }
 
-        @media (prefers-color-scheme: dark) {
-            #imt-quick-tooltip {
-                background: rgba(17, 24, 39, .95);
-                border: 1px solid rgba(255, 255, 255, .15);
-                box-shadow: 0 8px 28px rgba(0, 0, 0, .5);
-            }
+        #imt-header {
+            justify-content: space-between;
+            padding: 10px 12px 10px 40px;
+            border-radius: 22px 22px 0 0;
+            cursor: move;
+        }
 
-            #imt-quick-tooltip .imt-quick-content { color: #f9fafb; }
-            #imt-quick-header {
-                border-bottom: 1px solid rgba(255, 255, 255, .05);
-                background: rgba(255, 255, 255, .03);
-            }
+        #imt-quick-header {
+            justify-content: flex-end;
+            padding: 8px 10px;
         }
 
         /* 极速模式下隐藏高级工具栏 */
@@ -233,235 +310,283 @@
         #imt-tooltip.quick-mode #imt-header {
             cursor: default;
             justify-content: flex-end;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            #imt-tooltip {
-                background: rgba(17, 24, 39, .95);
-                border: 1px solid rgba(255, 255, 255, .15);
-                box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
-            }
-        }
-
-        #imt-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 12px;
-            border-bottom: 1px solid rgba(0, 0, 0, .05);
-            background: rgba(0, 0, 0, .03);
-            border-radius: 12px 12px 0 0;
-            cursor: move;
-            user-select: none;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            #imt-header {
-                border-bottom: 1px solid rgba(255, 255, 255, .05);
-                background: rgba(255, 255, 255, .03);
-            }
+            padding-left: 12px;
         }
 
         .imt-drag-indicator {
+            color: var(--aiu-text);
             font-size: 12px;
-            color: #888;
+            font-weight: 900;
+            letter-spacing: 0;
+            opacity: .82;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, .65);
         }
 
         .imt-header-actions {
             display: flex;
-            gap: 4px;
+            gap: 7px;
             align-items: center;
+        }
+
+        .imt-header-actions > .imt-adv-only[style] {
+            width: 2px !important;
+            height: 20px !important;
+            margin: 0 1px !important;
+            background: rgba(114, 93, 66, .18) !important;
+            border-radius: 999px;
+            box-shadow: 1px 0 0 rgba(255, 255, 255, .45);
         }
 
         .imt-action-btn {
-            font-size: 13px;
-            font-weight: bold;
+            width: 31px;
+            height: 31px;
+            min-width: 31px;
+            padding: 0;
+            border: 1px solid var(--aiu-border);
+            border-bottom-width: 3px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #fffdf3, #fff1c8);
+            box-shadow: 0 2px 0 rgba(114, 93, 66, .16);
+            color: var(--aiu-text);
             cursor: pointer;
-            opacity: .55;
-            padding: 4px 6px;
-            border-radius: 6px;
-            background: transparent;
-            transition: all .2s ease;
-            color: #333;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 13px;
+            font-weight: 900;
+            line-height: 1;
+            opacity: 1;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
         }
 
         .imt-action-btn:hover {
-            opacity: 1;
-            background: rgba(0, 0, 0, .05);
+            background: linear-gradient(180deg, #effdf8, var(--aiu-primary-soft));
+            border-color: #82d5bb;
+            color: #0b8079;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(18, 169, 157, .28);
         }
 
-        #imt-star-btn { font-size: 16px; }
-        #imt-ai-btn { font-size: 14px; }
+        .imt-action-btn:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(114, 93, 66, .12);
+        }
 
-        @media (prefers-color-scheme: dark) {
-            .imt-action-btn { color: #ccc; }
-            .imt-action-btn:hover { background: rgba(255, 255, 255, .1); }
+        #imt-font-dec-btn,
+        #imt-font-inc-btn {
+            width: 38px;
+            min-width: 38px;
+            font-size: 12px;
+        }
+
+        #imt-star-btn,
+        #imt-quick-star-btn {
+            font-size: 16px;
+        }
+
+        #imt-ai-btn,
+        #imt-quick-ai-btn {
+            font-size: 14px;
         }
 
         .imt-pinned {
-            color: #ec4899 !important;
+            color: #fff !important;
             opacity: 1 !important;
-            background: rgba(236, 72, 153, .15) !important;
-            box-shadow: inset 0 0 0 1px rgba(236, 72, 153, .4);
+            background: linear-gradient(180deg, #26d9c6, var(--aiu-primary)) !important;
+            border-color: var(--aiu-primary-dark) !important;
+            box-shadow: 0 3px 0 #0e8f85 !important;
         }
 
-        #imt-content {
-            flex: 1;
-            padding: 12px 16px 16px 16px;
+        #imt-content,
+        #imt-quick-tooltip .imt-quick-content {
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
             font-size: 14.5px;
-            font-weight: 500;
-            color: #111;
+            font-weight: 650;
             line-height: 1.65;
             overflow-y: auto;
         }
 
-        @media (prefers-color-scheme: dark) {
-            #imt-content { color: #f9fafb; }
+        #imt-content {
+            flex: 1;
+            padding: 15px 18px 18px;
+        }
+
+        #imt-quick-tooltip .imt-quick-content {
+            max-height: 350px;
+            padding: 14px 16px 17px;
         }
 
         .imt-loading {
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: #666;
-            font-weight: normal;
+            gap: 9px;
+            color: var(--aiu-text-soft);
+            font-weight: 800;
         }
 
         .imt-spinner {
-            width: 14px;
-            height: 14px;
-            border: 2px solid rgba(0, 0, 0, .1);
-            border-top: 2px solid #ec4899;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(216, 200, 171, .7);
+            border-top: 3px solid var(--aiu-primary);
             border-radius: 50%;
-            animation: imt-spin 1s linear infinite;
+            animation: imt-spin .8s linear infinite;
         }
 
-        /* 修复转圈动画失效的核心代码 */
         @keyframes imt-spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
         .imt-word-title {
-            font-size: 1.25em;
-            font-weight: 800;
-            margin-bottom: 4px;
-            color: #ec4899;
+            color: var(--aiu-text);
             display: flex;
             align-items: center;
             flex-wrap: wrap;
+            gap: 4px;
+            font-size: 1.28em;
+            font-weight: 950;
+            line-height: 1.25;
+            margin-bottom: 8px;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .imt-word-title { color: #fde68a; }
-            .imt-pos {
-                background: rgba(253, 230, 138, .1) !important;
-                color: #fde68a !important;
-            }
+        .imt-word-title::before {
+            content: '';
+            width: 11px;
+            height: 18px;
+            flex: 0 0 auto;
+            margin-right: 4px;
+            background: linear-gradient(180deg, #89d14f, var(--aiu-green));
+            border: 1px solid rgba(80, 132, 42, .36);
+            border-radius: 100% 0 100% 0;
+            box-shadow: 0 2px 0 rgba(80, 132, 42, .22);
+            transform: rotate(-28deg);
         }
 
         .imt-phonetic {
+            color: var(--aiu-text-soft);
             font-size: .9em;
-            color: #888;
-            font-weight: 500;
-            margin-left: 8px;
+            font-weight: 800;
+            margin-left: 6px;
         }
 
         .imt-speaker {
-            cursor: pointer;
+            width: 28px;
+            height: 28px;
             margin-left: 8px;
-            font-size: 16px;
-            transition: transform .1s ease;
+            border: 1px solid #82d5bb;
+            border-bottom: 3px solid #60bba5;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #f5fffb, var(--aiu-primary-soft));
+            color: #0b8079;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            opacity: .95;
+            transition: transform .12s ease, box-shadow .12s ease;
             user-select: none;
-            opacity: .85;
         }
 
         .imt-speaker:hover {
             opacity: 1;
-            transform: scale(1.15);
+            transform: translateY(-1px) scale(1.06);
+            box-shadow: 0 4px 0 rgba(18, 169, 157, .22);
         }
 
         .imt-quick-exp {
-            margin-top: 6px;
-            font-size: 1.08em;
-            font-weight: 600;
-            color: #374151;
-            line-height: 1.5;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .imt-quick-exp { color: #e5e7eb; }
+            color: var(--aiu-text);
+            font-size: 1.06em;
+            font-weight: 800;
+            line-height: 1.55;
+            margin-top: 8px;
         }
 
         .imt-section {
-            border-top: 1px solid rgba(128, 128, 128, .22);
-            margin-top: 10px;
-            padding-top: 10px;
+            border-top: 2px dashed rgba(216, 200, 171, .9);
+            margin-top: 12px;
+            padding-top: 12px;
         }
 
         .imt-pos {
-            font-size: .85em;
-            background: rgba(236, 72, 153, .1);
-            color: #ec4899;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-right: 6px;
-            font-weight: 800;
+            display: inline-flex;
+            align-items: center;
+            min-height: 23px;
+            padding: 2px 9px 3px;
+            margin-right: 7px;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #26d9c6, var(--aiu-primary));
+            box-shadow: 0 2px 0 var(--aiu-primary-dark);
+            color: #fff;
+            font-size: .82em;
+            font-weight: 950;
         }
 
         .imt-meaning {
-            font-weight: 800;
+            color: var(--aiu-text);
+            font-weight: 900;
         }
 
         .imt-example {
-            margin-top: 8px;
-            background: rgba(128, 128, 128, .06);
-            padding: 8px;
-            border-radius: 6px;
-            font-size: .92em;
-            font-weight: normal;
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 2px dashed rgba(216, 200, 171, .92);
+            border-radius: 17px;
+            background:
+                radial-gradient(circle, rgba(216, 200, 171, .24) 1.2px, transparent 1.4px),
+                rgba(255, 253, 243, .86);
+            background-size: 14px 14px, auto;
+            box-shadow: inset 0 0 0 2px rgba(255, 248, 228, .86);
+            font-size: .93em;
+            font-weight: 650;
+        }
+
+        .imt-example strong,
+        .imt-meta strong {
+            color: var(--aiu-text);
+            font-weight: 950;
         }
 
         .imt-ex-src {
-            color: #222;
-            margin-top: 6px;
+            color: var(--aiu-text);
+            margin-top: 7px;
         }
 
         .imt-ex-tgt {
-            color: #666;
-            margin-top: 2px;
+            color: var(--aiu-text-soft);
+            margin-top: 3px;
             padding-left: 18px;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .imt-ex-src { color: #e2e8f0; }
-            .imt-ex-tgt { color: #94a3b8; }
-        }
-
         .imt-meta {
-            margin-top: 8px;
+            color: var(--aiu-text);
+            margin-top: 10px;
             font-size: .92em;
-            font-weight: normal;
+            font-weight: 650;
         }
 
         .imt-code {
             display: inline-block;
-            padding: 2px 5px;
-            margin: 2px;
-            border-radius: 4px;
-            background: rgba(128, 128, 128, .1);
+            padding: 3px 9px;
+            margin: 3px 3px 2px;
+            border: 1px solid #82d5bb;
+            border-bottom: 3px solid #60bba5;
+            border-radius: 999px;
+            background: var(--aiu-primary-soft);
+            color: #0b8079;
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-weight: 750;
         }
 
         .imt-translation {
             min-height: 35px;
-            color: #333;
+            color: var(--aiu-text);
             font-size: 16px;
-            font-weight: 700;
-            line-height: 1.5;
+            font-weight: 900;
+            line-height: 1.55;
             margin-bottom: 8px;
             white-space: pre-wrap;
         }
@@ -475,50 +600,68 @@
         .imt-preserved-line,
         .imt-preserved-paragraph,
         .imt-preserved-heading {
-            margin-bottom: 8px;
+            margin-bottom: 9px;
         }
 
         .imt-preserved-heading {
-            color: #333;
+            color: var(--aiu-text);
             font-size: 16px;
-            font-weight: 700;
+            font-weight: 950;
             line-height: 1.5;
         }
 
-        #imt-content::-webkit-scrollbar {
-            width: 6px;
+        #imt-content::-webkit-scrollbar,
+        #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar {
+            width: 8px;
         }
 
-        #imt-content::-webkit-scrollbar-thumb {
-            background: rgba(128, 128, 128, .3);
-            border-radius: 3px;
+        #imt-content::-webkit-scrollbar-track,
+        #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-track {
+            background: rgba(255, 248, 228, .7);
+            border-radius: 999px;
+        }
+
+        #imt-content::-webkit-scrollbar-thumb,
+        #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-thumb {
+            background: #d7c7aa;
+            border: 2px solid #fff8e4;
+            border-radius: 999px;
         }
 
         #imt-input-loading {
             position: absolute;
-            padding: 6px 12px;
-            background: rgba(236, 72, 153, 0.95);
+            padding: 7px 13px 8px;
+            border: 2px solid #fff8e4;
+            border-bottom: 4px solid var(--aiu-primary-dark);
+            border-radius: 999px;
+            background:
+                radial-gradient(circle, rgba(255, 255, 255, .35) 1.2px, transparent 1.4px),
+                linear-gradient(180deg, #26d9c6, var(--aiu-primary));
+            background-size: 12px 12px, auto;
+            box-shadow:
+                0 4px 0 rgba(18, 169, 157, .42),
+                0 12px 22px rgba(18, 169, 157, .22);
             color: #fff;
-            font-size: 12px;
-            font-weight: bold;
-            border-radius: 20px;
-            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
             pointer-events: none;
             z-index: 2147483647;
             display: none;
             align-items: center;
-            gap: 6px;
-            transition: opacity 0.15s ease-in-out;
+            gap: 7px;
+            transition: opacity .15s ease-in-out;
             opacity: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: var(--aiu-font);
+            font-size: 12px;
+            font-weight: 950;
+            text-shadow: 0 1px 0 rgba(0, 0, 0, .12);
         }
+
         #imt-input-loading .imt-mini-spinner {
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255, 255, 255, .3);
+            width: 13px;
+            height: 13px;
+            border: 2px solid rgba(255, 255, 255, .45);
             border-top: 2px solid #fff;
             border-radius: 50%;
-            animation: imt-spin 0.8s linear infinite;
+            animation: imt-spin .75s linear infinite;
         }
     `;
     shadow.appendChild(style);
@@ -1037,7 +1180,7 @@
     function updateHighlightPopupStarUI(word) {
         const starred = vocabMap.has(normalizeWord(word));
         quickStarBtn.innerText = starred ? '★' : '☆';
-        quickStarBtn.style.color = starred ? '#f59e0b' : '';
+        quickStarBtn.style.color = starred ? '#d6a943' : '';
     }
 
     function closeHighlightPopup() {
@@ -1198,7 +1341,7 @@
 
         navigator.clipboard.writeText(textToCopy).then(() => {
             button.innerText = '✔';
-            button.style.color = '#10b981';
+            button.style.color = '#6fba2c';
             setTimeout(() => { button.innerText = '📋'; button.style.color = ''; }, 1500);
         });
     }
@@ -1356,7 +1499,7 @@
         }
         starBtn.style.display = 'flex';
         starBtn.innerText = isStarred ? '★' : '☆';
-        starBtn.style.color = isStarred ? '#f59e0b' : '';
+        starBtn.style.color = isStarred ? '#d6a943' : '';
     }
 
     // ================= 触发 AI 大语言模型详解 =================
@@ -1491,14 +1634,14 @@
         }, 150);
     }
 
-    // 划词后悬浮粉色小点 -> 自动触发 AI 解析 (如果为 hover 模式)
+    // 划词后悬浮青绿色小点 -> 自动触发 AI 解析 (如果为 hover 模式)
     dot.addEventListener('mouseenter', () => {
         if (triggerMode === 'hover') {
             triggerDotTranslate();
         }
     });
 
-    // 划词后点击粉色小点 -> 触发 AI 解析 (如果为 click 模式)
+    // 划词后点击青绿色小点 -> 触发 AI 解析 (如果为 click 模式)
     dot.addEventListener('click', (e) => {
         e.stopPropagation();
         if (triggerMode === 'click') {
@@ -1756,19 +1899,19 @@ Formatting requirements: Output valid JSON only.`;
                         // 单词模式下默认自动发音
                         if (resultData.mode === "en_word") playAudio(resultData.word || text);
                     } catch (e) {
-                        targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
+                        targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
                     }
                 } else {
-                    targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">API 请求失败: ${response.status}</div>`;
+                    targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">API 请求失败: ${response.status}</div>`;
                 }
             },
             onerror: function() {
                 isRequesting = false;
-                targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">网络连接出错</div>`;
+                targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">网络连接出错</div>`;
             },
             ontimeout: function() {
                 isRequesting = false;
-                targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">请求超时：API 响应过慢</div>`;
+                targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">请求超时：API 响应过慢</div>`;
             }
         });
     }
