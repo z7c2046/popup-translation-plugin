@@ -1,0 +1,1964 @@
+// ==UserScript==
+// @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
+// @namespace    http://tampermonkey.net/
+// @version      4.1.7
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法，极致 UX 交互，无任何代码省略与压缩。
+// @author       Gemini
+// @match        *://*/*
+// @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @connect      api.siliconflow.cn
+// @connect      dict.youdao.com
+// @connect      api.notion.com
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // ================= 配置区 =================
+    const CONFIG = {
+        sfApiKey: GM_getValue('lexipro_sf_api_key', ''),
+        sfModel: GM_getValue('lexipro_sf_model', 'Qwen/Qwen2.5-14B-Instruct'),
+        notionToken: GM_getValue('lexipro_notion_token', ''),
+        notionDatabaseId: GM_getValue('lexipro_notion_database_id', ''),
+        highlightClass: 'notion-vocab-highlight',
+        cacheTTL: 12 * 60 * 60 * 1000, // 本地缓存有效期：12小时
+    };
+
+    const SKIP_TAGS = new Set([
+        'SCRIPT', 'STYLE', 'TEXTAREA', 'INPUT', 'SELECT', 'OPTION',
+        'CODE', 'PRE', 'KBD', 'SAMP', 'NOSCRIPT', 'IFRAME'
+    ]);
+
+    // 缓存键名（使用 v5 确保彻底刷新旧数据结构）
+    const CACHE_KEYS = {
+        data: 'lexipro_notion_data_v5',
+        syncTime: 'lexipro_notion_sync_time_v5',
+        maxNo: 'lexipro_notion_max_no_v5',
+        colName: 'lexipro_notion_no_col_name_v5'
+    };
+
+    // ================= 状态变量 =================
+    let vocabMap = new Map();
+    let translationCache = new Map();
+    let currentText = "";
+    let currentTranslatedWord = "";
+    let isRequesting = false;
+    let isPinned = false;
+    let isDragging = false;
+    let isStarred = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let currentFontSize = 14.5;
+    let currentAudio = null;
+    let globalRegex = null;
+    let currentSelectionFormat = null;
+
+    let hoverTimeout = null;
+    let hideTimeout = null;
+    let highlightPopupHideTimeout = null;
+
+    // Notion ID 自增追踪器
+    let currentMaxNo = 0;
+    let noColumnName = null;
+
+    // ================= 注入主页面高亮 CSS =================
+    GM_addStyle(`
+        .${CONFIG.highlightClass} {
+            background: #fff176 !important;
+            color: #000 !important;
+            border-radius: 3px;
+            padding: 0 2px;
+            cursor: help;
+            box-shadow: inset 0 -1px 0 rgba(0,0,0,.18);
+            transition: background-color 0.2s;
+        }
+        .${CONFIG.highlightClass}:hover {
+            background: #fde047 !important;
+        }
+    `);
+
+    // ================= 构建 Shadow DOM UI =================
+    const host = document.createElement('div');
+    host.style.cssText = 'position:absolute;top:0;left:0;width:100%;z-index:2147483647;pointer-events:none;';
+    document.body.appendChild(host);
+    const shadow = host.attachShadow({ mode: 'closed' });
+
+    // 完整展开的 CSS 样式表，不再进行任何压缩
+    const style = document.createElement('style');
+    style.textContent = `
+        #imt-dot {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            background-color: #ec4899;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,.25);
+            cursor: pointer;
+            pointer-events: auto;
+            display: none;
+            transform: translate(4px, 4px);
+            transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+            z-index: 2147483647;
+        }
+
+        #imt-dot:hover {
+            box-shadow: 0 4px 12px rgba(236, 72, 153, .5);
+        }
+
+        #imt-dot::before {
+            content: '';
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            bottom: -12px;
+            left: -12px;
+            background: transparent;
+            border-radius: 50%;
+        }
+
+        .imt-particle {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background-color: #ec4899;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 2147483647;
+            animation: imt-explode .4s ease-out forwards;
+        }
+
+        @keyframes imt-explode {
+            0% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0);
+                opacity: 0;
+            }
+        }
+
+        #imt-tooltip {
+            position: absolute;
+            width: 390px;
+            min-width: 260px;
+            min-height: 100px;
+            background: rgba(255, 255, 255, .95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, .1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, .15);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            pointer-events: auto;
+            opacity: 0;
+            display: none;
+            flex-direction: column;
+            transition: opacity .15s ease-in-out;
+            resize: both;
+            overflow: hidden;
+        }
+
+        #imt-tooltip.imt-fixed-mode {
+            position: fixed !important;
+            box-shadow: 0 12px 48px rgba(0, 0, 0, .25);
+        }
+
+        #imt-quick-tooltip {
+            position: absolute;
+            width: 320px;
+            min-width: 220px;
+            max-width: min(360px, calc(100vw - 16px));
+            background: rgba(255, 255, 255, .95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 0, 0, .1);
+            border-radius: 10px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, .16);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            pointer-events: auto;
+            opacity: 0;
+            display: none;
+            transition: opacity .15s ease-in-out;
+            overflow: hidden;
+            z-index: 2147483647;
+        }
+
+        #imt-quick-tooltip .imt-quick-content {
+            padding: 12px 14px 14px;
+            max-height: 340px;
+            font-size: 14.5px;
+            font-weight: 500;
+            color: #111;
+            line-height: 1.55;
+            overflow-y: auto;
+        }
+
+        #imt-quick-header {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 6px 8px;
+            border-bottom: 1px solid rgba(0, 0, 0, .05);
+            background: rgba(0, 0, 0, .03);
+            user-select: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #imt-quick-tooltip {
+                background: rgba(17, 24, 39, .95);
+                border: 1px solid rgba(255, 255, 255, .15);
+                box-shadow: 0 8px 28px rgba(0, 0, 0, .5);
+            }
+
+            #imt-quick-tooltip .imt-quick-content { color: #f9fafb; }
+            #imt-quick-header {
+                border-bottom: 1px solid rgba(255, 255, 255, .05);
+                background: rgba(255, 255, 255, .03);
+            }
+        }
+
+        /* 极速模式下隐藏高级工具栏 */
+        #imt-tooltip.quick-mode .imt-drag-indicator,
+        #imt-tooltip.quick-mode .imt-adv-only {
+            display: none !important;
+        }
+
+        #imt-tooltip.quick-mode #imt-header {
+            cursor: default;
+            justify-content: flex-end;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #imt-tooltip {
+                background: rgba(17, 24, 39, .95);
+                border: 1px solid rgba(255, 255, 255, .15);
+                box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
+            }
+        }
+
+        #imt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid rgba(0, 0, 0, .05);
+            background: rgba(0, 0, 0, .03);
+            border-radius: 12px 12px 0 0;
+            cursor: move;
+            user-select: none;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #imt-header {
+                border-bottom: 1px solid rgba(255, 255, 255, .05);
+                background: rgba(255, 255, 255, .03);
+            }
+        }
+
+        .imt-drag-indicator {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .imt-header-actions {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .imt-action-btn {
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: .55;
+            padding: 4px 6px;
+            border-radius: 6px;
+            background: transparent;
+            transition: all .2s ease;
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .imt-action-btn:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, .05);
+        }
+
+        #imt-star-btn { font-size: 16px; }
+        #imt-ai-btn { font-size: 14px; }
+
+        @media (prefers-color-scheme: dark) {
+            .imt-action-btn { color: #ccc; }
+            .imt-action-btn:hover { background: rgba(255, 255, 255, .1); }
+        }
+
+        .imt-pinned {
+            color: #ec4899 !important;
+            opacity: 1 !important;
+            background: rgba(236, 72, 153, .15) !important;
+            box-shadow: inset 0 0 0 1px rgba(236, 72, 153, .4);
+        }
+
+        #imt-content {
+            flex: 1;
+            padding: 12px 16px 16px 16px;
+            font-size: 14.5px;
+            font-weight: 500;
+            color: #111;
+            line-height: 1.65;
+            overflow-y: auto;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            #imt-content { color: #f9fafb; }
+        }
+
+        .imt-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .imt-spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(0, 0, 0, .1);
+            border-top: 2px solid #ec4899;
+            border-radius: 50%;
+            animation: imt-spin 1s linear infinite;
+        }
+
+        /* 修复转圈动画失效的核心代码 */
+        @keyframes imt-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .imt-word-title {
+            font-size: 1.25em;
+            font-weight: 800;
+            margin-bottom: 4px;
+            color: #ec4899;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .imt-word-title { color: #fde68a; }
+            .imt-pos {
+                background: rgba(253, 230, 138, .1) !important;
+                color: #fde68a !important;
+            }
+        }
+
+        .imt-phonetic {
+            font-size: .9em;
+            color: #888;
+            font-weight: 500;
+            margin-left: 8px;
+        }
+
+        .imt-speaker {
+            cursor: pointer;
+            margin-left: 8px;
+            font-size: 16px;
+            transition: transform .1s ease;
+            user-select: none;
+            opacity: .85;
+        }
+
+        .imt-speaker:hover {
+            opacity: 1;
+            transform: scale(1.15);
+        }
+
+        .imt-quick-exp {
+            margin-top: 6px;
+            font-size: 1.08em;
+            font-weight: 600;
+            color: #374151;
+            line-height: 1.5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .imt-quick-exp { color: #e5e7eb; }
+        }
+
+        .imt-section {
+            border-top: 1px solid rgba(128, 128, 128, .22);
+            margin-top: 10px;
+            padding-top: 10px;
+        }
+
+        .imt-pos {
+            font-size: .85em;
+            background: rgba(236, 72, 153, .1);
+            color: #ec4899;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 6px;
+            font-weight: 800;
+        }
+
+        .imt-meaning {
+            font-weight: 800;
+        }
+
+        .imt-example {
+            margin-top: 8px;
+            background: rgba(128, 128, 128, .06);
+            padding: 8px;
+            border-radius: 6px;
+            font-size: .92em;
+            font-weight: normal;
+        }
+
+        .imt-ex-src {
+            color: #222;
+            margin-top: 6px;
+        }
+
+        .imt-ex-tgt {
+            color: #666;
+            margin-top: 2px;
+            padding-left: 18px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .imt-ex-src { color: #e2e8f0; }
+            .imt-ex-tgt { color: #94a3b8; }
+        }
+
+        .imt-meta {
+            margin-top: 8px;
+            font-size: .92em;
+            font-weight: normal;
+        }
+
+        .imt-code {
+            display: inline-block;
+            padding: 2px 5px;
+            margin: 2px;
+            border-radius: 4px;
+            background: rgba(128, 128, 128, .1);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        }
+
+        .imt-translation {
+            min-height: 35px;
+            color: #333;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.5;
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+        }
+
+        .imt-preserved-list {
+            padding-left: 1.2em;
+            margin-top: 0;
+        }
+
+        .imt-preserved-list li,
+        .imt-preserved-line,
+        .imt-preserved-paragraph,
+        .imt-preserved-heading {
+            margin-bottom: 8px;
+        }
+
+        .imt-preserved-heading {
+            color: #333;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        #imt-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #imt-content::-webkit-scrollbar-thumb {
+            background: rgba(128, 128, 128, .3);
+            border-radius: 3px;
+        }
+
+        #imt-input-loading {
+            position: absolute;
+            padding: 6px 12px;
+            background: rgba(236, 72, 153, 0.95);
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(236, 72, 153, 0.35);
+            pointer-events: none;
+            z-index: 2147483647;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            transition: opacity 0.15s ease-in-out;
+            opacity: 0;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        #imt-input-loading .imt-mini-spinner {
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, .3);
+            border-top: 2px solid #fff;
+            border-radius: 50%;
+            animation: imt-spin 0.8s linear infinite;
+        }
+    `;
+    shadow.appendChild(style);
+
+    const dot = document.createElement('div');
+    dot.id = 'imt-dot';
+    shadow.appendChild(dot);
+
+    const tooltip = document.createElement('div');
+    tooltip.id = 'imt-tooltip';
+
+    // 完整展开的 HTML 结构，不再进行压缩
+    tooltip.innerHTML = `
+        <div id="imt-header">
+            <span class="imt-drag-indicator">⣿ 拖拽</span>
+            <div class="imt-header-actions">
+                <span class="imt-action-btn" id="imt-ai-btn" title="AI 详细解析" style="display:none;">✨</span>
+                <span class="imt-action-btn" id="imt-star-btn" title="收藏同步到 Notion" style="display:none;">☆</span>
+                <span class="imt-adv-only" style="width:1px; height:14px; background:rgba(128,128,128,.3); margin:0 2px;"></span>
+                <span class="imt-action-btn imt-adv-only" id="imt-font-dec-btn" title="减小字体">A-</span>
+                <span class="imt-action-btn imt-adv-only" id="imt-font-inc-btn" title="增大字体">A+</span>
+                <span class="imt-action-btn" id="imt-copy-btn" title="复制内容">📋</span>
+                <span class="imt-adv-only" style="width:1px; height:14px; background:rgba(128,128,128,.3); margin:0 2px;"></span>
+                <span class="imt-action-btn imt-adv-only" id="imt-pin-btn" title="固定在屏幕上">📌</span>
+                <span class="imt-action-btn imt-adv-only" id="imt-close-btn" title="关闭">✖</span>
+            </div>
+        </div>
+        <div id="imt-content"></div>
+    `;
+    shadow.appendChild(tooltip);
+
+    const quickTooltip = document.createElement('div');
+    quickTooltip.id = 'imt-quick-tooltip';
+    quickTooltip.innerHTML = `
+        <div id="imt-quick-header">
+            <div class="imt-header-actions">
+                <span class="imt-action-btn" id="imt-quick-ai-btn" title="AI 详细解析">✨</span>
+                <span class="imt-action-btn" id="imt-quick-star-btn" title="收藏同步到 Notion">★</span>
+                <span class="imt-action-btn" id="imt-quick-copy-btn" title="复制内容">📋</span>
+            </div>
+        </div>
+        <div class="imt-quick-content"></div>
+    `;
+    shadow.appendChild(quickTooltip);
+
+    // 获取内部元素的引用
+    const header = tooltip.querySelector('#imt-header');
+    const contentBox = tooltip.querySelector('#imt-content');
+    const quickContentBox = quickTooltip.querySelector('.imt-quick-content');
+    const quickAiBtn = quickTooltip.querySelector('#imt-quick-ai-btn');
+    const quickStarBtn = quickTooltip.querySelector('#imt-quick-star-btn');
+    const quickCopyBtn = quickTooltip.querySelector('#imt-quick-copy-btn');
+    const pinBtn = tooltip.querySelector('#imt-pin-btn');
+    const closeBtn = tooltip.querySelector('#imt-close-btn');
+    const fontIncBtn = tooltip.querySelector('#imt-font-inc-btn');
+    const fontDecBtn = tooltip.querySelector('#imt-font-dec-btn');
+    const copyBtn = tooltip.querySelector('#imt-copy-btn');
+    const starBtn = tooltip.querySelector('#imt-star-btn');
+    const aiBtn = tooltip.querySelector('#imt-ai-btn');
+
+    // ================= 基础工具函数 =================
+    function normalizeWord(word) {
+        return String(word || '').toLowerCase().trim();
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/[&<>"']/g, s => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        }[s]));
+    }
+
+    const PRESERVED_BLOCK_SELECTOR = 'h1,h2,h3,h4,h5,h6,li,p,blockquote,figcaption,td,th,dt,dd';
+
+    function normalizeBlockText(text) {
+        return String(text || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function isLikelyChineseText(text) {
+        const value = String(text || '');
+        const hanCount = (value.match(/[\u3400-\u9FFF\uF900-\uFAFF]/g) || []).length;
+        if (!hanCount) return false;
+
+        const latinCount = (value.match(/[A-Za-z]/g) || []).length;
+        const signalCount = hanCount + latinCount;
+        return latinCount === 0 || hanCount / signalCount >= 0.35;
+    }
+
+    function getSelectionFormat(selection) {
+        const rawText = selection.toString().trim();
+        if (!rawText || !selection.rangeCount) return null;
+
+        const blocks = [];
+        const fragment = selection.getRangeAt(0).cloneContents();
+        const elements = Array.from(fragment.querySelectorAll(PRESERVED_BLOCK_SELECTOR));
+
+        for (const el of elements) {
+            const parentBlock = el.parentElement && el.parentElement.closest(PRESERVED_BLOCK_SELECTOR);
+            if (parentBlock && fragment.contains(parentBlock)) continue;
+
+            const text = normalizeBlockText(el.textContent);
+            if (!text) continue;
+
+            blocks.push({
+                type: el.tagName.toLowerCase(),
+                text
+            });
+        }
+
+        if (!blocks.length) {
+            const lines = rawText.split(/\r?\n+/).map(normalizeBlockText).filter(Boolean);
+            if (lines.length > 1) {
+                lines.forEach(line => blocks.push({ type: 'line', text: line }));
+            }
+        }
+
+        if (!blocks.length) {
+            blocks.push({ type: 'text', text: rawText });
+        }
+
+        return {
+            text: blocks.length > 1 ? blocks.map(block => block.text).join('\n') : rawText,
+            blocks
+        };
+    }
+
+    // ================= 语音播放模块 =================
+    if (window.speechSynthesis) {
+        window.speechSynthesis.getVoices();
+        window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+    }
+
+    function isEdgeBrowser() {
+        return navigator.userAgent.includes("Edg/");
+    }
+
+    function stopCurrentAudio() {
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (currentAudio) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            currentAudio.src = "";
+            currentAudio = null;
+        }
+    }
+
+    function playAudio(text) {
+        if (!text) return;
+        stopCurrentAudio();
+        // 优先使用 Edge 浏览器的自然语音
+        if (isEdgeBrowser() && window.speechSynthesis) {
+            playEdgeJennyTTS(text);
+            return;
+        }
+        // 回退到有道词典的在线发音接口
+        playYoudaoTTS(text);
+    }
+
+    function playYoudaoTTS(text) {
+        const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
+        currentAudio = new Audio(url);
+        currentAudio.play().catch(err => {
+            console.error("有道 TTS 播放失败:", err);
+            fallbackSpeechSynthesis(text);
+        });
+    }
+
+    function playEdgeJennyTTS(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+        let selectedVoice = voices.find(v => v.name === 'Microsoft Jenny Online (Natural) - English (United States)') ||
+                            voices.find(v => v.name.includes('Jenny') && v.name.includes('Online')) ||
+                            voices.find(v => v.name.includes('Online') && v.lang.startsWith('en'));
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+            utterance.lang = selectedVoice.lang;
+        } else {
+            playYoudaoTTS(text);
+            return;
+        }
+        utterance.rate = 0.95;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function fallbackSpeechSynthesis(text) {
+        if (!window.speechSynthesis) return;
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+        let selectedVoice = voices.find(v => /^Google US English/i.test(v.name) && v.lang === 'en-US') ||
+                            voices.find(v => v.lang === 'en-US');
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+            utterance.lang = selectedVoice.lang;
+        } else {
+            utterance.lang = 'en-US';
+        }
+        utterance.rate = 0.95;
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function playHighlightedWordAudio(word) {
+        const key = normalizeWord(word);
+        const info = vocabMap.get(key);
+        playAudio(info?.originalWord || word);
+    }
+
+    // ================= Notion 增量同步算法 (SWR) =================
+
+    // 封装通用 Notion API 请求
+    function requestNotion(url, method = 'POST', data = null) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method,
+                url,
+                headers: {
+                    'Authorization': `Bearer ${CONFIG.notionToken}`,
+                    'Notion-Version': '2022-06-28',
+                    'Content-Type': 'application/json'
+                },
+                data: data ? JSON.stringify(data) : null,
+                onload: res => {
+                    if (res.status >= 200 && res.status < 300) {
+                        try {
+                            resolve(JSON.parse(res.responseText));
+                        } catch (e) {
+                            resolve(res.responseText);
+                        }
+                    } else {
+                        reject(new Error(`HTTP ${res.status}`));
+                    }
+                },
+                onerror: reject
+            });
+        });
+    }
+
+    // SWR 核心逻辑：读取缓存并渲染 -> 后台发起增量请求
+    async function syncVocabData() {
+        const cachedDataStr = GM_getValue(CACHE_KEYS.data);
+        const lastSyncTime = GM_getValue(CACHE_KEYS.syncTime) || 0;
+        const now = Date.now();
+
+        // 1. 如果有缓存且未过期，极速使用缓存
+        if (cachedDataStr && (now - lastSyncTime < CONFIG.cacheTTL)) {
+            const cachedWords = JSON.parse(cachedDataStr);
+            currentMaxNo = GM_getValue(CACHE_KEYS.maxNo) || 0;
+            noColumnName = GM_getValue(CACHE_KEYS.colName) || null;
+
+            vocabMap = new Map(cachedWords.map(item => [item.word, item]));
+            globalRegex = buildRegex([...vocabMap.keys()]);
+
+            if (globalRegex) {
+                scanPage(globalRegex);
+                observeDynamicContent(globalRegex);
+            }
+
+            console.log(`[LexiPro] ⚡ 极速加载缓存完成: ${vocabMap.size} 词。开始后台增量检查...`);
+
+            // 2. 异步触发后台增量拉取，不阻塞当前页面
+            fetchDeltaUpdates(lastSyncTime, cachedWords);
+
+        } else {
+            // 没有缓存时，首次全量拉取
+            console.log('[LexiPro] ⏳ 首次使用或无缓存，全量拉取 Notion 数据...');
+            const allWords = await fetchFromNotion(null);
+            updateLocalState(allWords);
+        }
+    }
+
+    // 增量拉取逻辑 (Delta Fetch)
+    async function fetchDeltaUpdates(lastSyncTime, currentCachedWords) {
+        // 构建过滤器：只拉取修改时间大于上次同步时间的数据
+        const filter = {
+            "timestamp": "last_edited_time",
+            "last_edited_time": { "after": new Date(lastSyncTime).toISOString() }
+        };
+
+        try {
+            const updatedWords = await fetchFromNotion(filter);
+
+            if (updatedWords.length > 0) {
+                console.log(`[LexiPro] 🔄 后台增量发现 ${updatedWords.length} 个新变动。`);
+
+                // 将新变动的数据合入内存 Map
+                updatedWords.forEach(item => vocabMap.set(item.word, item));
+
+                const updatedAllWords = Array.from(vocabMap.values());
+
+                // 保存更新后的全量数据到本地缓存
+                GM_setValue(CACHE_KEYS.data, JSON.stringify(updatedAllWords));
+                GM_setValue(CACHE_KEYS.syncTime, Date.now());
+                GM_setValue(CACHE_KEYS.maxNo, currentMaxNo);
+                if (noColumnName) GM_setValue(CACHE_KEYS.colName, noColumnName);
+
+                // 重新挂载高亮正则，点亮刚才在后台拉取的新词
+                globalRegex = buildRegex([...vocabMap.keys()]);
+                if (globalRegex) scanPage(globalRegex);
+
+            } else {
+                // 如果没有新变动，仅更新同步时间戳
+                GM_setValue(CACHE_KEYS.syncTime, Date.now());
+            }
+        } catch(e) {
+            console.error('[LexiPro] ⚠️ 后台增量同步失败', e);
+        }
+    }
+
+    // 拉取执行逻辑 (支持分页和限流控制)
+    async function fetchFromNotion(filterObj) {
+        const fetchedWords = [];
+        let hasMore = true;
+        let nextCursor = undefined;
+        const url = `https://api.notion.com/v1/databases/${CONFIG.notionDatabaseId}/query`;
+
+        while (hasMore) {
+            const body = {};
+            if (nextCursor) body.start_cursor = nextCursor;
+            if (filterObj) body.filter = filterObj;
+
+            const res = await requestNotion(url, 'POST', body);
+
+            if (res && res.results) {
+                for (let page of res.results) {
+                    const wordArr = page.properties['Words']?.title;
+                    const meaningArr = page.properties['Meaning']?.rich_text;
+
+                    const word = wordArr && wordArr.length > 0 ? wordArr[0].plain_text : '';
+                    if (!word) continue;
+                    const meaning = meaningArr && meaningArr.length > 0 ? meaningArr[0].plain_text : '暂无释义';
+
+                    // 动态探测自增列列名
+                    if (!noColumnName) {
+                        const possibleNames = ['# ID', 'ID', '# No', 'No', 'id'];
+                        noColumnName = possibleNames.find(name => page.properties[name]) || null;
+                    }
+
+                    // 更新最大的自增序号
+                    if (noColumnName && page.properties[noColumnName]) {
+                        const noVal = page.properties[noColumnName]?.number;
+                        if (typeof noVal === 'number' && noVal > currentMaxNo) {
+                            currentMaxNo = noVal;
+                        }
+                    }
+
+                    fetchedWords.push({
+                        word: normalizeWord(word),
+                        originalWord: word,
+                        exp: meaning,
+                        id: page.id
+                    });
+                }
+            }
+
+            hasMore = res.has_more;
+            nextCursor = res.next_cursor;
+
+            // Notion 速率限制：每秒3次，设定350ms的安全延迟间隔
+            if (hasMore) await new Promise(r => setTimeout(r, 350));
+        }
+
+        return fetchedWords;
+    }
+
+    // 更新本地内存与缓存的状态
+    function updateLocalState(allWords) {
+        vocabMap = new Map(allWords.map(item => [item.word, item]));
+        GM_setValue(CACHE_KEYS.data, JSON.stringify(allWords));
+        GM_setValue(CACHE_KEYS.syncTime, Date.now());
+        GM_setValue(CACHE_KEYS.maxNo, currentMaxNo);
+        if (noColumnName) GM_setValue(CACHE_KEYS.colName, noColumnName);
+
+        globalRegex = buildRegex([...vocabMap.keys()]);
+        if (globalRegex) {
+            scanPage(globalRegex);
+            observeDynamicContent(globalRegex);
+        }
+    }
+
+    // 仅保存当前内存中的 Map 到本地磁盘缓存
+    function saveVocabToCache() {
+        const allWords = Array.from(vocabMap.values());
+        GM_setValue(CACHE_KEYS.data, JSON.stringify(allWords));
+    }
+
+    // ================= 页面文本高亮系统 =================
+
+    // 构建用于匹配文本节点的正则表达式
+    function buildRegex(words) {
+        const escaped = words
+            .filter(Boolean)
+            .sort((a, b) => b.length - a.length)
+            .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+
+        if (!escaped.length) return null;
+        return new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
+    }
+
+    // 判断该 DOM 节点是否需要跳过（比如本身就在高亮块里，或者是 script 标签）
+    function shouldSkipNode(node) {
+        const parent = node.parentNode;
+        if (!parent || SKIP_TAGS.has(parent.nodeName)) return true;
+        if (parent.closest && parent.closest(`.${CONFIG.highlightClass}`)) return true;
+        if (!node.nodeValue || !/[A-Za-z]/.test(node.nodeValue)) return true;
+        return false;
+    }
+
+    // 对特定的文本节点执行正则匹配与高亮 span 的替换
+    function highlightTextNode(textNode, regex) {
+        if (!regex || shouldSkipNode(textNode)) return;
+
+        const text = textNode.nodeValue;
+        regex.lastIndex = 0;
+
+        if (!regex.test(text)) return;
+        regex.lastIndex = 0;
+
+        const frag = document.createDocumentFragment();
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            const raw = match[0];
+            const key = normalizeWord(raw);
+
+            if (!vocabMap.has(key)) continue;
+
+            if (match.index > lastIndex) {
+                frag.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+            }
+
+            const span = document.createElement('span');
+            span.className = CONFIG.highlightClass;
+            span.textContent = raw;
+            span.dataset.word = key;
+
+            // 挂载移入与移出的交互事件
+            span.addEventListener('mouseenter', handleHighlightEnter);
+            span.addEventListener('mouseleave', handleHighlightLeave);
+
+            frag.appendChild(span);
+            lastIndex = regex.lastIndex;
+        }
+
+        if (lastIndex < text.length) {
+            frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+
+        textNode.parentNode.replaceChild(frag, textNode);
+    }
+
+    // 全局扫描页面
+    function scanPage(regex, root = document.body) {
+        if (!regex) return;
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                return shouldSkipNode(node) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+            }
+        });
+
+        const nodes = [];
+        while (walker.nextNode()) nodes.push(walker.currentNode);
+
+        for (const node of nodes) {
+            highlightTextNode(node, regex);
+        }
+    }
+
+    // 观察器：监控动态插入的页面内容（例如无限滚动瀑布流）
+    function observeDynamicContent(regex) {
+        const observer = new MutationObserver(mutations => {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        highlightTextNode(node, regex);
+                    } else if (node.nodeType === Node.ELEMENT_NODE && !SKIP_TAGS.has(node.nodeName)) {
+                        scanPage(regex, node);
+                    }
+                }
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // ================= 弹窗生命周期与交互管理 =================
+
+    // 渲染极简查词界面
+    function renderQuickDict(word, { syncMainState = true } = {}) {
+        const info = vocabMap.get(normalizeWord(word));
+        if (!info) return `<div class="imt-translation">${escapeHtml(word)}</div>`;
+
+        if (syncMainState) {
+            currentTranslatedWord = normalizeWord(word);
+            isStarred = true;
+            updateStarUI();
+        }
+
+        let expHtml = escapeHtml(info.exp || '暂无释义').replace(/\n/g, '<br>');
+
+        return `
+            <div class="imt-word-title">
+                ${escapeHtml(info.originalWord || word)}
+                <span class="imt-speaker" data-text="${escapeHtml(info.originalWord || word)}" title="悬停朗读">🔊</span>
+            </div>
+            <div class="imt-quick-exp">
+                ${expHtml}
+            </div>
+        `;
+    }
+
+    function isMainTooltipShowingDetail() {
+        return tooltip.style.display === 'flex' && !tooltip.classList.contains('quick-mode');
+    }
+
+    function updateHighlightPopupStarUI(word) {
+        const starred = vocabMap.has(normalizeWord(word));
+        quickStarBtn.innerText = starred ? '★' : '☆';
+        quickStarBtn.style.color = starred ? '#f59e0b' : '';
+    }
+
+    function closeHighlightPopup() {
+        quickTooltip.style.opacity = '0';
+        setTimeout(() => {
+            if (quickTooltip.style.opacity === '0') {
+                quickTooltip.style.display = 'none';
+                quickTooltip.dataset.word = '';
+                quickTooltip.dataset.lookupText = '';
+            }
+        }, 150);
+    }
+
+    function showHighlightPopup(target, word) {
+        clearTimeout(highlightPopupHideTimeout);
+
+        const key = normalizeWord(word);
+        quickTooltip.dataset.word = key;
+        quickTooltip.dataset.lookupText = key;
+        quickContentBox.innerHTML = renderQuickDict(word, { syncMainState: false });
+        updateHighlightPopupStarUI(key);
+        quickTooltip.style.display = 'block';
+
+        const rect = target.getBoundingClientRect();
+        let x = rect.left + window.scrollX;
+        let y = rect.bottom + window.scrollY + 2;
+
+        const tRect = quickTooltip.getBoundingClientRect();
+        if (x + tRect.width > window.innerWidth + window.scrollX - 8) {
+            x = window.innerWidth + window.scrollX - tRect.width - 8;
+        }
+        if (y + tRect.height > window.innerHeight + window.scrollY - 8) {
+            y = rect.top + window.scrollY - tRect.height - 2;
+        }
+
+        quickTooltip.style.left = `${Math.max(8, x)}px`;
+        quickTooltip.style.top = `${Math.max(8, y)}px`;
+
+        playHighlightedWordAudio(word);
+        requestAnimationFrame(() => quickTooltip.style.opacity = '1');
+    }
+
+    // 鼠标移入生词
+    function handleHighlightEnter(e) {
+        clearTimeout(hideTimeout);
+        clearTimeout(highlightPopupHideTimeout);
+        hoverTimeout = setTimeout(() => {
+            const target = e.target;
+            const word = target.dataset.word;
+
+            if (isPinned || isMainTooltipShowingDetail()) {
+                showHighlightPopup(target, word);
+                return;
+            }
+
+            closeHighlightPopup();
+            if (currentText === word && tooltip.style.display === 'flex') return;
+
+            currentText = word;
+            currentSelectionFormat = null;
+            dot.style.display = 'none';
+
+            // 加入 css 类，触发极速极简模式
+            tooltip.classList.add('quick-mode');
+
+            contentBox.innerHTML = renderQuickDict(word);
+            aiBtn.style.display = 'flex'; // 只显示必要的按钮
+
+            // 计算弹窗位置（极致压缩为 2px 的防误触间距）
+            const rect = target.getBoundingClientRect();
+            let x = rect.left + window.scrollX;
+            let y = rect.bottom + window.scrollY + 2;
+
+            tooltip.style.display = 'flex';
+
+            // 边缘溢出检测
+            const tRect = tooltip.getBoundingClientRect();
+            if (x + tRect.width > window.innerWidth + window.scrollX - 8) {
+                x = window.innerWidth + window.scrollX - tRect.width - 8;
+            }
+            if (y + tRect.height > window.innerHeight + window.scrollY - 8) {
+                // 如果下方空间不足，翻转到上方，同样保持 2px 间距
+                y = rect.top + window.scrollY - tRect.height - 2;
+            }
+
+            tooltip.style.left = `${Math.max(8, x)}px`;
+            tooltip.style.top = `${Math.max(8, y)}px`;
+
+            playHighlightedWordAudio(word);
+            requestAnimationFrame(() => tooltip.style.opacity = '1');
+
+        }, 150);
+    }
+
+    // 鼠标移出生词
+    function handleHighlightLeave() {
+        clearTimeout(hoverTimeout);
+        if (quickTooltip.style.display === 'block') {
+            highlightPopupHideTimeout = setTimeout(() => closeHighlightPopup(), 80);
+            return;
+        }
+
+        // 只有在极简生词模式下，鼠标移开才会触发自动消失
+        if (tooltip.classList.contains('quick-mode') && !isPinned && !isDragging) {
+            hideTimeout = setTimeout(() => closeTooltip(), 80);
+        }
+    }
+
+    // 允许鼠标进入弹窗本体时不消失
+    tooltip.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+    tooltip.addEventListener('mouseleave', () => {
+        // 同理，只有在极简模式离开弹窗时才会自动消失
+        if (tooltip.classList.contains('quick-mode') && !isPinned && !isDragging) {
+            hideTimeout = setTimeout(() => closeTooltip(), 80);
+        }
+    });
+    quickTooltip.addEventListener('mouseenter', () => clearTimeout(highlightPopupHideTimeout));
+    quickTooltip.addEventListener('mouseleave', () => {
+        highlightPopupHideTimeout = setTimeout(() => closeHighlightPopup(), 80);
+    });
+
+    // 统一销毁弹窗方法
+    function closeTooltip({ stopAudio = false } = {}) {
+        if (stopAudio) stopCurrentAudio();
+        tooltip.style.opacity = '0';
+        setTimeout(() => { if (!isPinned) tooltip.style.display = 'none'; }, 150);
+    }
+
+    // 弹窗内部的发音喇叭悬停事件：移出不打断，直到自然播放完毕
+    contentBox.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('imt-speaker')) {
+            playAudio(e.target.getAttribute('data-text'));
+        }
+    });
+    quickContentBox.addEventListener('mouseover', (e) => {
+        if (e.target.classList.contains('imt-speaker')) {
+            playAudio(e.target.getAttribute('data-text'));
+        }
+    });
+
+    // 全功能模式下的：字号放大与缩小
+    fontIncBtn.addEventListener('click', () => {
+        currentFontSize = Math.min(currentFontSize + 1.5, 30);
+        contentBox.style.fontSize = `${currentFontSize}px`;
+    });
+    fontDecBtn.addEventListener('click', () => {
+        currentFontSize = Math.max(currentFontSize - 1.5, 10);
+        contentBox.style.fontSize = `${currentFontSize}px`;
+    });
+
+    // 复制翻译内容按钮
+    function copyContentFromBox(sourceBox, button) {
+        const cloneNode = sourceBox.cloneNode(true);
+        cloneNode.querySelectorAll('.imt-speaker').forEach(s => s.remove());
+        const textToCopy = cloneNode.innerText;
+
+        if (!textToCopy || textToCopy.includes('正在翻译') || textToCopy.includes('正在获取')) return;
+
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            button.innerText = '✔';
+            button.style.color = '#10b981';
+            setTimeout(() => { button.innerText = '📋'; button.style.color = ''; }, 1500);
+        });
+    }
+
+    copyBtn.addEventListener('click', () => {
+        copyContentFromBox(contentBox, copyBtn);
+    });
+    quickCopyBtn.addEventListener('click', () => {
+        copyContentFromBox(quickContentBox, quickCopyBtn);
+    });
+
+    // 固定（Pin）功能实现
+    function togglePin(state) {
+        if (isPinned === state) return;
+        isPinned = state;
+
+        if (isPinned) {
+            pinBtn.classList.add('imt-pinned');
+            const rect = tooltip.getBoundingClientRect();
+            tooltip.classList.add('imt-fixed-mode');
+            tooltip.style.left = `${rect.left}px`;
+            tooltip.style.top = `${rect.top}px`;
+        } else {
+            pinBtn.classList.remove('imt-pinned');
+            const rect = tooltip.getBoundingClientRect();
+            tooltip.classList.remove('imt-fixed-mode');
+            tooltip.style.left = `${rect.left + window.scrollX}px`;
+            tooltip.style.top = `${rect.top + window.scrollY}px`;
+            closeHighlightPopup();
+        }
+    }
+
+    pinBtn.addEventListener('click', () => togglePin(!isPinned));
+    closeBtn.addEventListener('click', () => { togglePin(false); closeTooltip({ stopAudio: true }); });
+
+    // ================= Notion 收藏 / 取消收藏逻辑 =================
+    function getMeaningToSave(word, sourceText) {
+        const cached = translationCache.get(sourceText) || translationCache.get(word);
+
+        // 智能抓取并提取大模型生成的释义
+        if (cached && cached.entries && cached.entries.length > 0) {
+            const entry = cached.entries[0];
+            if (cached.mode === 'en_word') {
+                return entry.pos ? `${entry.pos} ${entry.meaning}` : entry.meaning;
+            }
+            if (cached.mode === 'zh_word') {
+                return entry.pos ? `${entry.pos} ${entry.translation}` : entry.translation;
+            }
+        }
+
+        const existing = vocabMap.get(normalizeWord(word));
+        return existing?.exp || "从网页端收藏（暂无释义）";
+    }
+
+    async function setVocabStarState(word, willStar, sourceText = word) {
+        const key = normalizeWord(word);
+
+        if (willStar) {
+            const meaningToSave = getMeaningToSave(key, sourceText);
+
+            // 准备要推送到 Notion API 的 Properties 结构
+            const properties = {
+                "Words": { title: [{ text: { content: key } }] },
+                "Meaning": { rich_text: [{ text: { content: meaningToSave } }] }
+            };
+
+            // 执行 Notion ID 自动递增
+            if (noColumnName) {
+                currentMaxNo += 1;
+                properties[noColumnName] = { number: currentMaxNo };
+                GM_setValue(CACHE_KEYS.maxNo, currentMaxNo);
+            }
+
+            const data = {
+                parent: { database_id: CONFIG.notionDatabaseId },
+                properties: properties
+            };
+
+            // 推送至数据库
+            const res = await requestNotion('https://api.notion.com/v1/pages', 'POST', data);
+
+            // 更新内存中的词汇表，并保存返回的 Page ID 供后续可能的删除操作使用
+            vocabMap.set(key, {
+                word: key,
+                originalWord: sourceText || key,
+                exp: meaningToSave,
+                id: res.id
+            });
+
+            globalRegex = buildRegex([...vocabMap.keys()]);
+            scanPage(globalRegex);
+        } else {
+            // 取消收藏：在 Notion 中将此页移入回收站 (archive)
+            const pageId = vocabMap.get(key)?.id;
+            if (pageId) {
+                await requestNotion(`https://api.notion.com/v1/pages/${pageId}`, 'PATCH', { archived: true });
+            }
+            vocabMap.delete(key);
+            globalRegex = buildRegex([...vocabMap.keys()]);
+        }
+
+        // 操作完成后，将内存中的字典立刻同步到本地磁盘缓存
+        saveVocabToCache();
+    }
+
+    starBtn.addEventListener('click', async () => {
+        if (!currentTranslatedWord) return;
+        const willStar = !isStarred;
+        starBtn.style.opacity = '0.5';
+
+        try {
+            await setVocabStarState(currentTranslatedWord, willStar, currentText);
+
+            // 更新 UI 和 Regex 高亮挂载
+            isStarred = willStar;
+            updateStarUI();
+            updateHighlightPopupStarUI(quickTooltip.dataset.word || currentTranslatedWord);
+        } catch (e) {
+            console.error('[LexiPro] 同步到 Notion 失败', e);
+            alert('同步到 Notion 失败，请检查开发者控制台网络请求。');
+        } finally {
+            starBtn.style.opacity = '1';
+        }
+    });
+
+    quickStarBtn.addEventListener('click', async () => {
+        const word = quickTooltip.dataset.word;
+        if (!word) return;
+
+        const willStar = !vocabMap.has(normalizeWord(word));
+        const lookupText = quickTooltip.dataset.lookupText || word;
+        quickStarBtn.style.opacity = '0.5';
+
+        try {
+            await setVocabStarState(word, willStar, lookupText);
+            updateHighlightPopupStarUI(word);
+
+            if (normalizeWord(currentTranslatedWord) === normalizeWord(word)) {
+                isStarred = willStar;
+                updateStarUI();
+            }
+        } catch (e) {
+            console.error('[LexiPro] 同步到 Notion 失败', e);
+            alert('同步到 Notion 失败，请检查开发者控制台网络请求。');
+        } finally {
+            quickStarBtn.style.opacity = '1';
+        }
+    });
+
+    // 动态更新收藏星星 UI 状态
+    function updateStarUI() {
+        if (!currentTranslatedWord) {
+            starBtn.style.display = 'none';
+            return;
+        }
+        starBtn.style.display = 'flex';
+        starBtn.innerText = isStarred ? '★' : '☆';
+        starBtn.style.color = isStarred ? '#f59e0b' : '';
+    }
+
+    // ================= 触发 AI 大语言模型详解 =================
+    aiBtn.addEventListener('click', () => {
+        // [核心生命周期转变]：当点击 AI 按钮时，移除极简模式。
+        // 从此刻起，鼠标移开弹窗将不再使其消失，变为纯粹的点击空白处消失逻辑。
+        tooltip.classList.remove('quick-mode');
+        triggerFetch(currentText, currentSelectionFormat);
+    });
+    quickAiBtn.addEventListener('click', () => {
+        const word = quickTooltip.dataset.lookupText || quickTooltip.dataset.word;
+        if (!word) return;
+        clearTimeout(highlightPopupHideTimeout);
+        triggerQuickFetch(word);
+    });
+
+    // ================= 选词、拖拽与全局事件 =================
+    header.addEventListener('mousedown', (e) => {
+        // 极简模式下禁止拖拽操作
+        if (tooltip.classList.contains('quick-mode')) return;
+        if (e.target.closest('.imt-action-btn')) return;
+
+        isDragging = true;
+        if (!isPinned) togglePin(true);
+        const rect = tooltip.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        tooltip.style.left = `${e.clientX - dragOffsetX}px`;
+        tooltip.style.top = `${e.clientY - dragOffsetY}px`;
+    });
+
+    document.addEventListener('mouseup', (e) => {
+        isDragging = false;
+
+        if (e.composedPath().includes(host)) return;
+        const mouseX = e.clientX + window.scrollX + 10;
+        const mouseY = e.clientY + window.scrollY + 10;
+
+        setTimeout(() => {
+            const selection = window.getSelection();
+            const selectionFormat = getSelectionFormat(selection);
+            const text = (selectionFormat?.text || selection.toString()).trim();
+            // 中文选区不显示小圆点，避免触发后续划词解析入口
+            if (text && isLikelyChineseText(text)) {
+                dot.style.display = 'none';
+                dot.dataset.animating = 'false';
+                return;
+            }
+
+            // 如果选中了文本，且选中的不是已经高亮的生词
+            if (text && !e.target.closest(`.${CONFIG.highlightClass}`)) {
+                currentText = text;
+                currentSelectionFormat = selectionFormat;
+                dot.style.display = 'block';
+                dot.style.transform = 'translate(4px,4px) scale(1)';
+                dot.style.opacity = '1';
+                dot.dataset.animating = 'false';
+                dot.style.left = `${mouseX}px`;
+                dot.style.top = `${mouseY}px`;
+
+                // 兜底：如果正在进行全功能划词，但弹窗没被 pin，先隐藏弹窗准备展示小圆点
+                if (!isPinned) {
+                    tooltip.style.opacity = '0';
+                    setTimeout(() => { if (!isPinned) tooltip.style.display = 'none'; }, 200);
+                }
+            }
+        }, 10);
+    });
+
+    // 全局点击空白处关闭全功能弹窗
+    document.addEventListener('mousedown', (e) => {
+        // 点击阴影DOM、正在拖拽、已固定时都不处理
+        if (e.composedPath().includes(host) || isDragging || isPinned) return;
+
+        const isClickOnHighlight = e.target.closest(`.${CONFIG.highlightClass}`);
+        const isClickOnDot = e.composedPath().includes(dot);
+
+        // 如果点击的既不是弹窗本身，也不是高亮词，也不是小圆点，执行全局关闭
+        if (!isClickOnHighlight && !isClickOnDot) {
+            dot.style.display = 'none';
+            closeTooltip({ stopAudio: true });
+        }
+    });
+
+    // 划词后悬浮粉色小点 -> 自动触发 AI 解析
+    dot.addEventListener('mouseenter', () => {
+        if (dot.dataset.animating === 'true') return;
+        dot.dataset.animating = 'true';
+        dot.style.transform = 'translate(4px,4px) scale(1.6)';
+        dot.style.opacity = '0';
+
+        const centerX = parseFloat(dot.style.left) + 11;
+        const centerY = parseFloat(dot.style.top) + 11;
+
+        setTimeout(() => {
+            dot.style.display = 'none';
+            dot.dataset.animating = 'false';
+
+            // 绘制粒子爆炸特效
+            const particleCount = 12;
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'imt-particle';
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 15 + Math.random() * 20;
+                particle.style.left = `${centerX}px`;
+                particle.style.top = `${centerY}px`;
+                particle.style.setProperty('--tx', `${Math.cos(angle) * distance}px`);
+                particle.style.setProperty('--ty', `${Math.sin(angle) * distance}px`);
+                fragment.appendChild(particle);
+            }
+            shadow.appendChild(fragment);
+            setTimeout(() => shadow.querySelectorAll('.imt-particle').forEach(p => p.remove()), 400);
+
+            if (!isPinned) {
+                tooltip.style.left = `${parseFloat(dot.style.left) - 15}px`;
+                tooltip.style.top = `${parseFloat(dot.style.top) - 15}px`;
+            }
+
+            tooltip.style.display = 'flex';
+            requestAnimationFrame(() => tooltip.style.opacity = '1');
+
+            // [核心生命周期转变]：当触发完整划词翻译时，必须确保移除 quick-mode 限制
+            // 这样一来，鼠标离开弹窗时就不会自动消失了，必须由用户点击空白处关闭。
+            tooltip.classList.remove('quick-mode');
+            triggerFetch(currentText, currentSelectionFormat);
+        }, 150);
+    });
+
+    // ================= 硅基流动 AI 大语言模型翻译系统 =================
+
+    // 给 LLM 的 System Prompt 指令
+    const SYSTEM_PROMPT = `You are LexiPro, a professional bilingual English-Chinese dictionary and translation engine.
+
+You must first classify the input:
+Mode 1: Single English Word
+Mode 2: Single Chinese Word
+Mode 3: Phrase or Sentence
+
+Return RAW JSON ONLY. Do not use markdown code blocks.
+
+For Mode 1: Single English Word
+Return this JSON structure:
+{
+  "mode": "en_word",
+  "word": "input word",
+  "phonetic": "IPA phonetic symbol",
+  "entries": [
+    {
+      "pos": "词性缩写, such as n./v./adj./adv.",
+      "meaning": "中文核心释义",
+      "examples": [{"source": "English example sentence", "target": "Chinese translation"}],
+      "synonyms": [{"word": "English synonym", "meaning": "Chinese meaning"}],
+      "antonyms": [{"word": "English antonym", "meaning": "Chinese meaning"}]
+    }
+  ]
+}
+
+For Mode 2: Single Chinese Word
+Return this JSON structure:
+{
+  "mode": "zh_word",
+  "word": "中文词语",
+  "entries": [
+    {
+      "pos": "中文词性",
+      "translation": "English translation",
+      "examples": [{"source": "中文例句", "target": "English translation"}],
+      "synonyms": [{"word": "中文近义词", "translation": "English translation"}]
+    }
+  ]
+}
+
+For Mode 3: Phrase or Sentence
+Return this JSON structure:
+{
+  "mode": "sentence",
+  "translation": "Simplified Chinese translation. Preserve the original line breaks when the input has multiple lines.",
+  "segments": ["Optional. One translated segment per original FORMAT_BLOCKS item or per original line, in the same order."]
+}
+
+Format preservation rules for Mode 3:
+- If the user message includes FORMAT_BLOCKS, return a "segments" array with exactly the same number of items as FORMAT_BLOCKS.
+- If the input contains multiple lines, preserve the same line count and order in "translation" using newline characters.
+- Do not merge separate titles, list items, bullets, paragraphs, or table cells.
+- Do not add numbering or bullets unless they already exist in the source segment.
+
+Formatting requirements: Output valid JSON only.`;
+
+    function buildUserPrompt(text, format = null) {
+        let prompt = `【Content to Translate】:\n"${text}"`;
+
+        if (format && format.blocks && format.blocks.length > 1) {
+            const blockLines = format.blocks
+                .map((block, index) => `${index + 1}. [${block.type}] ${block.text}`)
+                .join('\n');
+
+            prompt += `\n\nFORMAT_BLOCKS:\n${blockLines}\n\nTranslate each FORMAT_BLOCKS item independently. Return "segments" with exactly ${format.blocks.length} translated strings in the same order.`;
+        }
+
+        return prompt;
+    }
+
+    function getPreservedSegments(data, originalText, format) {
+        if (!format || !format.blocks || format.blocks.length <= 1) return null;
+
+        const expectedCount = format.blocks.length;
+        const segments = Array.isArray(data.segments)
+            ? data.segments.map(item => String(item || '').trim()).filter(Boolean)
+            : [];
+
+        if (segments.length === expectedCount) return segments;
+
+        const translationLines = String(data.translation || '')
+            .split(/\r?\n+/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        return translationLines.length === expectedCount ? translationLines : null;
+    }
+
+    function renderPreservedBlocks(blocks, segments) {
+        const allListItems = blocks.every(block => block.type === 'li');
+
+        if (allListItems) {
+            return `<ul class="imt-translation imt-preserved-list">${segments.map(segment => `<li>${escapeHtml(segment)}</li>`).join('')}</ul>`;
+        }
+
+        const html = segments.map((segment, index) => {
+            const type = blocks[index]?.type || 'line';
+            const safeSegment = escapeHtml(segment);
+
+            if (type === 'li') return `<div class="imt-preserved-line">• ${safeSegment}</div>`;
+            if (/^h[1-6]$/.test(type)) return `<div class="imt-preserved-heading">${safeSegment}</div>`;
+            if (type === 'p' || type === 'blockquote') return `<div class="imt-preserved-paragraph">${safeSegment}</div>`;
+            return `<div class="imt-preserved-line">${safeSegment}</div>`;
+        }).join('');
+
+        return `<div class="imt-translation imt-preserved-blocks">${html}</div>`;
+    }
+
+    function renderSentenceTranslation(data, originalText, format = null) {
+        const segments = getPreservedSegments(data, originalText, format);
+        if (segments) return renderPreservedBlocks(format.blocks, segments);
+
+        return `<div class="imt-translation">${escapeHtml(data.translation || String(data))}</div>`;
+    }
+
+    // 将 AI 返回的 JSON 渲染为漂亮的 HTML 结构
+    function renderTranslation(data, originalText, { syncMainState = true, format = null } = {}) {
+        if (syncMainState) {
+            if (data.mode === "en_word" || data.mode === "zh_word") {
+                currentTranslatedWord = normalizeWord(data.word || originalText);
+                isStarred = vocabMap.has(currentTranslatedWord);
+                updateStarUI();
+            } else {
+                currentTranslatedWord = "";
+                updateStarUI();
+            }
+        }
+
+        if (data.mode === "en_word") {
+            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}<span class="imt-phonetic">${escapeHtml(data.phonetic || '')}</span><span class="imt-speaker" data-text="${escapeHtml(data.word || originalText)}" title="悬停朗读">🔊</span></div>`;
+            (data.entries || []).forEach(entry => {
+                html += `<div class="imt-section"><div><span class="imt-pos">${escapeHtml(entry.pos || '')}</span><span class="imt-meaning">${escapeHtml(entry.meaning || '')}</span></div></div>`;
+                if (entry.examples && entry.examples.length > 0) {
+                    html += `<div class="imt-example"><strong>例句：</strong>`;
+                    entry.examples.forEach((ex, index) => {
+                        html += `<div class="imt-ex-src">${index + 1}. ${escapeHtml(ex.source || '')}</div><div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                if (entry.synonyms && entry.synonyms.length > 0) {
+                    html += `<div class="imt-meta"><strong>同义词：</strong>${entry.synonyms.map(s => `<span class="imt-code">${escapeHtml(s.word || '')} (${escapeHtml(s.meaning || '')})</span>`).join('')}</div>`;
+                }
+                if (entry.antonyms && entry.antonyms.length > 0) {
+                    html += `<div class="imt-meta"><strong>反义词：</strong>${entry.antonyms.map(a => `<span class="imt-code">${escapeHtml(a.word || '')} (${escapeHtml(a.meaning || '')})</span>`).join('')}</div>`;
+                }
+            });
+            return html;
+        }
+
+        if (data.mode === "zh_word") {
+            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}</div>`;
+            (data.entries || []).forEach(entry => {
+                html += `<div class="imt-section"><div><span class="imt-pos">${escapeHtml(entry.pos || '')}</span><span class="imt-meaning">${escapeHtml(entry.translation || '')}</span></div></div>`;
+                if (entry.examples && entry.examples.length > 0) {
+                    html += `<div class="imt-example"><strong>例句：</strong>`;
+                    entry.examples.forEach((ex, index) => {
+                        html += `<div class="imt-ex-src">${index + 1}. ${escapeHtml(ex.source || '')}</div><div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>`;
+                    });
+                    html += `</div>`;
+                }
+                if (entry.synonyms && entry.synonyms.length > 0) {
+                    html += `<div class="imt-meta"><strong>同义词/近义词：</strong>${entry.synonyms.map(s => `<span class="imt-code">${escapeHtml(s.word || '')} (${escapeHtml(s.translation || '')})</span>`).join('')}</div>`;
+                }
+            });
+            return html;
+        }
+
+        return renderSentenceTranslation(data, originalText, format);
+    }
+
+    // 触发翻译调度：优先查缓存，缓存不存在则调用 API
+    function triggerFetch(text, format = null) {
+        contentBox.innerHTML = '<div class="imt-loading"><div class="imt-spinner"></div>正在获取 AI 详细解析...</div>';
+        starBtn.style.display = 'none';
+        aiBtn.style.display = 'none';
+
+        if (translationCache.has(text)) {
+            const data = translationCache.get(text);
+            contentBox.innerHTML = renderTranslation(data, text, { format });
+            if (data.mode === "en_word") playAudio(data.word || text);
+            return;
+        }
+
+        fetchTranslation(text, contentBox, { format });
+    }
+
+    function triggerQuickFetch(text) {
+        quickContentBox.innerHTML = '<div class="imt-loading"><div class="imt-spinner"></div>正在获取 AI 详细解析...</div>';
+
+        if (translationCache.has(text)) {
+            const data = translationCache.get(text);
+            quickContentBox.innerHTML = renderTranslation(data, text, { syncMainState: false });
+            quickTooltip.dataset.word = normalizeWord(data.word || text);
+            updateHighlightPopupStarUI(quickTooltip.dataset.word);
+            if (data.mode === "en_word") playAudio(data.word || text);
+            return;
+        }
+
+        fetchTranslation(text, quickContentBox, { syncMainState: false });
+    }
+
+    // 发起真实的 API Post 请求
+    function fetchTranslation(text, targetBox = contentBox, { syncMainState = true, format = null } = {}) {
+        if (isRequesting) {
+            targetBox.innerHTML = '<div class="imt-loading">已有解析请求正在进行中，请稍后再试。</div>';
+            return;
+        }
+        isRequesting = true;
+
+        GM_xmlhttpRequest({
+            method: "POST",
+            url: "https://api.siliconflow.cn/v1/chat/completions",
+            timeout: 15000,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${CONFIG.sfApiKey}`
+            },
+            data: JSON.stringify({
+                model: CONFIG.sfModel,
+                messages: [
+                    { role: "system", content: SYSTEM_PROMPT },
+                    { role: "user", content: buildUserPrompt(text, format) }
+                ],
+                response_format: { type: "json_object" },
+                temperature: 0.1
+            }),
+            onload: function(response) {
+                isRequesting = false;
+                if (response.status === 200) {
+                    try {
+                        const resJson = JSON.parse(response.responseText);
+                        const content = resJson.choices[0].message.content;
+                        const cleanJsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                        const resultData = JSON.parse(cleanJsonStr);
+
+                        // 存入内存翻译缓存
+                        translationCache.set(text, resultData);
+                        targetBox.innerHTML = renderTranslation(resultData, text, { syncMainState, format });
+                        if (!syncMainState) {
+                            quickTooltip.dataset.word = normalizeWord(resultData.word || text);
+                            updateHighlightPopupStarUI(quickTooltip.dataset.word);
+                        }
+
+                        // 单词模式下默认自动发音
+                        if (resultData.mode === "en_word") playAudio(resultData.word || text);
+                    } catch (e) {
+                        targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
+                    }
+                } else {
+                    targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">API 请求失败: ${response.status}</div>`;
+                }
+            },
+            onerror: function() {
+                isRequesting = false;
+                targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">网络连接出错</div>`;
+            },
+            ontimeout: function() {
+                isRequesting = false;
+                targetBox.innerHTML = `<div style="color:#d9534f;font-weight:normal;">请求超时：API 响应过慢</div>`;
+            }
+        });
+    }
+
+    // ================= 输入框三连击空格自动翻译模块 =================
+    let spacePressHistory = [];
+
+    function isTextEditableElement(target) {
+        if (!target) return false;
+        if (target.isContentEditable) return true;
+
+        const tagName = target.tagName;
+        if (tagName === 'TEXTAREA') return true;
+        if (tagName === 'INPUT') {
+            const type = (target.type || 'text').toLowerCase();
+            const allowedTypes = ['text', 'search', 'url', 'tel', 'email', ''];
+            return allowedTypes.includes(type);
+        }
+        return false;
+    }
+
+    function translateText(text) {
+        return new Promise((resolve, reject) => {
+            const systemPrompt = `You are a professional translator. If the input is in Chinese, translate it to English. If the input is in English, translate it to Chinese. Return ONLY the translated text, with no explanations, no markdown blocks, no prefix/suffix, and no extra quotes. Keep the tone natural and accurate.`;
+
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: "https://api.siliconflow.cn/v1/chat/completions",
+                timeout: 12000,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${CONFIG.sfApiKey}`
+                },
+                data: JSON.stringify({
+                    model: CONFIG.sfModel,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: text }
+                    ],
+                    temperature: 0.2
+                }),
+                onload: function(response) {
+                    if (response.status === 200) {
+                        try {
+                            const resJson = JSON.parse(response.responseText);
+                            let content = resJson.choices[0].message.content;
+                            content = content.trim();
+                            // 移除可能存在的首尾引号
+                            if (content.startsWith('"') && content.endsWith('"')) {
+                                content = content.slice(1, -1);
+                            }
+                            if (content.startsWith("'") && content.endsWith("'")) {
+                                content = content.slice(1, -1);
+                            }
+                            resolve(content.trim());
+                        } catch (e) {
+                            reject(new Error("解析翻译响应失败: " + e.message));
+                        }
+                    } else {
+                        reject(new Error("API 请求失败，状态码: " + response.status));
+                    }
+                },
+                onerror: function() {
+                    reject(new Error("网络连接失败"));
+                },
+                ontimeout: function() {
+                    reject(new Error("请求超时"));
+                }
+            });
+        });
+    }
+
+    function showInputLoading(target) {
+        let inputLoadingEl = shadow.querySelector('#imt-input-loading');
+        if (!inputLoadingEl) {
+            inputLoadingEl = document.createElement('div');
+            inputLoadingEl.id = 'imt-input-loading';
+            inputLoadingEl.innerHTML = '<div class="imt-mini-spinner"></div><span>✨ 翻译中...</span>';
+            shadow.appendChild(inputLoadingEl);
+        }
+
+        const rect = target.getBoundingClientRect();
+        const x = rect.left + window.scrollX + (rect.width / 2);
+        const y = rect.top + window.scrollY - 38;
+
+        inputLoadingEl.style.left = `${x}px`;
+        inputLoadingEl.style.top = `${y}px`;
+        inputLoadingEl.style.transform = 'translateX(-50%)';
+        inputLoadingEl.style.display = 'flex';
+
+        requestAnimationFrame(() => {
+            inputLoadingEl.style.opacity = '1';
+        });
+
+        target.style.transition = 'opacity 0.2s';
+        target.style.opacity = '0.5';
+        target.style.pointerEvents = 'none';
+    }
+
+    function hideInputLoading(target) {
+        const inputLoadingEl = shadow.querySelector('#imt-input-loading');
+        if (inputLoadingEl) {
+            inputLoadingEl.style.opacity = '0';
+            setTimeout(() => {
+                inputLoadingEl.style.display = 'none';
+            }, 150);
+        }
+        if (target) {
+            target.style.opacity = '';
+            target.style.pointerEvents = '';
+        }
+    }
+
+    function replaceElementContent(target, newText) {
+        target.focus();
+        let success = false;
+        try {
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                target.select();
+                success = document.execCommand('insertText', false, newText);
+            } else if (target.isContentEditable) {
+                const range = document.createRange();
+                range.selectNodeContents(target);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                success = document.execCommand('insertText', false, newText);
+            }
+        } catch (e) {
+            console.error('[LexiPro] execCommand 替换失败，采用常规赋值兜底:', e);
+        }
+
+        if (!success) {
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                target.value = newText;
+            } else if (target.isContentEditable) {
+                target.innerText = newText;
+            }
+            target.dispatchEvent(new Event('input', { bubbles: true }));
+            target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    async function handleInlineTranslation(target) {
+        let originalText = '';
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+            originalText = target.value;
+        } else if (target.isContentEditable) {
+            originalText = target.innerText || target.textContent || '';
+        }
+
+        const textToTranslate = originalText.replace(/[\s\u00A0]+$/, '');
+        if (!textToTranslate) return;
+
+        target.dataset.translating = 'true';
+        showInputLoading(target);
+
+        try {
+            const translated = await translateText(textToTranslate);
+            if (translated && translated !== textToTranslate) {
+                replaceElementContent(target, translated);
+            }
+        } catch (err) {
+            console.error('[LexiPro] 连续空格键自动翻译出错:', err);
+            replaceElementContent(target, textToTranslate);
+        } finally {
+            target.dataset.translating = 'false';
+            hideInputLoading(target);
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === ' ' || e.code === 'Space') {
+            const target = e.target;
+            if (!isTextEditableElement(target)) return;
+
+            if (target.dataset.translating === 'true') {
+                e.preventDefault();
+                return;
+            }
+
+            const now = Date.now();
+            spacePressHistory = spacePressHistory.filter(t => now - t < 800);
+            spacePressHistory.push(now);
+
+            if (spacePressHistory.length >= 3) {
+                spacePressHistory = [];
+                e.preventDefault();
+                handleInlineTranslation(target);
+            }
+        } else {
+            spacePressHistory = [];
+        }
+    }, true);
+
+    // ================= 脚本初始化入口 =================
+    function init() {
+        if (!CONFIG.notionToken || !CONFIG.notionDatabaseId) {
+            console.warn('[LexiPro & Notion] 未配置 Notion Token 或 Database ID');
+            return;
+        }
+
+        // 启动 SWR 同步算法机制
+        syncVocabData();
+    }
+
+    // Go!
+    init();
+
+})();
