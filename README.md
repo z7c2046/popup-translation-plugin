@@ -18,3 +18,9 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - Initial tracked version.
 - Selection translation is triggered by hovering over the floating dot.
 - Known issue: hover activation is fast but easy to trigger accidentally.
+
+### 1.1
+
+- Changes the floating dot activation mode from hover to click.
+- Reduces accidental translation popups while moving the mouse across a page.
+- Keeps the original translation, highlighting, cache, and Notion sync behavior.

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.1.7
+// @version      4.1.8
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法，极致 UX 交互，无任何代码省略与压缩。
 // @author       Gemini
 // @match        *://*/*
@@ -25,6 +25,7 @@
         notionDatabaseId: GM_getValue('lexipro_notion_database_id', ''),
         highlightClass: 'notion-vocab-highlight',
         cacheTTL: 12 * 60 * 60 * 1000, // 本地缓存有效期：12小时
+        defaultTriggerMode: 'click', // 默认小红点激活模式：'hover' (悬停) 或 'click' (点击)
     };
 
     const SKIP_TAGS = new Set([
@@ -59,6 +60,7 @@
     let hoverTimeout = null;
     let hideTimeout = null;
     let highlightPopupHideTimeout = null;
+    let triggerMode = CONFIG.defaultTriggerMode;
 
     // Notion ID 自增追踪器
     let currentMaxNo = 0;
@@ -1443,8 +1445,8 @@
         }
     });
 
-    // 划词后悬浮粉色小点 -> 自动触发 AI 解析
-    dot.addEventListener('mouseenter', () => {
+    // 触发划词翻译与小红点爆炸特效
+    function triggerDotTranslate() {
         if (dot.dataset.animating === 'true') return;
         dot.dataset.animating = 'true';
         dot.style.transform = 'translate(4px,4px) scale(1.6)';
@@ -1487,6 +1489,21 @@
             tooltip.classList.remove('quick-mode');
             triggerFetch(currentText, currentSelectionFormat);
         }, 150);
+    }
+
+    // 划词后悬浮粉色小点 -> 自动触发 AI 解析 (如果为 hover 模式)
+    dot.addEventListener('mouseenter', () => {
+        if (triggerMode === 'hover') {
+            triggerDotTranslate();
+        }
+    });
+
+    // 划词后点击粉色小点 -> 触发 AI 解析 (如果为 click 模式)
+    dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (triggerMode === 'click') {
+            triggerDotTranslate();
+        }
     });
 
     // ================= 硅基流动 AI 大语言模型翻译系统 =================
