@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.3.1
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.1 重做泡泡破裂动画，去除残留中心实心圆，使水珠同步迸射淡出。
+// @version      4.3.2
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.2 新增智谱 GLM 服务商配置，与硅基流动隔离。
 // @author       Gemini
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -10,6 +10,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      api.siliconflow.cn
+// @connect      open.bigmodel.cn
 // @connect      dict.youdao.com
 // @connect      api.notion.com
 // ==/UserScript==
@@ -19,8 +20,23 @@
 
     // ================= 配置区 =================
     const CONFIG = {
-        sfApiKey: "",
-        sfModel: "Qwen/Qwen2.5-14B-Instruct",
+        llmProvider: 'zhipu', // 当前大模型服务商：'siliconflow' 或 'zhipu'
+        llmProviders: {
+            siliconflow: {
+                name: '硅基流动',
+                apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
+                apiKey: "",
+                model: "Qwen/Qwen2.5-14B-Instruct",
+                supportsJsonResponse: true
+            },
+            zhipu: {
+                name: '智谱 GLM',
+                apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+                apiKey: "",
+                model: "glm-4.7-flash",
+                supportsJsonResponse: true
+            }
+        },
         notionToken: 'REDACTED_LEGACY_NOTION_TOKEN',
         notionDatabaseId: '11112222333344445555666677778888',
         highlightClass: 'notion-vocab-highlight',
@@ -1962,6 +1978,75 @@ Formatting requirements: Output valid JSON only.`;
         fetchTranslation(text, quickContentBox, { syncMainState: false });
     }
 
+    function getActiveLLMProvider() {
+        const providerKey = CONFIG.llmProvider || 'siliconflow';
+        const provider = CONFIG.llmProviders && CONFIG.llmProviders[providerKey];
+
+        if (!provider) {
+            throw new Error(`未知大模型服务商: ${providerKey}`);
+        }
+        if (!provider.apiUrl || !provider.apiKey || !provider.model) {
+            throw new Error(`${provider.name || providerKey} 服务商配置不完整`);
+        }
+
+        return provider;
+    }
+
+    function requestLLMChatCompletion({ messages, temperature = 0.1, responseFormat = null, timeout = 15000 }) {
+        return new Promise((resolve, reject) => {
+            let provider;
+            try {
+                provider = getActiveLLMProvider();
+            } catch (e) {
+                reject(e);
+                return;
+            }
+
+            const body = {
+                model: provider.model,
+                messages,
+                temperature
+            };
+
+            if (responseFormat && provider.supportsJsonResponse !== false) {
+                body.response_format = responseFormat;
+            }
+
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: provider.apiUrl,
+                timeout,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${provider.apiKey}`
+                },
+                data: JSON.stringify(body),
+                onload: function(response) {
+                    if (response.status >= 200 && response.status < 300) {
+                        try {
+                            const resJson = JSON.parse(response.responseText);
+                            const content = resJson.choices?.[0]?.message?.content;
+                            if (!content) {
+                                throw new Error("响应中缺少 choices[0].message.content");
+                            }
+                            resolve(content);
+                        } catch (e) {
+                            reject(new Error(`解析 ${provider.name} 响应失败: ${e.message}`));
+                        }
+                    } else {
+                        reject(new Error(`${provider.name} API 请求失败: ${response.status}`));
+                    }
+                },
+                onerror: function() {
+                    reject(new Error(`${provider.name} 网络连接出错`));
+                },
+                ontimeout: function() {
+                    reject(new Error(`${provider.name} 请求超时：API 响应过慢`));
+                }
+            });
+        });
+    }
+
     // 发起真实的 API Post 请求
     function fetchTranslation(text, targetBox = contentBox, { syncMainState = true, format = null } = {}) {
         if (isRequesting) {
@@ -1970,58 +2055,37 @@ Formatting requirements: Output valid JSON only.`;
         }
         isRequesting = true;
 
-        GM_xmlhttpRequest({
-            method: "POST",
-            url: "https://api.siliconflow.cn/v1/chat/completions",
+        requestLLMChatCompletion({
             timeout: 15000,
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${CONFIG.sfApiKey}`
-            },
-            data: JSON.stringify({
-                model: CONFIG.sfModel,
-                messages: [
-                    { role: "system", content: SYSTEM_PROMPT },
-                    { role: "user", content: buildUserPrompt(text, format) }
-                ],
-                response_format: { type: "json_object" },
-                temperature: 0.1
-            }),
-            onload: function(response) {
-                isRequesting = false;
-                if (response.status === 200) {
-                    try {
-                        const resJson = JSON.parse(response.responseText);
-                        const content = resJson.choices[0].message.content;
-                        const cleanJsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
-                        const resultData = JSON.parse(cleanJsonStr);
+            responseFormat: { type: "json_object" },
+            temperature: 0.1,
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: buildUserPrompt(text, format) }
+            ]
+        }).then(content => {
+            isRequesting = false;
+            try {
+                const cleanJsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
+                const resultData = JSON.parse(cleanJsonStr);
 
-                        // 存入内存翻译缓存
-                        translationCache.set(text, resultData);
-                        targetBox.innerHTML = renderTranslation(resultData, text, { syncMainState, format });
-                        typewriterReveal(targetBox);
-                        if (!syncMainState) {
-                            quickTooltip.dataset.word = normalizeWord(resultData.word || text);
-                            updateHighlightPopupStarUI(quickTooltip.dataset.word);
-                        }
-
-                        // 单词模式下默认自动发音
-                        if (resultData.mode === "en_word") playAudio(resultData.word || text);
-                    } catch (e) {
-                        targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
-                    }
-                } else {
-                    targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">API 请求失败: ${response.status}</div>`;
+                // 存入内存翻译缓存
+                translationCache.set(text, resultData);
+                targetBox.innerHTML = renderTranslation(resultData, text, { syncMainState, format });
+                typewriterReveal(targetBox);
+                if (!syncMainState) {
+                    quickTooltip.dataset.word = normalizeWord(resultData.word || text);
+                    updateHighlightPopupStarUI(quickTooltip.dataset.word);
                 }
-            },
-            onerror: function() {
-                isRequesting = false;
-                targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">网络连接出错</div>`;
-            },
-            ontimeout: function() {
-                isRequesting = false;
-                targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">请求超时：API 响应过慢</div>`;
+
+                // 单词模式下默认自动发音
+                if (resultData.mode === "en_word") playAudio(resultData.word || text);
+            } catch (e) {
+                targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
             }
+        }).catch(e => {
+            isRequesting = false;
+            targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">${escapeHtml(e.message)}</div>`;
         });
     }
 
@@ -2043,53 +2107,27 @@ Formatting requirements: Output valid JSON only.`;
     }
 
     function translateText(text) {
-        return new Promise((resolve, reject) => {
-            const systemPrompt = `You are a professional translator. If the input is in Chinese, translate it to English. If the input is in English, translate it to Chinese. Return ONLY the translated text, with no explanations, no markdown blocks, no prefix/suffix, and no extra quotes. Keep the tone natural and accurate.`;
+        const systemPrompt = `You are a professional translator. If the input is in Chinese, translate it to English. If the input is in English, translate it to Chinese. Return ONLY the translated text, with no explanations, no markdown blocks, no prefix/suffix, and no extra quotes. Keep the tone natural and accurate.`;
 
-            GM_xmlhttpRequest({
-                method: "POST",
-                url: "https://api.siliconflow.cn/v1/chat/completions",
-                timeout: 12000,
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${CONFIG.sfApiKey}`
-                },
-                data: JSON.stringify({
-                    model: CONFIG.sfModel,
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: text }
-                    ],
-                    temperature: 0.2
-                }),
-                onload: function(response) {
-                    if (response.status === 200) {
-                        try {
-                            const resJson = JSON.parse(response.responseText);
-                            let content = resJson.choices[0].message.content;
-                            content = content.trim();
-                            // 移除可能存在的首尾引号
-                            if (content.startsWith('"') && content.endsWith('"')) {
-                                content = content.slice(1, -1);
-                            }
-                            if (content.startsWith("'") && content.endsWith("'")) {
-                                content = content.slice(1, -1);
-                            }
-                            resolve(content.trim());
-                        } catch (e) {
-                            reject(new Error("解析翻译响应失败: " + e.message));
-                        }
-                    } else {
-                        reject(new Error("API 请求失败，状态码: " + response.status));
-                    }
-                },
-                onerror: function() {
-                    reject(new Error("网络连接失败"));
-                },
-                ontimeout: function() {
-                    reject(new Error("请求超时"));
-                }
-            });
+        return requestLLMChatCompletion({
+            timeout: 12000,
+            temperature: 0.2,
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: text }
+            ]
+        }).then(content => {
+            content = content.trim();
+            // 移除可能存在的首尾引号
+            if (content.startsWith('"') && content.endsWith('"')) {
+                content = content.slice(1, -1);
+            }
+            if (content.startsWith("'") && content.endsWith("'")) {
+                content = content.slice(1, -1);
+            }
+            return content.trim();
+        }).catch(e => {
+            throw new Error("解析翻译响应失败: " + e.message);
         });
     }
 
