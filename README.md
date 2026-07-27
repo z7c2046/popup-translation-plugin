@@ -30,3 +30,12 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - Replaces the popup and highlight styling with an Animal Island UI inspired visual system.
 - Adds warm paper colors, mint accents, rounded capsule controls, dotted texture, and pressed button shadows.
 - Keeps the 1.1 click activation behavior to avoid hover mis-triggering.
+
+### 4.3.6
+
+- Preserves all selected text when a page mixes semantic list items with `div`-based article paragraphs.
+- Keeps headings, list items, and paragraphs at the popup's configured font size while retaining their structure.
+
+### 4.3.7
+
+- Resets and persists the popup font size to the code default when the font-size toolbar controls are disabled.

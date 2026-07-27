@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.3.5
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.5 新增字号工具栏显示开关，并按 animal-island-ui 原生 Switch 样式实现。
+// @version      4.3.7
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.7 关闭字号工具栏时自动恢复并保存默认字号。
 // @author       Gemini
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -679,7 +679,7 @@
         .imt-translation {
             min-height: 35px;
             color: var(--aiu-text);
-            font-size: 1.1em;
+            font-size: inherit;
             font-weight: 900;
             line-height: 1.55;
             margin-bottom: 8px;
@@ -700,7 +700,7 @@
 
         .imt-preserved-heading {
             color: var(--aiu-text);
-            font-size: 1.1em;
+            font-size: inherit;
             font-weight: 950;
             line-height: 1.5;
         }
@@ -1048,6 +1048,9 @@
     }
 
     const PRESERVED_BLOCK_SELECTOR = 'h1,h2,h3,h4,h5,h6,li,p,blockquote,figcaption,td,th,dt,dd';
+    const GENERIC_BLOCK_TAGS = new Set([
+        'DIV', 'SECTION', 'ARTICLE', 'MAIN', 'ASIDE', 'HEADER', 'FOOTER', 'NAV'
+    ]);
 
     function normalizeBlockText(text) {
         return String(text || '').replace(/\s+/g, ' ').trim();
@@ -1063,40 +1066,107 @@
         return latinCount === 0 || hanCount / signalCount >= 0.35;
     }
 
+    function getSelectedTextBlock(textNode) {
+        let element = textNode.parentElement;
+        let nearestGenericBlock = null;
+
+        while (element) {
+            // 语义块优先于内层通用 DIV。例如 <li><div>...</div></li> 仍应保留为列表项。
+            if (element.matches(PRESERVED_BLOCK_SELECTOR)) return element;
+            if (!nearestGenericBlock && GENERIC_BLOCK_TAGS.has(element.tagName)) {
+                nearestGenericBlock = element;
+            }
+            element = element.parentElement;
+        }
+
+        return nearestGenericBlock;
+    }
+
+    function getSelectedTextBlockType(element) {
+        if (!element) return 'line';
+
+        const tagName = element.tagName.toLowerCase();
+        // 新闻网站（包括 Reuters）常用 DIV 承载正文段落，统一按段落渲染。
+        if (GENERIC_BLOCK_TAGS.has(element.tagName)) return 'p';
+        return tagName;
+    }
+
+    function extractSelectedBlocks(fragment) {
+        const blocks = [];
+        let currentBlock = null;
+
+        function flushCurrentBlock() {
+            if (!currentBlock) return;
+
+            const text = normalizeBlockText(currentBlock.rawText);
+            if (text) {
+                blocks.push({
+                    type: currentBlock.type,
+                    text
+                });
+            }
+            currentBlock = null;
+        }
+
+        const walker = document.createTreeWalker(
+            fragment,
+            NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT
+        );
+
+        while (walker.nextNode()) {
+            const node = walker.currentNode;
+
+            if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+                flushCurrentBlock();
+                continue;
+            }
+            if (node.nodeType !== Node.TEXT_NODE) continue;
+
+            const ownerBlock = getSelectedTextBlock(node);
+            const blockKey = ownerBlock || node.parentNode || fragment;
+            const blockType = getSelectedTextBlockType(ownerBlock);
+
+            if (!currentBlock || currentBlock.key !== blockKey) {
+                flushCurrentBlock();
+                currentBlock = {
+                    key: blockKey,
+                    type: blockType,
+                    rawText: ''
+                };
+            }
+            currentBlock.rawText += node.nodeValue || '';
+        }
+
+        flushCurrentBlock();
+        return blocks;
+    }
+
+    function getCompleteSelectionBlocks(rawText, detectedBlocks) {
+        const canonicalize = value => String(value || '').replace(/\s+/g, '');
+        const detectedText = detectedBlocks.map(block => block.text).join('');
+
+        if (detectedBlocks.length && canonicalize(detectedText) === canonicalize(rawText)) {
+            return detectedBlocks;
+        }
+
+        // 格式识别不完整时只降级结构，绝不能丢弃 selection.toString() 中的任何正文。
+        const lines = rawText.split(/\r?\n+/).map(normalizeBlockText).filter(Boolean);
+        if (lines.length > 1) {
+            return lines.map(line => ({ type: 'line', text: line }));
+        }
+        return [{ type: 'text', text: rawText }];
+    }
+
     function getSelectionFormat(selection) {
         const rawText = selection.toString().trim();
         if (!rawText || !selection.rangeCount) return null;
 
-        const blocks = [];
         const fragment = selection.getRangeAt(0).cloneContents();
-        const elements = Array.from(fragment.querySelectorAll(PRESERVED_BLOCK_SELECTOR));
-
-        for (const el of elements) {
-            const parentBlock = el.parentElement && el.parentElement.closest(PRESERVED_BLOCK_SELECTOR);
-            if (parentBlock && fragment.contains(parentBlock)) continue;
-
-            const text = normalizeBlockText(el.textContent);
-            if (!text) continue;
-
-            blocks.push({
-                type: el.tagName.toLowerCase(),
-                text
-            });
-        }
-
-        if (!blocks.length) {
-            const lines = rawText.split(/\r?\n+/).map(normalizeBlockText).filter(Boolean);
-            if (lines.length > 1) {
-                lines.forEach(line => blocks.push({ type: 'line', text: line }));
-            }
-        }
-
-        if (!blocks.length) {
-            blocks.push({ type: 'text', text: rawText });
-        }
+        const blocks = getCompleteSelectionBlocks(rawText, extractSelectedBlocks(fragment));
 
         return {
-            text: blocks.length > 1 ? blocks.map(block => block.text).join('\n') : rawText,
+            // 翻译请求始终使用浏览器提供的完整选区；blocks 仅描述渲染结构。
+            text: rawText,
             blocks
         };
     }
@@ -1629,6 +1699,9 @@
         if (persist) {
             GM_setValue('lexipro_show_font_controls', showFontControls);
         }
+        if (!showFontControls) {
+            applyPopupFontSize(POPUP_FONT_SIZE.defaultValue, persist);
+        }
         updateFontControlsSwitchUI();
     }
 
@@ -1744,7 +1817,7 @@
                     <div class="imt-settings-switch-row">
                         <div class="imt-settings-switch-copy">
                             <label for="imt-show-font-controls-switch">工具栏字号按钮</label>
-                            <div class="imt-settings-hint">开启后在顶部工具栏显示 A− / A＋，关闭后隐藏。</div>
+                            <div class="imt-settings-hint">开启后显示 A− / A＋；关闭后隐藏，并恢复默认字号 ${formatPopupFontSize(POPUP_FONT_SIZE.defaultValue)} px。</div>
                         </div>
                         <button
                             type="button"
