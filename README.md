@@ -39,3 +39,15 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 ### 4.3.7
 
 - Resets and persists the popup font size to the code default when the font-size toolbar controls are disabled.
+
+### 4.3.8
+
+- Replaces the persistent `A− / A＋` toolbar controls and settings switch with one compact `Aa` button and an on-demand font-size popover.
+- Adds explicit decrease, increase, current-value, and reset controls; closing the popover no longer changes the saved font size.
+- Uses a 15 px default, a 12–20 px integer range, and lighter body/list/heading weights for a clearer Chinese reading hierarchy.
+
+### 4.3.9
+
+- 对齐字号面板与加减复位按钮的 `animal-island-ui` 动森原生组件样式，正圆形加减按钮与胶囊复位按钮完全继承工具栏按钮视觉。
+- 字号弹出框作为 Shadow DOM 独立同级浮层展示，不会因内容较少而撑大主翻译框，且不遮挡任何文本。
+- 恢复主翻译框 `overflow: hidden; resize: both;` 属性，恢复右下角 Windows 原生拖拽改变大小功能。

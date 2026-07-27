@@ -170,8 +170,8 @@ assert.equal(fallbackResult.blocks[1].text.includes('DUBAI, July 27'), true);
 assert.match(source, /\.imt-translation\s*\{[^}]*font-size:\s*inherit;/s);
 assert.match(source, /\.imt-preserved-heading\s*\{[^}]*font-size:\s*inherit;/s);
 
-const fontCodeStart = source.indexOf('function applyFontControlsVisibility');
-const fontCodeEnd = source.indexOf('function handleFontControlKeydown');
+const fontCodeStart = source.indexOf('function formatPopupFontSize');
+const fontCodeEnd = source.indexOf("fontDecBtn.addEventListener('click'");
 
 assert.notEqual(fontCodeStart, -1, 'font controls start marker is missing');
 assert.notEqual(fontCodeEnd, -1, 'font controls end marker is missing');
@@ -180,59 +180,158 @@ const fontCode = source.slice(fontCodeStart, fontCodeEnd);
 const fontSandbox = {};
 vm.createContext(fontSandbox);
 vm.runInContext(`
-let showFontControls = true;
-let currentFontSize = 22;
+let isFontPopoverOpen = false;
+let currentFontSize = 15;
 const POPUP_FONT_SIZE = {
-    defaultValue: 14.5,
-    min: 10,
-    max: 30
+    defaultValue: 15,
+    min: 12,
+    max: 20,
+    step: 1
 };
 const persistedValues = new Map();
-const fontToolbarControls = {
-    visible: true,
-    classList: {
-        toggle(className, enabled) {
-            if (className === 'imt-visible') fontToolbarControls.visible = enabled;
+function makeMockElement() {
+    const classes = new Set();
+    const attributes = new Map();
+    const listeners = new Map();
+    return {
+        classes,
+        attributes,
+        listeners,
+        title: '',
+        textContent: '',
+        classList: {
+            toggle(className, enabled) {
+                if (enabled) classes.add(className);
+                else classes.delete(className);
+            }
+        },
+        setAttribute(name, value) {
+            attributes.set(name, value);
+        },
+        addEventListener(type, handler) {
+            if (!listeners.has(type)) listeners.set(type, []);
+            listeners.get(type).push(handler);
+        },
+        dispatch(type, event) {
+            for (const handler of listeners.get(type) || []) handler(event);
         }
-    }
-};
-const tooltip = {
-    popupFontSize: '',
-    style: {
-        setProperty(name, value) {
-            if (name === '--imt-popup-font-size') tooltip.popupFontSize = value;
-        }
+    };
+}
+const fontMenuBtn = makeMockElement();
+const fontPopover = makeMockElement();
+const fontIncBtn = makeMockElement();
+const fontDecBtn = makeMockElement();
+const fontResetBtn = makeMockElement();
+const fontValue = makeMockElement();
+const tooltip = makeMockElement();
+tooltip.popupFontSize = '';
+tooltip.style = {
+    setProperty(name, value) {
+        if (name === '--imt-popup-font-size') tooltip.popupFontSize = value;
     }
 };
 function GM_setValue(key, value) {
     persistedValues.set(key, value);
 }
-function updateFontControlsSwitchUI() {}
-function updateFontToolbarState() {}
 
 ${fontCode}
 
-applyFontControlsVisibility(false);
-globalThis.__fontResults = {
-    showFontControls,
+let stoppedMouseDownEvents = 0;
+const internalMouseDownEvent = {
+    stopPropagation() {
+        stoppedMouseDownEvents += 1;
+    }
+};
+fontMenuBtn.dispatch('mousedown', internalMouseDownEvent);
+fontPopover.dispatch('mousedown', internalMouseDownEvent);
+globalThis.__mouseDownIsolationResults = {
+    stoppedMouseDownEvents
+};
+
+applyPopupFontSize(17);
+setFontPopoverOpen(true);
+globalThis.__openPopoverResults = {
+    menuExpanded: fontMenuBtn.attributes.get('aria-expanded'),
+    popoverHidden: fontPopover.attributes.get('aria-hidden'),
+    popoverOpenClass: fontPopover.classes.has('imt-open'),
+    tooltipOpenClass: tooltip.classes.has('imt-font-popover-open')
+};
+setFontPopoverOpen(false);
+globalThis.__closedPopoverResults = {
     currentFontSize,
-    visible: fontToolbarControls.visible,
+    storedFontSize: persistedValues.get('lexipro_popup_font_size'),
     popupFontSize: tooltip.popupFontSize,
-    storedVisibility: persistedValues.get('lexipro_show_font_controls'),
-    storedFontSize: persistedValues.get('lexipro_popup_font_size')
+    menuExpanded: fontMenuBtn.attributes.get('aria-expanded'),
+    popoverHidden: fontPopover.attributes.get('aria-hidden'),
+    popoverOpenClass: fontPopover.classes.has('imt-open'),
+    tooltipOpenClass: tooltip.classes.has('imt-font-popover-open'),
+    displayedValue: fontValue.textContent
+};
+
+applyPopupFontSize(POPUP_FONT_SIZE.defaultValue);
+globalThis.__resetFontResults = {
+    currentFontSize,
+    storedFontSize: persistedValues.get('lexipro_popup_font_size'),
+    resetDisabled: fontResetBtn.classes.has('imt-disabled')
 };
 `, fontSandbox);
 
 assert.deepEqual(
-    { ...fontSandbox.__fontResults },
+    { ...fontSandbox.__mouseDownIsolationResults },
     {
-        showFontControls: false,
-        currentFontSize: 14.5,
-        visible: false,
-        popupFontSize: '14.5px',
-        storedVisibility: false,
-        storedFontSize: 14.5
+        stoppedMouseDownEvents: 2
     }
 );
 
-console.log('selection-format and font-control regression tests passed');
+assert.deepEqual(
+    { ...fontSandbox.__openPopoverResults },
+    {
+        menuExpanded: 'true',
+        popoverHidden: 'false',
+        popoverOpenClass: true,
+        tooltipOpenClass: true
+    }
+);
+
+assert.deepEqual(
+    { ...fontSandbox.__closedPopoverResults },
+    {
+        currentFontSize: 17,
+        storedFontSize: 17,
+        popupFontSize: '17px',
+        menuExpanded: 'false',
+        popoverHidden: 'true',
+        popoverOpenClass: false,
+        tooltipOpenClass: false,
+        displayedValue: '17 px'
+    }
+);
+
+assert.deepEqual(
+    { ...fontSandbox.__resetFontResults },
+    {
+        currentFontSize: 15,
+        storedFontSize: 15,
+        resetDisabled: true
+    }
+);
+
+assert.match(
+    source,
+    /const POPUP_FONT_SIZE = \{\s*defaultValue: 15,\s*min: 12,\s*max: 20,\s*step: 1\s*\};/
+);
+assert.match(source, /id="imt-font-menu-btn"[^>]*>Aa<\/span>/);
+assert.match(source, /id="imt-font-popover"/);
+assert.doesNotMatch(source, /imt-show-font-controls-switch|imt-font-toolbar-controls|showFontControls/);
+assert.match(source, /\.imt-translation\s*\{[^}]*font-weight:\s*650;[^}]*line-height:\s*1\.65;/s);
+assert.match(source, /\.imt-preserved-heading\s*\{[^}]*font-weight:\s*800;[^}]*line-height:\s*1\.65;/s);
+assert.match(
+    source,
+    /\.imt-font-step-btn:hover:not\(:disabled\):not\(\.imt-disabled\),\s*#imt-font-reset-btn:hover:not\(:disabled\):not\(\.imt-disabled\)\s*\{[^}]*background:\s*linear-gradient\(180deg, #effdf8, var\(--aiu-primary-soft\)\);/s
+);
+assert.match(
+    source,
+    /#imt-font-popover\s*\{[^}]*border:\s*2px solid var\(--aiu-border\);[^}]*border-radius:\s*20px;/s
+);
+
+console.log('selection-format and font-popover regression tests passed');

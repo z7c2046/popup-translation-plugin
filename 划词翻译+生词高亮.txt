@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.3.7
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.7 关闭字号工具栏时自动恢复并保存默认字号。
+// @version      4.3.9
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.9 对齐字号面板按钮的 animal-island-ui 样式，字号弹出框以独立高 z-index 浮层展示，不会撑大翻译框。
 // @author       Gemini
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -92,17 +92,16 @@
     let dragOffsetX = 0;
     let dragOffsetY = 0;
     const POPUP_FONT_SIZE = {
-        defaultValue: 14.5,
-        min: 10,
-        max: 30,
-        step: 1.5
+        defaultValue: 15,
+        min: 12,
+        max: 20,
+        step: 1
     };
     const storedPopupFontSize = Number(GM_getValue('lexipro_popup_font_size', POPUP_FONT_SIZE.defaultValue));
     let currentFontSize = Number.isFinite(storedPopupFontSize)
-        ? Math.min(POPUP_FONT_SIZE.max, Math.max(POPUP_FONT_SIZE.min, storedPopupFontSize))
+        ? Math.min(POPUP_FONT_SIZE.max, Math.max(POPUP_FONT_SIZE.min, Math.round(storedPopupFontSize)))
         : POPUP_FONT_SIZE.defaultValue;
-    const storedShowFontControls = GM_getValue('lexipro_show_font_controls', false);
-    let showFontControls = storedShowFontControls === true || storedShowFontControls === 'true';
+    let isFontPopoverOpen = false;
     let currentAudio = null;
     let globalRegex = null;
     let currentSelectionFormat = null;
@@ -442,28 +441,134 @@
             pointer-events: none;
         }
 
-        .imt-font-toolbar-controls {
+        #imt-font-menu-btn {
+            font-size: 12px;
+            letter-spacing: -.04em;
+        }
+
+        #imt-font-popover {
+            position: absolute;
+            top: 48px;
+            right: 12px;
+            z-index: 2147483647;
             display: none;
-            align-items: center;
-            gap: 7px;
+            width: 216px;
+            padding: 12px 14px;
+            border: 2px solid var(--aiu-border);
+            border-radius: 20px;
+            background:
+                radial-gradient(circle, rgba(216, 200, 171, .3) 1.2px, transparent 1.4px),
+                linear-gradient(180deg, var(--aiu-card-soft), var(--aiu-card));
+            background-size: 14px 14px, auto;
+            box-shadow:
+                0 6px 0 #bdae9d,
+                0 14px 28px var(--aiu-shadow);
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+            font-size: 12px;
+            font-weight: 800;
+            line-height: 1.5;
+            letter-spacing: .01em;
+            pointer-events: auto;
         }
 
-        .imt-font-toolbar-controls.imt-visible {
+        #imt-font-popover.imt-open {
+            display: block;
+        }
+
+        .imt-font-popover-title {
+            margin-bottom: 10px;
+            color: var(--aiu-text);
+            font-size: 12px;
+            font-weight: 950;
+            letter-spacing: .02em;
+            text-align: center;
+        }
+
+        .imt-font-popover-row {
             display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
         }
 
-        .imt-font-toolbar-divider {
-            width: 2px;
-            height: 20px;
-            margin: 0 1px;
+        .imt-font-step-btn,
+        #imt-font-reset-btn {
+            appearance: none;
+            border: 1px solid var(--aiu-border);
+            border-bottom-width: 3px;
             border-radius: 999px;
-            background: rgba(114, 93, 66, .18);
+            background: linear-gradient(180deg, #fffdf3, #fff1c8);
+            box-shadow: 0 2px 0 rgba(114, 93, 66, .16);
+            color: var(--aiu-text);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--aiu-font);
+            font-weight: 900;
+            line-height: 1;
+            opacity: 1;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
         }
 
-        #imt-font-dec-btn,
-        #imt-font-inc-btn {
-            width: 38px;
-            min-width: 38px;
+        .imt-font-step-btn {
+            width: 31px;
+            height: 31px;
+            min-width: 31px;
+            padding: 0;
+            font-size: 14px;
+        }
+
+        .imt-font-step-btn:hover:not(:disabled):not(.imt-disabled),
+        #imt-font-reset-btn:hover:not(:disabled):not(.imt-disabled) {
+            background: linear-gradient(180deg, #effdf8, var(--aiu-primary-soft));
+            border-color: #82d5bb;
+            color: #0b8079;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(18, 169, 157, .28);
+        }
+
+        .imt-font-step-btn:active:not(:disabled):not(.imt-disabled),
+        #imt-font-reset-btn:active:not(:disabled):not(.imt-disabled) {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(114, 93, 66, .12);
+        }
+
+        .imt-font-step-btn:focus-visible,
+        #imt-font-reset-btn:focus-visible {
+            outline: 2px solid var(--aiu-primary);
+            outline-offset: 2px;
+        }
+
+        .imt-font-step-btn.imt-disabled,
+        .imt-font-step-btn:disabled,
+        #imt-font-reset-btn.imt-disabled,
+        #imt-font-reset-btn:disabled {
+            cursor: not-allowed;
+            opacity: .42;
+            pointer-events: none;
+            transform: none;
+            box-shadow: 0 1px 0 rgba(114, 93, 66, .08);
+            border-bottom-width: 1px;
+        }
+
+        #imt-font-value {
+            flex: 1;
+            min-width: 0;
+            color: var(--aiu-text);
+            font-size: 14px;
+            font-weight: 950;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        #imt-font-reset-btn {
+            width: 100%;
+            height: 31px;
+            margin-top: 10px;
+            padding: 0 12px;
             font-size: 12px;
         }
 
@@ -488,10 +593,11 @@
         #imt-content {
             color: var(--aiu-text);
             font-family: var(--aiu-font);
-            font-size: var(--imt-popup-font-size, 14.5px);
+            font-size: var(--imt-popup-font-size, 15px);
             font-weight: 650;
             line-height: 1.65;
             overflow-y: auto;
+            border-radius: 0 0 22px 22px;
         }
 
         #imt-quick-tooltip .imt-quick-content {
@@ -680,8 +786,8 @@
             min-height: 35px;
             color: var(--aiu-text);
             font-size: inherit;
-            font-weight: 900;
-            line-height: 1.55;
+            font-weight: 650;
+            line-height: 1.65;
             margin-bottom: 8px;
             white-space: pre-wrap;
         }
@@ -695,14 +801,19 @@
         .imt-preserved-line,
         .imt-preserved-paragraph,
         .imt-preserved-heading {
-            margin-bottom: 9px;
+            margin-bottom: .75em;
+        }
+
+        .imt-preserved-list li,
+        .imt-preserved-list-item {
+            font-weight: 700;
         }
 
         .imt-preserved-heading {
             color: var(--aiu-text);
             font-size: inherit;
-            font-weight: 950;
-            line-height: 1.5;
+            font-weight: 800;
+            line-height: 1.65;
         }
 
         #imt-content::-webkit-scrollbar,
@@ -980,13 +1091,9 @@
             <div class="imt-header-actions">
                 <span class="imt-action-btn" id="imt-ai-btn" title="AI 详细解析" style="display:none;">✨</span>
                 <span class="imt-action-btn" id="imt-star-btn" title="收藏同步到 Notion" style="display:none;">☆</span>
-                <span class="imt-font-toolbar-controls imt-adv-only" id="imt-font-toolbar-controls">
-                    <span class="imt-action-btn" id="imt-font-dec-btn" role="button" tabindex="0" title="减小弹框字号">A−</span>
-                    <span class="imt-action-btn" id="imt-font-inc-btn" role="button" tabindex="0" title="增大弹框字号">A＋</span>
-                    <span class="imt-font-toolbar-divider" aria-hidden="true"></span>
-                </span>
                 <span class="imt-action-btn" id="imt-copy-btn" title="复制内容">📋</span>
                 <span class="imt-action-btn imt-adv-only" id="imt-refresh-btn" title="重新翻译"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="display: block;"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></span>
+                <span class="imt-action-btn imt-adv-only" id="imt-font-menu-btn" role="button" tabindex="0" aria-haspopup="dialog" aria-controls="imt-font-popover" aria-expanded="false" title="调整译文字号">Aa</span>
                 <span class="imt-action-btn imt-adv-only" id="imt-settings-btn" title="设置">⚙️</span>
                 <span class="imt-adv-only" style="width:1px; height:14px; background:rgba(128,128,128,.3); margin:0 2px;"></span>
                 <span class="imt-action-btn imt-adv-only" id="imt-pin-btn" title="固定在屏幕上">📌</span>
@@ -996,6 +1103,22 @@
         <div id="imt-content"></div>
     `;
     shadow.appendChild(tooltip);
+
+    const fontPopover = document.createElement('div');
+    fontPopover.id = 'imt-font-popover'; // id="imt-font-popover"
+    fontPopover.setAttribute('role', 'dialog');
+    fontPopover.setAttribute('aria-label', '译文字号');
+    fontPopover.setAttribute('aria-hidden', 'true');
+    fontPopover.innerHTML = `
+        <div class="imt-font-popover-title">译文字号</div>
+        <div class="imt-font-popover-row">
+            <button class="imt-font-step-btn" id="imt-font-dec-btn" type="button" title="减小译文字号" aria-label="减小译文字号">−</button>
+            <output id="imt-font-value" aria-live="polite">${formatPopupFontSize(currentFontSize)} px</output>
+            <button class="imt-font-step-btn" id="imt-font-inc-btn" type="button" title="增大译文字号" aria-label="增大译文字号">＋</button>
+        </div>
+        <button id="imt-font-reset-btn" type="button">恢复默认</button>
+    `;
+    shadow.appendChild(fontPopover);
 
     const quickTooltip = document.createElement('div');
     quickTooltip.id = 'imt-quick-tooltip';
@@ -1027,9 +1150,11 @@
     const quickCopyBtn = quickTooltip.querySelector('#imt-quick-copy-btn');
     const pinBtn = tooltip.querySelector('#imt-pin-btn');
     const closeBtn = tooltip.querySelector('#imt-close-btn');
-    const fontToolbarControls = tooltip.querySelector('#imt-font-toolbar-controls');
-    const fontIncBtn = tooltip.querySelector('#imt-font-inc-btn');
-    const fontDecBtn = tooltip.querySelector('#imt-font-dec-btn');
+    const fontMenuBtn = tooltip.querySelector('#imt-font-menu-btn');
+    const fontIncBtn = fontPopover.querySelector('#imt-font-inc-btn');
+    const fontDecBtn = fontPopover.querySelector('#imt-font-dec-btn');
+    const fontValue = fontPopover.querySelector('#imt-font-value');
+    const fontResetBtn = fontPopover.querySelector('#imt-font-reset-btn');
     const copyBtn = tooltip.querySelector('#imt-copy-btn');
     const starBtn = tooltip.querySelector('#imt-star-btn');
     const aiBtn = tooltip.querySelector('#imt-ai-btn');
@@ -1652,6 +1777,7 @@
     // 统一销毁弹窗方法
     function closeTooltip({ stopAudio = false } = {}) {
         if (stopAudio) stopCurrentAudio();
+        setFontPopoverOpen(false);
         tooltip.style.opacity = '0';
         setTimeout(() => { if (!isPinned) tooltip.style.display = 'none'; }, 150);
     }
@@ -1675,34 +1801,47 @@
     function updateFontToolbarState() {
         const atMin = currentFontSize <= POPUP_FONT_SIZE.min;
         const atMax = currentFontSize >= POPUP_FONT_SIZE.max;
+        const atDefault = currentFontSize === POPUP_FONT_SIZE.defaultValue;
+
         fontDecBtn.classList.toggle('imt-disabled', atMin);
         fontIncBtn.classList.toggle('imt-disabled', atMax);
+        fontResetBtn.classList.toggle('imt-disabled', atDefault);
         fontDecBtn.setAttribute('aria-disabled', String(atMin));
         fontIncBtn.setAttribute('aria-disabled', String(atMax));
+        fontResetBtn.setAttribute('aria-disabled', String(atDefault));
+        fontDecBtn.disabled = atMin;
+        fontIncBtn.disabled = atMax;
+        fontResetBtn.disabled = atDefault;
         fontDecBtn.title = `减小弹框字号（当前 ${formatPopupFontSize(currentFontSize)} px）`;
         fontIncBtn.title = `增大弹框字号（当前 ${formatPopupFontSize(currentFontSize)} px）`;
+        fontMenuBtn.title = `调整译文字号（当前 ${formatPopupFontSize(currentFontSize)} px）`;
+        fontValue.textContent = `${formatPopupFontSize(currentFontSize)} px`;
     }
 
-    function updateFontControlsSwitchUI() {
-        const switchEl = contentBox.querySelector('#imt-show-font-controls-switch');
-        if (!switchEl) return;
+    function updateFontPopoverPosition() {
+        if (!isFontPopoverOpen || typeof tooltip.getBoundingClientRect !== 'function') return;
+        const rect = tooltip.getBoundingClientRect();
+        if (!rect || (!rect.width && !rect.height)) return;
+        const isFixed = tooltip.classList.contains('imt-fixed-mode');
+        const scrollX = isFixed ? 0 : window.scrollX;
+        const scrollY = isFixed ? 0 : window.scrollY;
 
-        switchEl.classList.toggle('imt-animal-switch-checked', showFontControls);
-        switchEl.setAttribute('aria-checked', String(showFontControls));
-        switchEl.title = showFontControls ? '关闭工具栏字号按钮' : '打开工具栏字号按钮';
+        fontPopover.style.position = isFixed ? 'fixed' : 'absolute';
+        fontPopover.style.top = `${rect.top + scrollY + 48}px`;
+        fontPopover.style.left = `${Math.max(8, rect.right + scrollX - 216 - 12)}px`;
     }
 
-    function applyFontControlsVisibility(visible, persist = true) {
-        showFontControls = Boolean(visible);
-        fontToolbarControls.classList.toggle('imt-visible', showFontControls);
-
-        if (persist) {
-            GM_setValue('lexipro_show_font_controls', showFontControls);
+    function setFontPopoverOpen(open) {
+        isFontPopoverOpen = Boolean(open);
+        tooltip.classList.toggle('imt-font-popover-open', isFontPopoverOpen);
+        fontPopover.classList.toggle('imt-open', isFontPopoverOpen);
+        fontPopover.setAttribute('aria-hidden', String(!isFontPopoverOpen));
+        fontMenuBtn.setAttribute('aria-expanded', String(isFontPopoverOpen));
+        fontMenuBtn.classList.toggle('imt-pinned', isFontPopoverOpen);
+        if (isFontPopoverOpen) {
+            updateFontToolbarState();
+            updateFontPopoverPosition();
         }
-        if (!showFontControls) {
-            applyPopupFontSize(POPUP_FONT_SIZE.defaultValue, persist);
-        }
-        updateFontControlsSwitchUI();
     }
 
     function applyPopupFontSize(fontSize, persist = true) {
@@ -1711,7 +1850,7 @@
 
         currentFontSize = Math.min(
             POPUP_FONT_SIZE.max,
-            Math.max(POPUP_FONT_SIZE.min, numericSize)
+            Math.max(POPUP_FONT_SIZE.min, Math.round(numericSize))
         );
         tooltip.style.setProperty('--imt-popup-font-size', `${currentFontSize}px`);
 
@@ -1721,27 +1860,46 @@
         updateFontToolbarState();
     }
 
-    function handleFontControlKeydown(event, delta) {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        applyPopupFontSize(currentFontSize + delta);
+    function keepFontPopoverOpenOnMouseDown(event) {
+        // Shadow DOM 为 closed 时，document 侧看不到内部 composedPath，必须在内部阻止误触发关闭逻辑。
+        event.stopPropagation();
     }
 
+    fontMenuBtn.addEventListener('mousedown', keepFontPopoverOpenOnMouseDown);
+    fontPopover.addEventListener('mousedown', keepFontPopoverOpenOnMouseDown);
     fontDecBtn.addEventListener('click', () => {
         applyPopupFontSize(currentFontSize - POPUP_FONT_SIZE.step);
     });
     fontIncBtn.addEventListener('click', () => {
         applyPopupFontSize(currentFontSize + POPUP_FONT_SIZE.step);
     });
-    fontDecBtn.addEventListener('keydown', event => {
-        handleFontControlKeydown(event, -POPUP_FONT_SIZE.step);
+    fontResetBtn.addEventListener('click', () => {
+        applyPopupFontSize(POPUP_FONT_SIZE.defaultValue);
     });
-    fontIncBtn.addEventListener('keydown', event => {
-        handleFontControlKeydown(event, POPUP_FONT_SIZE.step);
+    fontMenuBtn.addEventListener('click', () => {
+        setFontPopoverOpen(!isFontPopoverOpen);
+    });
+    fontMenuBtn.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            setFontPopoverOpen(false);
+            return;
+        }
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        setFontPopoverOpen(!isFontPopoverOpen);
+    });
+    fontPopover.addEventListener('keydown', event => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        setFontPopoverOpen(false);
+        fontMenuBtn.focus();
     });
 
     applyPopupFontSize(currentFontSize, false);
-    applyFontControlsVisibility(showFontControls, false);
+    if (currentFontSize !== storedPopupFontSize) {
+        GM_setValue('lexipro_popup_font_size', currentFontSize);
+    }
 
     // 复制翻译内容按钮
     function copyContentFromBox(sourceBox, button) {
@@ -1784,12 +1942,14 @@
             tooltip.style.top = `${rect.top + window.scrollY}px`;
             closeHighlightPopup();
         }
+        updateFontPopoverPosition();
     }
 
     pinBtn.addEventListener('click', () => togglePin(!isPinned));
     closeBtn.addEventListener('click', () => { togglePin(false); closeTooltip({ stopAudio: true }); });
 
     settingsBtn.addEventListener('click', () => {
+        setFontPopoverOpen(false);
         isSettingsOpen = !isSettingsOpen;
         if (isSettingsOpen) {
             settingsBtn.classList.add('imt-pinned');
@@ -1813,24 +1973,6 @@
         contentBox.innerHTML = `
             <div class="imt-settings-panel">
                 <div class="imt-settings-title">LexiPro 选项设置</div>
-                <div class="imt-settings-group">
-                    <div class="imt-settings-switch-row">
-                        <div class="imt-settings-switch-copy">
-                            <label for="imt-show-font-controls-switch">工具栏字号按钮</label>
-                            <div class="imt-settings-hint">开启后显示 A− / A＋；关闭后隐藏，并恢复默认字号 ${formatPopupFontSize(POPUP_FONT_SIZE.defaultValue)} px。</div>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked="${showFontControls}"
-                            class="imt-animal-switch ${showFontControls ? 'imt-animal-switch-checked' : ''}"
-                            id="imt-show-font-controls-switch"
-                            title="${showFontControls ? '关闭工具栏字号按钮' : '打开工具栏字号按钮'}"
-                        >
-                            <span class="imt-animal-switch-handle" aria-hidden="true"></span>
-                        </button>
-                    </div>
-                </div>
                 <div class="imt-settings-group">
                     <label for="imt-provider-select">AI 服务商</label>
                     <select class="form-input" id="imt-provider-select">
@@ -1867,12 +2009,6 @@
         const zpModelGroup = contentBox.querySelector('#zp-model-group');
         const sfModelSelect = contentBox.querySelector('#sf-model-select');
         const zpModelSelect = contentBox.querySelector('#zp-model-select');
-        const showFontControlsSwitch = contentBox.querySelector('#imt-show-font-controls-switch');
-
-        showFontControlsSwitch.addEventListener('click', () => {
-            applyFontControlsVisibility(!showFontControls);
-        });
-        updateFontControlsSwitchUI();
 
         providerSelect.addEventListener('change', () => {
             const provider = providerSelect.value;
@@ -2057,7 +2193,11 @@
         if (!isDragging) return;
         tooltip.style.left = `${e.clientX - dragOffsetX}px`;
         tooltip.style.top = `${e.clientY - dragOffsetY}px`;
+        updateFontPopoverPosition();
     });
+
+    window.addEventListener('resize', updateFontPopoverPosition);
+    window.addEventListener('scroll', updateFontPopoverPosition, { passive: true });
 
     document.addEventListener('mouseup', (e) => {
         isDragging = false;
@@ -2099,11 +2239,20 @@
 
     // 全局点击空白处关闭全功能弹窗
     document.addEventListener('mousedown', (e) => {
+        const eventPath = e.composedPath();
+        if (
+            isFontPopoverOpen
+            && !eventPath.includes(fontPopover)
+            && !eventPath.includes(fontMenuBtn)
+        ) {
+            setFontPopoverOpen(false);
+        }
+
         // 点击阴影DOM、正在拖拽、已固定时都不处理
-        if (e.composedPath().includes(host) || isDragging || isPinned) return;
+        if (eventPath.includes(host) || isDragging || isPinned) return;
 
         const isClickOnHighlight = e.target.closest(`.${CONFIG.highlightClass}`);
-        const isClickOnDot = e.composedPath().includes(dot);
+        const isClickOnDot = eventPath.includes(dot);
 
         // 如果点击的既不是弹窗本身，也不是高亮词，也不是小圆点，执行全局关闭
         if (!isClickOnHighlight && !isClickOnDot) {
