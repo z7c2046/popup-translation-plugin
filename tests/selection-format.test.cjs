@@ -144,13 +144,38 @@ const incompleteFragment = new MockFragment([
 const fallbackRawText = summaryItems[0] + '\\n' + articleParagraph;
 const fallbackResult = getSelectionFormat(makeSelection(fallbackRawText, incompleteFragment));
 
+// 测试生词高亮 span 标签在标题中不会将标题拆分为多个 block
+const titleWithHighlightFragment = new MockFragment([
+    new MockText("Microsoft's $41 billion AI bet just cleared a "),
+    new MockElement('span', [new MockText('major')]),
+    new MockText(' test: Chart of the Day')
+]);
+const titleRawText = "Microsoft's $41 billion AI bet just cleared a major test: Chart of the Day";
+const titleWithHighlightResult = getSelectionFormat(makeSelection(titleRawText, titleWithHighlightFragment));
+
+// 测试生词高亮 span 标签在列表项中不会将单个列表项拆分为多个 block
+const listWithHighlightFragment = new MockFragment([
+    new MockElement('ul', [
+        new MockElement('li', [
+            new MockText('First item with '),
+            new MockElement('span', [new MockText('important')]),
+            new MockText(' word')
+        ]),
+        new MockElement('li', [new MockText('Second item')])
+    ])
+]);
+const listRawText = 'First item with important word\\nSecond item';
+const listWithHighlightResult = getSelectionFormat(makeSelection(listRawText, listWithHighlightFragment));
+
 globalThis.__testResults = {
     reutersResult,
-    fallbackResult
+    fallbackResult,
+    titleWithHighlightResult,
+    listWithHighlightResult
 };
 `, sandbox);
 
-const { reutersResult, fallbackResult } = sandbox.__testResults;
+const { reutersResult, fallbackResult, titleWithHighlightResult, listWithHighlightResult } = sandbox.__testResults;
 
 assert.equal(reutersResult.text.includes('DUBAI, July 27'), true);
 assert.deepEqual(
@@ -166,6 +191,19 @@ assert.deepEqual(
     ['line', 'line']
 );
 assert.equal(fallbackResult.blocks[1].text.includes('DUBAI, July 27'), true);
+
+// 验证生词高亮标题保持为 1 个完整 block，不会因为生词 span 导致换行隔离
+assert.equal(titleWithHighlightResult.blocks.length, 1);
+assert.equal(titleWithHighlightResult.blocks[0].text, titleWithHighlightResult.text);
+
+// 验证带有生词高亮的列表项目保持为 2 个完整的 li block
+assert.equal(listWithHighlightResult.blocks.length, 2);
+assert.deepEqual(
+    Array.from(listWithHighlightResult.blocks, block => block.type),
+    ['li', 'li']
+);
+assert.equal(listWithHighlightResult.blocks[0].text, 'First item with important word');
+assert.equal(listWithHighlightResult.blocks[1].text, 'Second item');
 
 assert.match(source, /\.imt-translation\s*\{[^}]*font-size:\s*inherit;/s);
 assert.match(source, /\.imt-preserved-heading\s*\{[^}]*font-size:\s*inherit;/s);

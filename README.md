@@ -51,3 +51,10 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - 对齐字号面板与加减复位按钮的 `animal-island-ui` 动森原生组件样式，正圆形加减按钮与胶囊复位按钮完全继承工具栏按钮视觉。
 - 字号弹出框作为 Shadow DOM 独立同级浮层展示，不会因内容较少而撑大主翻译框，且不遮挡任何文本。
 - 恢复主翻译框 `overflow: hidden; resize: both;` 属性，恢复右下角 Windows 原生拖拽改变大小功能。
+
+### 4.4.0
+
+- 修复划词选区中若包含生词高亮 `span` 标签（如生词本匹配词），选区结构提取器将其误识别为独立 Block 导致标题或段落被切碎换行的 bug。
+- 优化 Block 归属算法，确保内联标签（`span`, `a`, `b`, `i`, `strong` 等）从属于其外层块容器或根选区，保持标题和段落的整体翻译格式。
+- 扩展 `PRESERVED_BLOCK_SELECTOR` 标签库，完整涵盖 `pre`, `tr`, `figure`, `summary`, `details` 等 HTML 块级元素。
+

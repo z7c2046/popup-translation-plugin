@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.3.9
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.3.9 对齐字号面板按钮的 animal-island-ui 样式，字号弹出框以独立高 z-index 浮层展示，不会撑大翻译框。
+// @version      4.4.0
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.4.0 修复生词高亮 span 标签在选区中误拆分块级结构导致标题或段落随机折行离碎的问题。
 // @author       Gemini
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
@@ -1172,7 +1172,7 @@
         }[s]));
     }
 
-    const PRESERVED_BLOCK_SELECTOR = 'h1,h2,h3,h4,h5,h6,li,p,blockquote,figcaption,td,th,dt,dd';
+    const PRESERVED_BLOCK_SELECTOR = 'h1,h2,h3,h4,h5,h6,li,p,blockquote,figcaption,td,th,dt,dd,pre,tr,figure,summary,details';
     const GENERIC_BLOCK_TAGS = new Set([
         'DIV', 'SECTION', 'ARTICLE', 'MAIN', 'ASIDE', 'HEADER', 'FOOTER', 'NAV'
     ]);
@@ -1248,7 +1248,7 @@
             if (node.nodeType !== Node.TEXT_NODE) continue;
 
             const ownerBlock = getSelectedTextBlock(node);
-            const blockKey = ownerBlock || node.parentNode || fragment;
+            const blockKey = ownerBlock || fragment;
             const blockType = getSelectedTextBlockType(ownerBlock);
 
             if (!currentBlock || currentBlock.key !== blockKey) {
