@@ -2173,7 +2173,38 @@
         const word = quickTooltip.dataset.lookupText || quickTooltip.dataset.word;
         if (!word) return;
         clearTimeout(highlightPopupHideTimeout);
-        triggerQuickFetch(word);
+
+        // 1. 记录并计算当前气泡弹窗在页面上的位置
+        const rect = quickTooltip.getBoundingClientRect();
+        let left = rect.left + window.scrollX;
+        let top = rect.top + window.scrollY;
+
+        // 防溢出调整，确保标准弹窗（宽度约 410px）在可视区域内
+        const maxLeft = window.innerWidth + window.scrollX - 425;
+        if (left > maxLeft) {
+            left = Math.max(8, maxLeft);
+        }
+
+        // 2. 关闭悬停速查气泡弹窗
+        closeHighlightPopup();
+
+        // 3. 更新全局选词状态
+        currentText = word;
+        currentSelectionFormat = null;
+
+        // 4. 将标准弹窗定位到原气泡弹窗位置（未固定时）
+        if (!isPinned) {
+            tooltip.style.left = `${Math.max(8, left)}px`;
+            tooltip.style.top = `${Math.max(8, top)}px`;
+        }
+
+        // 5. 展示标准弹窗，并移除 quick-mode，转为标准弹窗交互（鼠标移出不会误关/闪退）
+        tooltip.style.display = 'flex';
+        tooltip.classList.remove('quick-mode');
+        requestAnimationFrame(() => tooltip.style.opacity = '1');
+
+        // 6. 触发 AI 详细解析并渲染至标准弹窗
+        triggerFetch(word);
     });
 
     // ================= 选词、拖拽与全局事件 =================
