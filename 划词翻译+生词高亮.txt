@@ -86,6 +86,20 @@
     let currentText = "";
     let currentTranslatedWord = "";
     let isRequesting = false;
+    let activeFetchRequest = null;
+    let currentRequestId = 0;
+
+    function abortActiveFetch() {
+        if (activeFetchRequest && typeof activeFetchRequest.abort === 'function') {
+            try {
+                activeFetchRequest.abort();
+            } catch (e) {
+                // 静默忽略中断异常
+            }
+        }
+        activeFetchRequest = null;
+        isRequesting = false;
+    }
     let isPinned = false;
     let isDragging = false;
     let isStarred = false;
@@ -2585,6 +2599,7 @@ Formatting requirements: Output valid JSON only.`;
         aiBtn.style.display = 'none';
 
         if (!bypassCache && translationCache.has(text)) {
+            abortActiveFetch();
             const data = translationCache.get(text);
             contentBox.innerHTML = renderTranslation(data, text, { format });
             typewriterReveal(contentBox);
@@ -2602,6 +2617,7 @@ Formatting requirements: Output valid JSON only.`;
         quickContentBox.innerHTML = '<div class="imt-loading"><div class="imt-spinner"></div>正在获取 AI 详细解析...</div>';
 
         if (translationCache.has(text)) {
+            abortActiveFetch();
             const data = translationCache.get(text);
             quickContentBox.innerHTML = renderTranslation(data, text, { syncMainState: false });
             typewriterReveal(quickContentBox);
@@ -2682,7 +2698,7 @@ Formatting requirements: Output valid JSON only.`;
                 body.request_id = createLLMRequestId();
             }
 
-            GM_xmlhttpRequest({
+            const req = GM_xmlhttpRequest({
                 method: "POST",
                 url: provider.apiUrl,
                 timeout,
@@ -2723,15 +2739,17 @@ Formatting requirements: Output valid JSON only.`;
                     reject(new Error(`${provider.name} 请求已取消`));
                 }
             });
+            activeFetchRequest = req;
         });
     }
 
     // 发起真实的 API Post 请求
     function fetchTranslation(text, targetBox = contentBox, { syncMainState = true, format = null } = {}) {
-        if (isRequesting) {
-            targetBox.innerHTML = '<div class="imt-loading">已有解析请求正在进行中，请稍后再试。</div>';
-            return;
-        }
+        // 如果有上一次正在进行的请求，立即中断取消
+        abortActiveFetch();
+
+        currentRequestId++;
+        const requestId = currentRequestId;
         isRequesting = true;
 
         requestLLMChatCompletion({
@@ -2744,7 +2762,9 @@ Formatting requirements: Output valid JSON only.`;
                 { role: "user", content: buildUserPrompt(text, format) }
             ]
         }).then(content => {
+            if (requestId !== currentRequestId) return;
             isRequesting = false;
+            activeFetchRequest = null;
             try {
                 const cleanJsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
                 const resultData = JSON.parse(cleanJsonStr);
@@ -2764,7 +2784,9 @@ Formatting requirements: Output valid JSON only.`;
                 targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
             }
         }).catch(e => {
+            if (requestId !== currentRequestId) return;
             isRequesting = false;
+            activeFetchRequest = null;
             targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">${escapeHtml(e.message)}</div>`;
         });
     }
