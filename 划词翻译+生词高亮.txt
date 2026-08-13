@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.4.0
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.4.0 修复生词高亮 span 标签在选区中误拆分块级结构导致标题或段落随机折行离碎的问题。
+// @version      4.4.1
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.4.1 修复人机验证/第三方 iframe 弹窗内脚本误加载遮挡问题。
 // @author       Gemini
 // @match        *://*/*
+// @noframes
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_setValue
@@ -17,6 +18,11 @@
 
 (function() {
     'use strict';
+
+    // 阻止脚本在 iframe 内部（如 Arkose Labs 验证码、reCAPTCHA、支付框等）加载
+    if (window.top !== window.self) {
+        return;
+    }
 
     // 兼容 4.3.2 设置面板中曾经写错的智谱模型 ID。
     const ZHIPU_MODEL_MIGRATIONS = {
