@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.0
+// @version      4.5.1
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -126,6 +126,15 @@
     // ================= 注入主页面高亮 CSS =================
     GM_addStyle(`
         .${CONFIG.highlightClass} {
+            display: inline !important;
+            align-self: baseline !important;
+            vertical-align: baseline !important;
+            box-sizing: border-box !important;
+            height: auto !important;
+            max-height: max-content !important;
+            line-height: inherit !important;
+            box-decoration-break: clone;
+            -webkit-box-decoration-break: clone;
             background:
                 radial-gradient(circle, rgba(247, 205, 103, .34) 1.5px, transparent 1.6px),
                 #fff8d7 !important;
