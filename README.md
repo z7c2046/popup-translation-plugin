@@ -7,7 +7,9 @@ Tampermonkey userscript for selection translation, Notion vocabulary sync, and h
 This repository does not store API credentials. Configure them in Tampermonkey storage before use:
 
 - `lexipro_sf_api_key`
-- `lexipro_sf_model` (optional, defaults to `Qwen/Qwen2.5-14B-Instruct`)
+- `lexipro_sf_model` (optional, defaults to `deepseek-ai/DeepSeek-V3`)
+- `lexipro_kimi_refresh_token` (for Kimi free web mode)
+- `lexipro_kimi_access_token` (for Kimi free web mode)
 - `lexipro_notion_token`
 - `lexipro_notion_database_id`
 
@@ -57,4 +59,12 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - 修复划词选区中若包含生词高亮 `span` 标签（如生词本匹配词），选区结构提取器将其误识别为独立 Block 导致标题或段落被切碎换行的 bug。
 - 优化 Block 归属算法，确保内联标签（`span`, `a`, `b`, `i`, `strong` 等）从属于其外层块容器或根选区，保持标题和段落的整体翻译格式。
 - 扩展 `PRESERVED_BLOCK_SELECTOR` 标签库，完整涵盖 `pre`, `tr`, `figure`, `summary`, `details` 等 HTML 块级元素。
+
+### 4.5.0
+
+- 接入 **Kimi (网页免费版)** 翻译引擎，支持基于 `refresh_token` 与 `access_token` 的逆向流式对话协议。
+- 具备 401 鉴权失效自动无感刷新 Token 并持久化存储机制，附带 20 位 `X-Traffic-Id` 设备指纹与防跨域请求头伪装。
+- 设置面板新增 Kimi Token 配置项、明密文一键切换按钮（👁️）与获取指引。
+- 增强 JSON 容错清洗算法（`extractJsonFromContent`），支持包裹在 Markdown 代码块或额外文本中的结构化数据提取。
+- 移除智谱 GLM 服务商，保留并兼容硅基流动。
 

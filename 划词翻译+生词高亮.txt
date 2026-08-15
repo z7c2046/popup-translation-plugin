@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.4.1
-// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。4.4.1 修复人机验证/第三方 iframe 弹窗内脚本误加载遮挡问题。
+// @version      4.5.0
+// @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
 // @noframes
@@ -11,7 +11,7 @@
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @connect      api.siliconflow.cn
-// @connect      open.bigmodel.cn
+// @connect      kimi.moonshot.cn
 // @connect      dict.youdao.com
 // @connect      api.notion.com
 // ==/UserScript==
@@ -24,28 +24,16 @@
         return;
     }
 
-    // 兼容 4.3.2 设置面板中曾经写错的智谱模型 ID。
-    const ZHIPU_MODEL_MIGRATIONS = {
-        'glm-4-flash': 'glm-4.7-flash',
-        'glm-4': 'glm-4.7',
-        'glm-4-air': 'glm-4.5-air',
-        'glm-4v': 'glm-4.6'
-    };
-
-    function getConfiguredZhipuModel() {
-        const storedModel = GM_getValue('lexipro_zp_model', 'glm-4.7-flash');
-        const migratedModel = ZHIPU_MODEL_MIGRATIONS[storedModel] || storedModel;
-
-        if (migratedModel !== storedModel) {
-            GM_setValue('lexipro_zp_model', migratedModel);
-        }
-
-        return migratedModel;
+    // 迁移旧版服务商配置（若之前选了已被移除的智谱，自动重置为硅基流动）
+    let initialProvider = GM_getValue('lexipro_llm_provider', 'siliconflow');
+    if (initialProvider === 'zhipu') {
+        initialProvider = 'siliconflow';
+        GM_setValue('lexipro_llm_provider', initialProvider);
     }
 
     // ================= 配置区 =================
     const CONFIG = {
-        llmProvider: GM_getValue('lexipro_llm_provider', 'zhipu'), // 当前大模型服务商：'siliconflow' 或 'zhipu'
+        llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
         llmProviders: {
             siliconflow: {
                 name: '硅基流动',
@@ -54,13 +42,11 @@
                 model: GM_getValue('lexipro_sf_model', "deepseek-ai/DeepSeek-V3"),
                 supportsJsonResponse: true
             },
-            zhipu: {
-                name: '智谱 GLM',
-                apiUrl: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
-                apiKey: "",
-                model: getConfiguredZhipuModel(),
-                supportsJsonResponse: true,
-                disableThinking: true
+            kimi_free: {
+                name: 'Kimi (网页免费版)',
+                refreshToken: GM_getValue('lexipro_kimi_refresh_token', ''),
+                accessToken: GM_getValue('lexipro_kimi_access_token', ''),
+                enableThinking: GM_getValue('lexipro_kimi_thinking', false)
             }
         },
         notionToken: 'REDACTED_LEGACY_NOTION_TOKEN',
@@ -1000,6 +986,8 @@
             outline: none;
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
             transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .imt-settings-panel select.form-input {
             appearance: none;
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239b8567' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5' /%3E%3C/svg%3E");
             background-repeat: no-repeat;
@@ -1010,6 +998,32 @@
         .imt-settings-panel .form-input:focus {
             border-color: var(--aiu-primary);
             box-shadow: 0 0 0 3px rgba(25, 200, 185, 0.15);
+        }
+        .imt-token-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .imt-token-input-wrapper input {
+            padding-right: 38px;
+        }
+        .imt-token-toggle-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1em;
+            opacity: 0.65;
+            transition: opacity 0.2s, transform 0.15s;
+            padding: 2px 4px;
+            user-select: none;
+        }
+        .imt-token-toggle-btn:hover {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.1);
         }
         .imt-settings-switch-row {
             display: flex;
@@ -1990,6 +2004,7 @@
     });
 
     function renderSettingsUI() {
+        const isKimi = CONFIG.llmProvider === 'kimi_free';
         contentBox.innerHTML = `
             <div class="imt-settings-panel">
                 <div class="imt-settings-title">LexiPro 选项设置</div>
@@ -1997,11 +2012,11 @@
                     <label for="imt-provider-select">AI 服务商</label>
                     <select class="form-input" id="imt-provider-select">
                         <option value="siliconflow" ${CONFIG.llmProvider === 'siliconflow' ? 'selected' : ''}>硅基流动</option>
-                        <option value="zhipu" ${CONFIG.llmProvider === 'zhipu' ? 'selected' : ''}>智谱 GLM</option>
+                        <option value="kimi_free" ${CONFIG.llmProvider === 'kimi_free' ? 'selected' : ''}>Kimi (网页免费版)</option>
                     </select>
                 </div>
                 
-                <div class="imt-settings-group" id="sf-model-group" style="display: ${CONFIG.llmProvider === 'siliconflow' ? 'block' : 'none'};">
+                <div class="imt-settings-group" id="sf-model-group" style="display: ${!isKimi ? 'block' : 'none'};">
                     <label for="sf-model-select">推理模型</label>
                     <select class="form-input" id="sf-model-select">
                         <option value="deepseek-ai/DeepSeek-V3" ${CONFIG.llmProviders.siliconflow.model === 'deepseek-ai/DeepSeek-V3' ? 'selected' : ''}>DeepSeek-V3 (推荐)</option>
@@ -2012,23 +2027,40 @@
                     </select>
                 </div>
 
-                <div class="imt-settings-group" id="zp-model-group" style="display: ${CONFIG.llmProvider === 'zhipu' ? 'block' : 'none'};">
-                    <label for="zp-model-select">推理模型</label>
-                    <select class="form-input" id="zp-model-select">
-                        <option value="glm-4.7-flash" ${CONFIG.llmProviders.zhipu.model === 'glm-4.7-flash' ? 'selected' : ''}>GLM-4.7-Flash (免费快速，推荐)</option>
-                        <option value="glm-4.7" ${CONFIG.llmProviders.zhipu.model === 'glm-4.7' ? 'selected' : ''}>GLM-4.7 (效果卓越)</option>
-                        <option value="glm-4.6" ${CONFIG.llmProviders.zhipu.model === 'glm-4.6' ? 'selected' : ''}>GLM-4.6 (通用稳定)</option>
-                        <option value="glm-4.5-air" ${CONFIG.llmProviders.zhipu.model === 'glm-4.5-air' ? 'selected' : ''}>GLM-4.5-Air (轻量性价比)</option>
-                    </select>
+                <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="kimi-refresh-token">Kimi Refresh Token *</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="kimi-refresh-token" placeholder="粘贴 refresh_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.refreshToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-refresh-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="kimi-access-token">Kimi Access Token *</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="kimi-access-token" placeholder="粘贴 access_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.accessToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-access-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="imt-settings-hint" style="margin-top: 4px; line-height: 1.5;">
+                        💡 <strong>Token 获取方法：</strong><br/>
+                        1. 在浏览器中打开并登录 <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" style="color:var(--aiu-primary-dark);text-decoration:underline;">kimi.moonshot.cn</a><br/>
+                        2. 按 <code>F12</code> 打开开发者工具，切换到 <code>Application (应用)</code> &gt; <code>Local Storage</code> &gt; <code>https://kimi.moonshot.cn</code><br/>
+                        3. 分别复制 <code>refresh_token</code> 和 <code>access_token</code> 填入上方输入框。<br/>
+                        <em>（Access Token 过期后脚本会自动尝试用 Refresh Token 刷新）</em>
+                    </div>
                 </div>
             </div>
         `;
 
         const providerSelect = contentBox.querySelector('#imt-provider-select');
         const sfModelGroup = contentBox.querySelector('#sf-model-group');
-        const zpModelGroup = contentBox.querySelector('#zp-model-group');
+        const kimiSettingsGroup = contentBox.querySelector('#kimi-settings-group');
         const sfModelSelect = contentBox.querySelector('#sf-model-select');
-        const zpModelSelect = contentBox.querySelector('#zp-model-select');
+        const kimiRefreshTokenInput = contentBox.querySelector('#kimi-refresh-token');
+        const kimiAccessTokenInput = contentBox.querySelector('#kimi-access-token');
 
         providerSelect.addEventListener('change', () => {
             const provider = providerSelect.value;
@@ -2037,23 +2069,41 @@
             
             if (provider === 'siliconflow') {
                 sfModelGroup.style.display = 'block';
-                zpModelGroup.style.display = 'none';
+                kimiSettingsGroup.style.display = 'none';
             } else {
                 sfModelGroup.style.display = 'none';
-                zpModelGroup.style.display = 'block';
+                kimiSettingsGroup.style.display = 'block';
             }
         });
 
-        sfModelSelect.addEventListener('change', () => {
+        sfModelSelect?.addEventListener('change', () => {
             const model = sfModelSelect.value;
             CONFIG.llmProviders.siliconflow.model = model;
             GM_setValue('lexipro_sf_model', model);
         });
 
-        zpModelSelect.addEventListener('change', () => {
-            const model = zpModelSelect.value;
-            CONFIG.llmProviders.zhipu.model = model;
-            GM_setValue('lexipro_zp_model', model);
+        kimiRefreshTokenInput?.addEventListener('input', () => {
+            const val = kimiRefreshTokenInput.value.trim();
+            CONFIG.llmProviders.kimi_free.refreshToken = val;
+            GM_setValue('lexipro_kimi_refresh_token', val);
+        });
+
+        kimiAccessTokenInput?.addEventListener('input', () => {
+            const val = kimiAccessTokenInput.value.trim();
+            CONFIG.llmProviders.kimi_free.accessToken = val;
+            GM_setValue('lexipro_kimi_access_token', val);
+        });
+
+        contentBox.querySelectorAll('.imt-token-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.getAttribute('data-target');
+                const targetInput = contentBox.querySelector(`#${targetId}`);
+                if (targetInput) {
+                    const isPass = targetInput.type === 'password';
+                    targetInput.type = isPass ? 'text' : 'password';
+                    btn.textContent = isPass ? '🔒' : '👁️';
+                }
+            });
         });
     }
 
@@ -2643,8 +2693,17 @@ Formatting requirements: Output valid JSON only.`;
         if (!provider) {
             throw new Error(`未知大模型服务商: ${providerKey}`);
         }
-        if (!provider.apiUrl || !provider.apiKey || !provider.model) {
-            throw new Error(`${provider.name || providerKey} 服务商配置不完整`);
+
+        if (providerKey === 'siliconflow') {
+            if (!provider.apiUrl || !provider.apiKey || !provider.model) {
+                throw new Error(`硅基流动服务商配置不完整`);
+            }
+        } else if (providerKey === 'kimi_free') {
+            const hasTokens = (provider.accessToken || GM_getValue('lexipro_kimi_access_token', ''))
+                || (provider.refreshToken || GM_getValue('lexipro_kimi_refresh_token', ''));
+            if (!hasTokens) {
+                throw new Error('未配置 Kimi Token，请在 ⚙️ 设置面板中填写 Access Token 与 Refresh Token');
+            }
         }
 
         return provider;
@@ -2671,6 +2730,255 @@ Formatting requirements: Output valid JSON only.`;
         return `lexipro-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     }
 
+    // ================= Kimi 网页免费版逆向通信核心 =================
+    function generateKimiTrafficId() {
+        return Array.from({ length: 20 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+    }
+
+    function getKimiHeaders(token) {
+        return {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Origin': 'https://kimi.moonshot.cn',
+            'Referer': 'https://kimi.moonshot.cn/',
+            'X-Traffic-Id': generateKimiTrafficId()
+        };
+    }
+
+    function refreshKimiAccessToken() {
+        return new Promise((resolve, reject) => {
+            const refreshToken = GM_getValue('lexipro_kimi_refresh_token', '') || CONFIG.llmProviders.kimi_free?.refreshToken;
+            if (!refreshToken) {
+                reject(new Error('未配置 Kimi Refresh Token，无法自动刷新凭证'));
+                return;
+            }
+
+            const req = GM_xmlhttpRequest({
+                method: 'GET',
+                url: 'https://kimi.moonshot.cn/api/auth/token/refresh',
+                headers: getKimiHeaders(refreshToken),
+                timeout: 20000,
+                onload: function(response) {
+                    if (response.status === 200) {
+                        try {
+                            const data = JSON.parse(response.responseText);
+                            if (data.access_token) {
+                                CONFIG.llmProviders.kimi_free.accessToken = data.access_token;
+                                GM_setValue('lexipro_kimi_access_token', data.access_token);
+                                if (data.refresh_token) {
+                                    CONFIG.llmProviders.kimi_free.refreshToken = data.refresh_token;
+                                    GM_setValue('lexipro_kimi_refresh_token', data.refresh_token);
+                                }
+                                resolve(data.access_token);
+                                return;
+                            }
+                        } catch (e) {}
+                    }
+                    let errorMsg = `Kimi Token 刷新失败 (HTTP ${response.status})`;
+                    try {
+                        const errJson = JSON.parse(response.responseText);
+                        if (errJson.message || errJson.msg) errorMsg += `：${errJson.message || errJson.msg}`;
+                    } catch(e) {}
+                    reject(new Error(`${errorMsg}，请在设置中重新填写最新 Token`));
+                },
+                onerror: function() {
+                    reject(new Error('Kimi Token 刷新网络连接出错'));
+                },
+                ontimeout: function() {
+                    reject(new Error('Kimi Token 刷新超时'));
+                },
+                onabort: function() {
+                    reject(new Error('Kimi 请求已取消'));
+                }
+            });
+            activeFetchRequest = req;
+        });
+    }
+
+    function createKimiChat(accessToken) {
+        return new Promise((resolve, reject) => {
+            const req = GM_xmlhttpRequest({
+                method: 'POST',
+                url: 'https://kimi.moonshot.cn/api/chat',
+                headers: getKimiHeaders(accessToken),
+                data: JSON.stringify({
+                    name: 'LexiPro Translation',
+                    is_example: false
+                }),
+                timeout: 20000,
+                onload: function(response) {
+                    if (response.status === 200) {
+                        try {
+                            const data = JSON.parse(response.responseText);
+                            if (data.id) {
+                                resolve({ ok: true, chatId: data.id });
+                                return;
+                            }
+                        } catch (e) {}
+                    }
+                    if (response.status === 401) {
+                        resolve({ ok: false, status: 401, error: 'Unauthorized' });
+                        return;
+                    }
+                    let errorDetail = '';
+                    try {
+                        const errJson = JSON.parse(response.responseText);
+                        errorDetail = errJson.message || errJson.msg || errJson.error_msg || '';
+                    } catch (e) {}
+                    const suffix = errorDetail ? `：${errorDetail}` : '';
+                    resolve({ ok: false, status: response.status, error: `Kimi 创建会话失败 (HTTP ${response.status})${suffix}` });
+                },
+                onerror: function() {
+                    reject(new Error('Kimi 会话创建网络连接出错'));
+                },
+                ontimeout: function() {
+                    reject(new Error('Kimi 会话创建超时'));
+                },
+                onabort: function() {
+                    reject(new Error('Kimi 会话创建已取消'));
+                }
+            });
+            activeFetchRequest = req;
+        });
+    }
+
+    async function requestKimiWebCompletion({ messages, timeout = 60000 }) {
+        getActiveLLMProvider();
+
+        let accessToken = GM_getValue('lexipro_kimi_access_token', '') || CONFIG.llmProviders.kimi_free?.accessToken;
+        const refreshToken = GM_getValue('lexipro_kimi_refresh_token', '') || CONFIG.llmProviders.kimi_free?.refreshToken;
+
+        if (!accessToken && refreshToken) {
+            accessToken = await refreshKimiAccessToken();
+        }
+        if (!accessToken) {
+            throw new Error('未检测到有效 Kimi Access Token，请在设置中填写');
+        }
+
+        let chatResult = await createKimiChat(accessToken);
+        if (!chatResult.ok && chatResult.status === 401 && refreshToken) {
+            accessToken = await refreshKimiAccessToken();
+            chatResult = await createKimiChat(accessToken);
+        }
+
+        if (!chatResult.ok) {
+            throw new Error(chatResult.error || '创建 Kimi 会话失败');
+        }
+
+        const chatId = chatResult.chatId;
+        const combinedPrompt = messages.map(m => m.content).filter(Boolean).join('\n\n');
+        const kimiMessages = [{ role: 'user', content: combinedPrompt }];
+
+        return new Promise((resolve, reject) => {
+            let processedLength = 0;
+            let sseBuffer = '';
+            let accumulatedText = '';
+            let isStreamDone = false;
+
+            function parseSSE(chunk) {
+                sseBuffer += chunk;
+                const lines = sseBuffer.split('\n');
+                sseBuffer = lines.pop();
+                for (const rawLine of lines) {
+                    const line = rawLine.trim();
+                    if (!line.startsWith('data:')) continue;
+                    const dataStr = line.slice(5).trim();
+                    if (!dataStr || dataStr === '[DONE]') {
+                        if (dataStr === '[DONE]') isStreamDone = true;
+                        continue;
+                    }
+                    try {
+                        const parsed = JSON.parse(dataStr);
+                        if (parsed.event === 'cmpl' && typeof parsed.text === 'string') {
+                            accumulatedText += parsed.text;
+                        } else if (parsed.event === 'all_done') {
+                            isStreamDone = true;
+                        } else if (parsed.error || parsed.event === 'error') {
+                            const errText = parsed.error?.message || parsed.message || 'Kimi 流式生成返回错误';
+                            throw new Error(errText);
+                        }
+                    } catch (e) {
+                        if (e.message && !e.message.includes('Unexpected token') && !e.message.includes('JSON')) {
+                            throw e;
+                        }
+                    }
+                }
+            }
+
+            const req = GM_xmlhttpRequest({
+                method: 'POST',
+                url: `https://kimi.moonshot.cn/api/chat/${chatId}/completion/stream`,
+                headers: getKimiHeaders(accessToken),
+                data: JSON.stringify({
+                    messages: kimiMessages,
+                    refs: [],
+                    user_search: false
+                }),
+                timeout,
+                onprogress: function(response) {
+                    const currentText = response.responseText || '';
+                    const newChunk = currentText.slice(processedLength);
+                    processedLength = currentText.length;
+                    try {
+                        parseSSE(newChunk);
+                    } catch (err) {
+                        reject(err);
+                    }
+                },
+                onload: function(response) {
+                    if (response.status >= 200 && response.status < 300) {
+                        const currentText = response.responseText || '';
+                        const newChunk = currentText.slice(processedLength);
+                        try {
+                            parseSSE(newChunk);
+                            parseSSE('\n');
+                            if (!accumulatedText.trim()) {
+                                throw new Error('Kimi 未返回有效翻译文本');
+                            }
+                            resolve(accumulatedText);
+                        } catch (err) {
+                            reject(err);
+                        }
+                    } else {
+                        let errDetail = '';
+                        try {
+                            const errJson = JSON.parse(response.responseText);
+                            errDetail = errJson.message || errJson.msg || '';
+                        } catch(e) {}
+                        const suffix = errDetail ? `：${errDetail}` : '';
+                        reject(new Error(`Kimi 翻译流请求失败 (HTTP ${response.status})${suffix}`));
+                    }
+                },
+                onerror: function() {
+                    reject(new Error('Kimi 翻译请求网络连接异常'));
+                },
+                ontimeout: function() {
+                    reject(new Error(`Kimi 在 ${Math.round(timeout / 1000)} 秒内未完成响应，请稍后重试`));
+                },
+                onabort: function() {
+                    reject(new Error('Kimi 请求已取消'));
+                }
+            });
+            activeFetchRequest = req;
+        });
+    }
+
+    function extractJsonFromContent(content) {
+        if (typeof content !== 'string') return content;
+        let cleanStr = content.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+        try {
+            return JSON.parse(cleanStr);
+        } catch (e) {
+            const firstBrace = cleanStr.indexOf('{');
+            const lastBrace = cleanStr.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+                return JSON.parse(cleanStr.slice(firstBrace, lastBrace + 1));
+            }
+            throw e;
+        }
+    }
+
     function requestLLMChatCompletion({
         messages,
         temperature = 0.1,
@@ -2678,6 +2986,11 @@ Formatting requirements: Output valid JSON only.`;
         timeout = 45000,
         maxTokens = 2048
     }) {
+        const providerKey = CONFIG.llmProvider || 'siliconflow';
+        if (providerKey === 'kimi_free') {
+            return requestKimiWebCompletion({ messages, timeout });
+        }
+
         return new Promise((resolve, reject) => {
             let provider;
             try {
@@ -2697,11 +3010,6 @@ Formatting requirements: Output valid JSON only.`;
 
             if (responseFormat && provider.supportsJsonResponse !== false) {
                 body.response_format = responseFormat;
-            }
-
-            if (provider.disableThinking) {
-                body.thinking = { type: 'disabled' };
-                body.request_id = createLLMRequestId();
             }
 
             const req = GM_xmlhttpRequest({
@@ -2772,8 +3080,7 @@ Formatting requirements: Output valid JSON only.`;
             isRequesting = false;
             activeFetchRequest = null;
             try {
-                const cleanJsonStr = content.replace(/```json/g, '').replace(/```/g, '').trim();
-                const resultData = JSON.parse(cleanJsonStr);
+                const resultData = extractJsonFromContent(content);
 
                 // 存入内存翻译缓存
                 translationCache.set(text, resultData);
