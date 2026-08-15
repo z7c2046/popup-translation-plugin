@@ -68,3 +68,14 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - 增强 JSON 容错清洗算法（`extractJsonFromContent`），支持包裹在 Markdown 代码块或额外文本中的结构化数据提取。
 - 移除智谱 GLM 服务商，保留并兼容硅基流动。
 
+### 4.5.1
+
+- 修复生词高亮在现代 Flex 容器（如 Kimi / ChatGPT 等 Web 应用）下纵向被强行拉伸的问题。
+- 注入 `align-self: baseline`、`display: inline`、`box-sizing: border-box` 等全套防御性样式，避免高亮元素撑大宿主气泡高度或排版变形。
+
+### 4.5.2
+
+- 修复在打字机渐显（Typewriter）或后台 API 流式解析进行中点击设置面板导致释义数据截断、停滞在一半的 bug。
+- 将设置面板（`#imt-settings`）与释义容器（`#imt-content`）彻底物理隔离为独立视图容器。
+- 切换到设置面板时不再销毁释义 DOM，打字机特效与网络请求在后台持续完整执行；关闭设置面板后无缝呈现完整内容。
+- 新增 `tests/typewriter-settings.test.cjs` 自动化测试保障。

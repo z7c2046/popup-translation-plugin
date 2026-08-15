@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.1
+// @version      4.5.2
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -117,7 +117,6 @@
     let highlightPopupHideTimeout = null;
     let triggerMode = CONFIG.defaultTriggerMode;
     let isSettingsOpen = false;
-    let lastTranslationHtml = "";
 
     // Notion ID 自增追踪器
     let currentMaxNo = 0;
@@ -605,7 +604,8 @@
             box-shadow: 0 3px 0 #0e8f85 !important;
         }
 
-        #imt-content {
+        #imt-content,
+        #imt-settings {
             color: var(--aiu-text);
             font-family: var(--aiu-font);
             font-size: var(--imt-popup-font-size, 15px);
@@ -613,6 +613,8 @@
             line-height: 1.65;
             overflow-y: auto;
             border-radius: 0 0 22px 22px;
+            flex: 1;
+            padding: 15px 18px 18px;
         }
 
         #imt-quick-tooltip .imt-quick-content {
@@ -622,11 +624,6 @@
             font-weight: 650;
             line-height: 1.65;
             overflow-y: auto;
-        }
-
-        #imt-content {
-            flex: 1;
-            padding: 15px 18px 18px;
         }
 
         #imt-quick-tooltip .imt-quick-content {
@@ -832,17 +829,20 @@
         }
 
         #imt-content::-webkit-scrollbar,
+        #imt-settings::-webkit-scrollbar,
         #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar {
             width: 8px;
         }
 
         #imt-content::-webkit-scrollbar-track,
+        #imt-settings::-webkit-scrollbar-track,
         #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-track {
             background: rgba(255, 248, 228, .7);
             border-radius: 999px;
         }
 
         #imt-content::-webkit-scrollbar-thumb,
+        #imt-settings::-webkit-scrollbar-thumb,
         #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-thumb {
             background: #d7c7aa;
             border: 2px solid #fff8e4;
@@ -1144,6 +1144,7 @@
             </div>
         </div>
         <div id="imt-content"></div>
+        <div id="imt-settings" style="display: none;"></div>
     `;
     shadow.appendChild(tooltip);
 
@@ -1187,6 +1188,7 @@
     // 获取内部元素的引用
     const header = tooltip.querySelector('#imt-header');
     const contentBox = tooltip.querySelector('#imt-content');
+    const settingsBox = tooltip.querySelector('#imt-settings');
     const quickContentBox = quickTooltip.querySelector('.imt-quick-content');
     const quickAiBtn = quickTooltip.querySelector('#imt-quick-ai-btn');
     const quickStarBtn = quickTooltip.querySelector('#imt-quick-star-btn');
@@ -1821,6 +1823,7 @@
     function closeTooltip({ stopAudio = false } = {}) {
         if (stopAudio) stopCurrentAudio();
         setFontPopoverOpen(false);
+        setSettingsOpen(false);
         tooltip.style.opacity = '0';
         setTimeout(() => { if (!isPinned) tooltip.style.display = 'none'; }, 150);
     }
@@ -1991,19 +1994,23 @@
     pinBtn.addEventListener('click', () => togglePin(!isPinned));
     closeBtn.addEventListener('click', () => { togglePin(false); closeTooltip({ stopAudio: true }); });
 
-    settingsBtn.addEventListener('click', () => {
-        setFontPopoverOpen(false);
-        isSettingsOpen = !isSettingsOpen;
+    function setSettingsOpen(open) {
+        isSettingsOpen = Boolean(open);
         if (isSettingsOpen) {
             settingsBtn.classList.add('imt-pinned');
-            if (!contentBox.querySelector('.imt-settings-panel')) {
-                lastTranslationHtml = contentBox.innerHTML;
-            }
+            contentBox.style.display = 'none';
+            settingsBox.style.display = 'block';
             renderSettingsUI();
         } else {
             settingsBtn.classList.remove('imt-pinned');
-            contentBox.innerHTML = lastTranslationHtml;
+            settingsBox.style.display = 'none';
+            contentBox.style.display = 'block';
         }
+    }
+
+    settingsBtn.addEventListener('click', () => {
+        setFontPopoverOpen(false);
+        setSettingsOpen(!isSettingsOpen);
     });
 
     refreshBtn.addEventListener('click', () => {
@@ -2014,7 +2021,7 @@
 
     function renderSettingsUI() {
         const isKimi = CONFIG.llmProvider === 'kimi_free';
-        contentBox.innerHTML = `
+        settingsBox.innerHTML = `
             <div class="imt-settings-panel">
                 <div class="imt-settings-title">LexiPro 选项设置</div>
                 <div class="imt-settings-group">
@@ -2064,12 +2071,12 @@
             </div>
         `;
 
-        const providerSelect = contentBox.querySelector('#imt-provider-select');
-        const sfModelGroup = contentBox.querySelector('#sf-model-group');
-        const kimiSettingsGroup = contentBox.querySelector('#kimi-settings-group');
-        const sfModelSelect = contentBox.querySelector('#sf-model-select');
-        const kimiRefreshTokenInput = contentBox.querySelector('#kimi-refresh-token');
-        const kimiAccessTokenInput = contentBox.querySelector('#kimi-access-token');
+        const providerSelect = settingsBox.querySelector('#imt-provider-select');
+        const sfModelGroup = settingsBox.querySelector('#sf-model-group');
+        const kimiSettingsGroup = settingsBox.querySelector('#kimi-settings-group');
+        const sfModelSelect = settingsBox.querySelector('#sf-model-select');
+        const kimiRefreshTokenInput = settingsBox.querySelector('#kimi-refresh-token');
+        const kimiAccessTokenInput = settingsBox.querySelector('#kimi-access-token');
 
         providerSelect.addEventListener('change', () => {
             const provider = providerSelect.value;
@@ -2103,10 +2110,10 @@
             GM_setValue('lexipro_kimi_access_token', val);
         });
 
-        contentBox.querySelectorAll('.imt-token-toggle-btn').forEach(btn => {
+        settingsBox.querySelectorAll('.imt-token-toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const targetId = btn.getAttribute('data-target');
-                const targetInput = contentBox.querySelector(`#${targetId}`);
+                const targetInput = settingsBox.querySelector(`#${targetId}`);
                 if (targetInput) {
                     const isPass = targetInput.type === 'password';
                     targetInput.type = isPass ? 'text' : 'password';
@@ -2657,8 +2664,7 @@ Formatting requirements: Output valid JSON only.`;
     // 触发翻译调度：优先查缓存，缓存不存在则调用 API
     function triggerFetch(text, format = null, bypassCache = false) {
         cancelTypewriter();
-        isSettingsOpen = false;
-        settingsBtn.classList.remove('imt-pinned');
+        setSettingsOpen(false);
         contentBox.innerHTML = '<div class="imt-loading"><div class="imt-spinner"></div>正在获取 AI 详细解析...</div>';
         starBtn.style.display = 'none';
         aiBtn.style.display = 'none';
@@ -2677,8 +2683,7 @@ Formatting requirements: Output valid JSON only.`;
 
     function triggerQuickFetch(text) {
         cancelTypewriter();
-        isSettingsOpen = false;
-        settingsBtn.classList.remove('imt-pinned');
+        setSettingsOpen(false);
         quickContentBox.innerHTML = '<div class="imt-loading"><div class="imt-spinner"></div>正在获取 AI 详细解析...</div>';
 
         if (translationCache.has(text)) {
