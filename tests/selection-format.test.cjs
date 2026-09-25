@@ -167,15 +167,29 @@ const listWithHighlightFragment = new MockFragment([
 const listRawText = 'First item with important word\\nSecond item';
 const listWithHighlightResult = getSelectionFormat(makeSelection(listRawText, listWithHighlightFragment));
 
+// 测试在 Flex 容器中原生 selection.toString() 带有伪换行时，getSelectionFormat 能够恢复为无换行的连贯句子
+const flexLiWithHighlightsFragment = new MockFragment([
+    new MockElement('li', [
+        new MockText('Trump rolls out red '),
+        new MockElement('span', [new MockText('carpet')]),
+        new MockText(' as leaders seek stability '),
+        new MockElement('span', [new MockText('despite')]),
+        new MockText(' deep tensions')
+    ])
+]);
+const flexLiBrokenRawText = 'Trump rolls out red\\ncarpet\\nas leaders seek stability\\ndespite\\ndeep tensions';
+const flexLiResult = getSelectionFormat(makeSelection(flexLiBrokenRawText, flexLiWithHighlightsFragment));
+
 globalThis.__testResults = {
     reutersResult,
     fallbackResult,
     titleWithHighlightResult,
-    listWithHighlightResult
+    listWithHighlightResult,
+    flexLiResult
 };
 `, sandbox);
 
-const { reutersResult, fallbackResult, titleWithHighlightResult, listWithHighlightResult } = sandbox.__testResults;
+const { reutersResult, fallbackResult, titleWithHighlightResult, listWithHighlightResult, flexLiResult } = sandbox.__testResults;
 
 assert.equal(reutersResult.text.includes('DUBAI, July 27'), true);
 assert.deepEqual(
@@ -205,6 +219,13 @@ assert.deepEqual(
 assert.equal(listWithHighlightResult.blocks[0].text, 'First item with important word');
 assert.equal(listWithHighlightResult.blocks[1].text, 'Second item');
 
+// 验证即使浏览器原生 selection.toString() 带有分词换行，getSelectionFormat 仍能组装回无换行完整句子
+assert.equal(flexLiResult.blocks.length, 1);
+assert.equal(flexLiResult.text, 'Trump rolls out red carpet as leaders seek stability despite deep tensions');
+assert.equal(flexLiResult.text.includes('\n'), false);
+
+assert.match(source, /\.notion-vocab-inline-container\s*\{[^}]*display:\s*inline\s*!important;/s);
+assert.match(source, /isFlexOrGridParent/);
 assert.match(source, /\.imt-translation\s*\{[^}]*font-size:\s*inherit;/s);
 assert.match(source, /\.imt-preserved-heading\s*\{[^}]*font-size:\s*inherit;/s);
 

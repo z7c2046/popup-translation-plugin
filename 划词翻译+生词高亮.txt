@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.2
+// @version      4.5.3
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -44,8 +44,8 @@
             },
             kimi_free: {
                 name: 'Kimi (网页免费版)',
-                refreshToken: GM_getValue('lexipro_kimi_refresh_token', ''),
-                accessToken: GM_getValue('lexipro_kimi_access_token', ''),
+                refreshToken: "",
+                accessToken: "",
                 enableThinking: GM_getValue('lexipro_kimi_thinking', false)
             }
         },
@@ -55,6 +55,20 @@
         cacheTTL: 12 * 60 * 60 * 1000, // 本地缓存有效期：12小时
         defaultTriggerMode: 'click', // 默认小红点激活模式：'hover' (悬停) 或 'click' (点击)
     };
+
+    // 如果代码中内置了硬编码的 Kimi Token，且与存储不一致时，优先同步到 GM 存储确保最新生效
+    if (CONFIG.llmProviders.kimi_free.refreshToken) {
+        const storedRefresh = GM_getValue('lexipro_kimi_refresh_token', '');
+        if (!storedRefresh || storedRefresh !== CONFIG.llmProviders.kimi_free.refreshToken) {
+            GM_setValue('lexipro_kimi_refresh_token', CONFIG.llmProviders.kimi_free.refreshToken);
+        }
+    }
+    if (CONFIG.llmProviders.kimi_free.accessToken) {
+        const storedAccess = GM_getValue('lexipro_kimi_access_token', '');
+        if (!storedAccess || storedAccess !== CONFIG.llmProviders.kimi_free.accessToken) {
+            GM_setValue('lexipro_kimi_access_token', CONFIG.llmProviders.kimi_free.accessToken);
+        }
+    }
 
     // animal-island-ui「island 动森不规则有机气泡」轮廓路径（objectBoundingBox 0~1，与官方 Tooltip 一致）
     const ISLAND_CLIP_PATH = 'M0.501,0.005 L0.501,0.005 L0.523,0.005 L0.549,0.006 C0.704,0.01,0.796,0.017,0.825,0.027 L0.827,0.028 C0.872,0.045,0.939,0.044,0.978,0.17 C1,0.254,1,0.365,0.99,0.505 L0.988,0.513 C0.979,0.558,0.971,0.598,0.965,0.633 C0.956,0.689,0.979,0.77,0.964,0.865 C0.953,0.928,0.921,0.966,0.869,0.979 C0.821,0.986,0.773,0.992,0.726,0.995 L0.712,0.996 L0.694,0.997 C0.648,1,0.586,1,0.507,1 L0.501,1 L0.464,1 C0.385,1,0.325,0.998,0.283,0.995 C0.234,0.992,0.184,0.987,0.133,0.979 C0.081,0.966,0.05,0.928,0.039,0.865 C0.023,0.77,0.047,0.689,0.037,0.633 C0.031,0.595,0.023,0.552,0.013,0.505 C-0.006,0.365,-0.002,0.254,0.024,0.17 C0.064,0.045,0.13,0.045,0.174,0.028 L0.175,0.028 C0.204,0.017,0.303,0.009,0.474,0.005 L0.501,0.005';
@@ -124,6 +138,12 @@
 
     // ================= 注入主页面高亮 CSS =================
     GM_addStyle(`
+        .notion-vocab-inline-container {
+            display: inline !important;
+            align-self: baseline !important;
+            vertical-align: baseline !important;
+            line-height: inherit !important;
+        }
         .${CONFIG.highlightClass} {
             display: inline !important;
             align-self: baseline !important;
@@ -708,6 +728,11 @@
             opacity: 1;
             transform: translateY(-1px) scale(1.06);
             box-shadow: 0 4px 0 rgba(18, 169, 157, .22);
+        }
+
+        .imt-speaker:active {
+            transform: translateY(1px) scale(0.96);
+            box-shadow: 0 1px 0 rgba(18, 169, 157, .22);
         }
 
         .imt-quick-exp {
@@ -1333,10 +1358,12 @@
 
         const fragment = selection.getRangeAt(0).cloneContents();
         const blocks = getCompleteSelectionBlocks(rawText, extractSelectedBlocks(fragment));
+        const text = (blocks && blocks.length > 0)
+            ? blocks.map(block => block.text).join('\n')
+            : rawText;
 
         return {
-            // 翻译请求始终使用浏览器提供的完整选区；blocks 仅描述渲染结构。
-            text: rawText,
+            text,
             blocks
         };
     }
@@ -1622,6 +1649,16 @@
         return false;
     }
 
+    function isFlexOrGridParent(element) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) return false;
+        try {
+            const display = window.getComputedStyle(element).display || '';
+            return display.includes('flex') || display.includes('grid');
+        } catch (e) {
+            return false;
+        }
+    }
+
     // 对特定的文本节点执行正则匹配与高亮 span 的替换
     function highlightTextNode(textNode, regex) {
         if (!regex || shouldSkipNode(textNode)) return;
@@ -1663,7 +1700,17 @@
             frag.appendChild(document.createTextNode(text.slice(lastIndex)));
         }
 
-        textNode.parentNode.replaceChild(frag, textNode);
+        const parent = textNode.parentNode;
+        if (!parent) return;
+
+        if (isFlexOrGridParent(parent)) {
+            const wrapper = document.createElement('span');
+            wrapper.className = 'notion-vocab-inline-container';
+            wrapper.appendChild(frag);
+            parent.replaceChild(wrapper, textNode);
+        } else {
+            parent.replaceChild(frag, textNode);
+        }
     }
 
     // 全局扫描页面
@@ -1719,7 +1766,7 @@
         return `
             <div class="imt-word-title">
                 ${escapeHtml(info.originalWord || word)}
-                <span class="imt-speaker" data-text="${escapeHtml(info.originalWord || word)}" title="悬停朗读">🔊</span>
+                <span class="imt-speaker" data-text="${escapeHtml(info.originalWord || word)}" title="点击或悬停朗读">🔊</span>
             </div>
             <div class="imt-quick-exp">
                 ${expHtml}
@@ -1830,13 +1877,31 @@
 
     // 弹窗内部的发音喇叭悬停事件：移出不打断，直到自然播放完毕
     contentBox.addEventListener('mouseover', (e) => {
-        if (e.target.classList.contains('imt-speaker')) {
-            playAudio(e.target.getAttribute('data-text'));
+        const speaker = e.target.closest('.imt-speaker');
+        if (speaker) {
+            playAudio(speaker.getAttribute('data-text'));
         }
     });
     quickContentBox.addEventListener('mouseover', (e) => {
-        if (e.target.classList.contains('imt-speaker')) {
-            playAudio(e.target.getAttribute('data-text'));
+        const speaker = e.target.closest('.imt-speaker');
+        if (speaker) {
+            playAudio(speaker.getAttribute('data-text'));
+        }
+    });
+
+    // 弹窗内部的发音喇叭点击事件：支持在悬停后直接多次点击重复朗读
+    contentBox.addEventListener('click', (e) => {
+        const speaker = e.target.closest('.imt-speaker');
+        if (speaker) {
+            e.stopPropagation();
+            playAudio(speaker.getAttribute('data-text'));
+        }
+    });
+    quickContentBox.addEventListener('click', (e) => {
+        const speaker = e.target.closest('.imt-speaker');
+        if (speaker) {
+            e.stopPropagation();
+            playAudio(speaker.getAttribute('data-text'));
         }
     });
 
@@ -2480,13 +2545,13 @@ For Mode 3: Phrase or Sentence
 Return this JSON structure:
 {
   "mode": "sentence",
-  "translation": "Simplified Chinese translation. Preserve the original line breaks when the input has multiple lines.",
+  "translation": "Simplified Chinese translation. Preserve distinct paragraph or list item line breaks.",
   "segments": ["Optional. One translated segment per original FORMAT_BLOCKS item or per original line, in the same order."]
 }
 
 Format preservation rules for Mode 3:
 - If the user message includes FORMAT_BLOCKS, return a "segments" array with exactly the same number of items as FORMAT_BLOCKS.
-- If the input contains multiple lines, preserve the same line count and order in "translation" using newline characters.
+- If the input contains multiple lines, preserve line breaks in "translation" when lines represent distinct paragraphs, headings, or list items. If multiple lines are fragments of a single continuous sentence, translate them as one coherent sentence.
 - Do not merge separate titles, list items, bullets, paragraphs, or table cells.
 - Do not add numbering or bullets unless they already exist in the source segment.
 
@@ -2565,7 +2630,7 @@ Formatting requirements: Output valid JSON only.`;
         }
 
         if (data.mode === "en_word") {
-            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}<span class="imt-phonetic">${escapeHtml(data.phonetic || '')}</span><span class="imt-speaker" data-text="${escapeHtml(data.word || originalText)}" title="悬停朗读">🔊</span></div>`;
+            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}<span class="imt-phonetic">${escapeHtml(data.phonetic || '')}</span><span class="imt-speaker" data-text="${escapeHtml(data.word || originalText)}" title="点击或悬停朗读">🔊</span></div>`;
             (data.entries || []).forEach(entry => {
                 html += `<div class="imt-section"><div><span class="imt-pos">${escapeHtml(entry.pos || '')}</span><span class="imt-meaning">${escapeHtml(entry.meaning || '')}</span></div></div>`;
                 if (entry.examples && entry.examples.length > 0) {
