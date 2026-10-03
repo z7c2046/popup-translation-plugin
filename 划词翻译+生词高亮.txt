@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.3
+// @version      4.5.4
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -31,6 +31,19 @@
         GM_setValue('lexipro_llm_provider', initialProvider);
     }
 
+    // 校验硅基流动选中的模型，若非官方免费模型或为已下线模型则回退为默认免费模型
+    const VALID_SF_MODELS = [
+        "Qwen/Qwen2.5-7B-Instruct",
+        "Qwen/Qwen3.5-4B",
+        "Qwen/Qwen3-8B",
+        "THUDM/GLM-4-9B-0414"
+    ];
+    let initialSfModel = GM_getValue('lexipro_sf_model', "Qwen/Qwen2.5-7B-Instruct");
+    if (!VALID_SF_MODELS.includes(initialSfModel)) {
+        initialSfModel = "Qwen/Qwen2.5-7B-Instruct";
+        GM_setValue('lexipro_sf_model', initialSfModel);
+    }
+
     // ================= 配置区 =================
     const CONFIG = {
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
@@ -39,7 +52,7 @@
                 name: '硅基流动',
                 apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
                 apiKey: "",
-                model: GM_getValue('lexipro_sf_model', "deepseek-ai/DeepSeek-V3"),
+                model: initialSfModel,
                 supportsJsonResponse: true
             },
             kimi_free: {
@@ -2100,11 +2113,10 @@
                 <div class="imt-settings-group" id="sf-model-group" style="display: ${!isKimi ? 'block' : 'none'};">
                     <label for="sf-model-select">推理模型</label>
                     <select class="form-input" id="sf-model-select">
-                        <option value="deepseek-ai/DeepSeek-V3" ${CONFIG.llmProviders.siliconflow.model === 'deepseek-ai/DeepSeek-V3' ? 'selected' : ''}>DeepSeek-V3 (推荐)</option>
-                        <option value="deepseek-ai/DeepSeek-V3.2" ${CONFIG.llmProviders.siliconflow.model === 'deepseek-ai/DeepSeek-V3.2' ? 'selected' : ''}>DeepSeek-V3.2</option>
-                        <option value="Qwen/Qwen3-8B" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen3-8B' ? 'selected' : ''}>Qwen-3-8B</option>
-                        <option value="Qwen/Qwen3.5-9B" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen3.5-9B' ? 'selected' : ''}>Qwen-3.5-9B</option>
-                        <option value="Qwen/Qwen3-VL-32B-Instruct" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen3-VL-32B-Instruct' ? 'selected' : ''}>Qwen-3-VL-32B-Instruct</option>
+                        <option value="Qwen/Qwen2.5-7B-Instruct" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen2.5-7B-Instruct' ? 'selected' : ''}>Qwen2.5-7B-Instruct (免费/推荐)</option>
+                        <option value="Qwen/Qwen3.5-4B" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen3.5-4B' ? 'selected' : ''}>Qwen3.5-4B (免费)</option>
+                        <option value="Qwen/Qwen3-8B" ${CONFIG.llmProviders.siliconflow.model === 'Qwen/Qwen3-8B' ? 'selected' : ''}>Qwen3-8B (免费)</option>
+                        <option value="THUDM/GLM-4-9B-0414" ${CONFIG.llmProviders.siliconflow.model === 'THUDM/GLM-4-9B-0414' ? 'selected' : ''}>GLM-4-9B-0414 (免费)</option>
                     </select>
                 </div>
 

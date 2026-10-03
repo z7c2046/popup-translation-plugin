@@ -7,7 +7,7 @@ Tampermonkey userscript for selection translation, Notion vocabulary sync, and h
 This repository does not store API credentials. Configure them in Tampermonkey storage before use:
 
 - `lexipro_sf_api_key`
-- `lexipro_sf_model` (optional, defaults to `deepseek-ai/DeepSeek-V3`)
+- `lexipro_sf_model` (optional, defaults to `Qwen/Qwen2.5-7B-Instruct`)
 - `lexipro_kimi_refresh_token` (for Kimi free web mode)
 - `lexipro_kimi_access_token` (for Kimi free web mode)
 - `lexipro_notion_token`
@@ -79,3 +79,15 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - 将设置面板（`#imt-settings`）与释义容器（`#imt-content`）彻底物理隔离为独立视图容器。
 - 切换到设置面板时不再销毁释义 DOM，打字机特效与网络请求在后台持续完整执行；关闭设置面板后无缝呈现完整内容。
 - 新增 `tests/typewriter-settings.test.cjs` 自动化测试保障。
+
+### 4.5.4
+
+- 硅基流动全面转为纯免费模型矩阵，彻底移除所有付费模型（包括 DeepSeek 系列）：
+  - `Qwen/Qwen2.5-7B-Instruct`（默认推荐，经典 7B 高质通用指令与翻译模型）
+  - `Qwen/Qwen3.5-4B`（超长 256K 上下文、原生多模态极速模型）
+  - `Qwen/Qwen3-8B`（131K 上下文、支持思考与通用对话双模式）
+  - `THUDM/GLM-4-9B-0414`（智谱开源通用 9B 模型）
+- 增加免费模型有效性校验与安全迁移机制：若本地 Tampermonkey 存储中残留任何旧模型或付费模型，自动回退至默认免费模型 `Qwen/Qwen2.5-7B-Instruct`。
+- 新增 `tests/model-options.test.cjs` 单元测试保障。
+
+
