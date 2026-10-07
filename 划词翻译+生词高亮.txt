@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.4
+// @version      4.5.5
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -44,22 +44,38 @@
         GM_setValue('lexipro_sf_model', initialSfModel);
     }
 
+    // 初始化是否关闭深度思考设置（默认关闭深度思考以保证极速翻译体验）
+    let initialDisableThinking = GM_getValue('lexipro_disable_thinking', null);
+    if (initialDisableThinking === null) {
+        const storedKimiThinking = GM_getValue('lexipro_kimi_thinking', null);
+        if (storedKimiThinking !== null) {
+            initialDisableThinking = !storedKimiThinking;
+        } else {
+            initialDisableThinking = true;
+        }
+        GM_setValue('lexipro_disable_thinking', initialDisableThinking);
+    } else {
+        initialDisableThinking = Boolean(initialDisableThinking);
+    }
+
     // ================= 配置区 =================
     const CONFIG = {
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
+        disableThinking: initialDisableThinking, // 是否关闭深度思考（默认关闭，极速秒出）
         llmProviders: {
             siliconflow: {
                 name: '硅基流动',
                 apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
                 apiKey: "",
                 model: initialSfModel,
-                supportsJsonResponse: true
+                supportsJsonResponse: true,
+                disableThinking: initialDisableThinking
             },
             kimi_free: {
                 name: 'Kimi (网页免费版)',
                 refreshToken: "",
                 accessToken: "",
-                enableThinking: GM_getValue('lexipro_kimi_thinking', false)
+                enableThinking: !initialDisableThinking
             }
         },
         notionToken: 'REDACTED_LEGACY_NOTION_TOKEN',
@@ -1155,6 +1171,27 @@
             font-weight: 650;
             line-height: 1.45;
         }
+
+        .imt-switch-status-badge {
+            display: inline-block;
+            font-size: 11px;
+            margin-left: 6px;
+            padding: 1px 7px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all .2s ease;
+            vertical-align: middle;
+        }
+
+        .imt-switch-status-badge.imt-status-off {
+            background: rgba(111, 186, 44, 0.18);
+            color: #4e881e;
+        }
+
+        .imt-switch-status-badge.imt-status-on {
+            background: rgba(180, 160, 130, 0.22);
+            color: #7d6b55;
+        }
     `;
     shadow.appendChild(style);
 
@@ -2120,6 +2157,32 @@
                     </select>
                 </div>
 
+                <div class="imt-settings-group" id="imt-thinking-group">
+                    <div class="imt-settings-switch-row">
+                        <div class="imt-settings-switch-copy">
+                            <label for="imt-thinking-switch">
+                                关闭深度思考
+                                <span class="imt-switch-status-badge ${Boolean(CONFIG.disableThinking) ? 'imt-status-off' : 'imt-status-on'}" id="imt-thinking-status-text">
+                                    ${Boolean(CONFIG.disableThinking) ? '已关闭思考（极速直出）' : '未关闭（深度推理）'}
+                                </span>
+                            </label>
+                            <div class="imt-settings-hint" id="imt-thinking-hint">
+                                ${Boolean(CONFIG.disableThinking) ? '开启此项将关闭模型推理过程，翻译秒级直出（推荐日常查词）' : '关闭此项将保留模型深度思考链，输出更详尽但耗时较长'}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked="${Boolean(CONFIG.disableThinking)}"
+                            class="imt-animal-switch ${Boolean(CONFIG.disableThinking) ? 'imt-animal-switch-checked' : ''}"
+                            id="imt-thinking-switch"
+                            title="${Boolean(CONFIG.disableThinking) ? '当前已关闭深度思考（点击开启深度思考）' : '当前保留深度思考（点击关闭深度思考）'}"
+                        >
+                            <span class="imt-animal-switch-handle" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
                     <div class="imt-settings-group" style="margin-bottom: 6px;">
                         <label for="kimi-refresh-token">Kimi Refresh Token *</label>
@@ -2152,8 +2215,50 @@
         const sfModelGroup = settingsBox.querySelector('#sf-model-group');
         const kimiSettingsGroup = settingsBox.querySelector('#kimi-settings-group');
         const sfModelSelect = settingsBox.querySelector('#sf-model-select');
+        const thinkingSwitch = settingsBox.querySelector('#imt-thinking-switch');
+        const thinkingStatusBadge = settingsBox.querySelector('#imt-thinking-status-text');
+        const thinkingHint = settingsBox.querySelector('#imt-thinking-hint');
+        const thinkingLabel = settingsBox.querySelector('label[for="imt-thinking-switch"]');
         const kimiRefreshTokenInput = settingsBox.querySelector('#kimi-refresh-token');
         const kimiAccessTokenInput = settingsBox.querySelector('#kimi-access-token');
+
+        function updateThinkingSwitchUI(disabled) {
+            if (!thinkingSwitch) return;
+            thinkingSwitch.classList.toggle('imt-animal-switch-checked', disabled);
+            thinkingSwitch.setAttribute('aria-checked', String(disabled));
+            thinkingSwitch.title = disabled
+                ? '当前已关闭深度思考（点击开启深度思考）'
+                : '当前保留深度思考（点击关闭深度思考）';
+            if (thinkingStatusBadge) {
+                thinkingStatusBadge.textContent = disabled ? '已关闭思考（极速直出）' : '未关闭（深度推理）';
+                thinkingStatusBadge.className = `imt-switch-status-badge ${disabled ? 'imt-status-off' : 'imt-status-on'}`;
+            }
+            if (thinkingHint) {
+                thinkingHint.textContent = disabled
+                    ? '开启此项将关闭模型推理过程，翻译秒级直出（推荐日常查词）'
+                    : '关闭此项将保留模型深度思考链，输出更详尽但耗时较长';
+            }
+        }
+
+        function toggleThinkingSetting() {
+            const nextValue = !Boolean(CONFIG.disableThinking);
+            CONFIG.disableThinking = nextValue;
+            if (CONFIG.llmProviders?.siliconflow) {
+                CONFIG.llmProviders.siliconflow.disableThinking = nextValue;
+            }
+            if (CONFIG.llmProviders?.kimi_free) {
+                CONFIG.llmProviders.kimi_free.enableThinking = !nextValue;
+            }
+            GM_setValue('lexipro_disable_thinking', nextValue);
+            GM_setValue('lexipro_kimi_thinking', !nextValue);
+            updateThinkingSwitchUI(nextValue);
+        }
+
+        thinkingSwitch?.addEventListener('click', toggleThinkingSetting);
+        thinkingLabel?.addEventListener('click', (e) => {
+            e.preventDefault();
+            thinkingSwitch?.click();
+        });
 
         providerSelect.addEventListener('change', () => {
             const provider = providerSelect.value;
@@ -3004,7 +3109,8 @@ Formatting requirements: Output valid JSON only.`;
                 data: JSON.stringify({
                     messages: kimiMessages,
                     refs: [],
-                    user_search: false
+                    use_search: !Boolean(CONFIG.disableThinking),
+                    user_search: !Boolean(CONFIG.disableThinking)
                 }),
                 timeout,
                 onprogress: function(response) {
@@ -3101,6 +3207,18 @@ Formatting requirements: Output valid JSON only.`;
 
             if (responseFormat && provider.supportsJsonResponse !== false) {
                 body.response_format = responseFormat;
+            }
+
+            const shouldDisableThinking = typeof CONFIG.disableThinking === 'boolean'
+                ? CONFIG.disableThinking
+                : Boolean(provider.disableThinking);
+
+            if (shouldDisableThinking) {
+                body.enable_thinking = false;
+                body.thinking = { type: 'disabled' };
+            } else {
+                body.enable_thinking = true;
+                body.thinking = { type: 'enabled' };
             }
 
             const req = GM_xmlhttpRequest({

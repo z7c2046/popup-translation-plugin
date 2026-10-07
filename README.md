@@ -8,6 +8,7 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 
 - `lexipro_sf_api_key`
 - `lexipro_sf_model` (optional, defaults to `Qwen/Qwen2.5-7B-Instruct`)
+- `lexipro_disable_thinking` (optional, boolean, defaults to `true` to disable deep thinking for sub-second responses)
 - `lexipro_kimi_refresh_token` (for Kimi free web mode)
 - `lexipro_kimi_access_token` (for Kimi free web mode)
 - `lexipro_notion_token`
@@ -89,5 +90,14 @@ This repository does not store API credentials. Configure them in Tampermonkey s
   - `THUDM/GLM-4-9B-0414`（智谱开源通用 9B 模型）
 - 增加免费模型有效性校验与安全迁移机制：若本地 Tampermonkey 存储中残留任何旧模型或付费模型，自动回退至默认免费模型 `Qwen/Qwen2.5-7B-Instruct`。
 - 新增 `tests/model-options.test.cjs` 单元测试保障。
+
+### 4.5.5
+
+- 设置面板新增「关闭深度思考」选项（动森经典 Organic Switch）：
+  - 针对支持推理思考的模型（如 `Qwen/Qwen3-8B` 等），支持一键开启或关闭模型长思维链思考。
+  - 默认开启「关闭深度思考」，通过注入 `enable_thinking: false` 与 `thinking: { type: 'disabled' }` 参数，使查词与翻译响应自 15~20 秒大幅缩减至 1 秒以内，彻底消除超长思考超时与达到 Token 上限风险。
+  - 用户可随时在设置面板切换：关闭时极速直出翻译（显示绿色徽章「已关闭思考（极速直出）」）；开启时保留完整模型深度思维链推理（显示「未关闭（深度推理）」）。
+  - 状态实时通过 `GM_setValue('lexipro_disable_thinking')` 持久化，并与服务商通信协议无缝打通。
+- 新增 `tests/thinking-settings.test.cjs` 自动化单元测试保障。
 
 
