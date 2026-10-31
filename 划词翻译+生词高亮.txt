@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.5
+// @version      4.5.6
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -2636,9 +2636,7 @@ Return this JSON structure:
     {
       "pos": "词性缩写, such as n./v./adj./adv.",
       "meaning": "中文核心释义",
-      "examples": [{"source": "English example sentence", "target": "Chinese translation"}],
-      "synonyms": [{"word": "English synonym", "meaning": "Chinese meaning"}],
-      "antonyms": [{"word": "English antonym", "meaning": "Chinese meaning"}]
+      "examples": [{"source": "English example sentence", "target": "Chinese translation"}]
     }
   ]
 }
@@ -2652,11 +2650,14 @@ Return this JSON structure:
     {
       "pos": "中文词性",
       "translation": "English translation",
-      "examples": [{"source": "中文例句", "target": "English translation"}],
-      "synonyms": [{"word": "中文近义词", "translation": "English translation"}]
+      "examples": [{"source": "中文例句", "target": "English translation"}]
     }
   ]
 }
+
+Vocabulary rules for Mode 1 & Mode 2:
+- Do NOT include synonyms, antonyms, or related words.
+- Only provide part of speech (pos), core definitions/meanings, and example sentences with translations.
 
 For Mode 3: Phrase or Sentence
 Return this JSON structure:
@@ -2757,12 +2758,6 @@ Formatting requirements: Output valid JSON only.`;
                     });
                     html += `</div>`;
                 }
-                if (entry.synonyms && entry.synonyms.length > 0) {
-                    html += `<div class="imt-meta"><strong>同义词：</strong>${entry.synonyms.map(s => `<span class="imt-code">${escapeHtml(s.word || '')} (${escapeHtml(s.meaning || '')})</span>`).join('')}</div>`;
-                }
-                if (entry.antonyms && entry.antonyms.length > 0) {
-                    html += `<div class="imt-meta"><strong>反义词：</strong>${entry.antonyms.map(a => `<span class="imt-code">${escapeHtml(a.word || '')} (${escapeHtml(a.meaning || '')})</span>`).join('')}</div>`;
-                }
             });
             return html;
         }
@@ -2777,9 +2772,6 @@ Formatting requirements: Output valid JSON only.`;
                         html += `<div class="imt-ex-src">${index + 1}. ${escapeHtml(ex.source || '')}</div><div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>`;
                     });
                     html += `</div>`;
-                }
-                if (entry.synonyms && entry.synonyms.length > 0) {
-                    html += `<div class="imt-meta"><strong>同义词/近义词：</strong>${entry.synonyms.map(s => `<span class="imt-code">${escapeHtml(s.word || '')} (${escapeHtml(s.translation || '')})</span>`).join('')}</div>`;
                 }
             });
             return html;

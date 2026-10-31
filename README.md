@@ -100,4 +100,13 @@ This repository does not store API credentials. Configure them in Tampermonkey s
   - 状态实时通过 `GM_setValue('lexipro_disable_thinking')` 持久化，并与服务商通信协议无缝打通。
 - 新增 `tests/thinking-settings.test.cjs` 自动化单元测试保障。
 
+### 4.5.6
+
+- 精简优化 AI 单词翻译 System Prompt（提示词）：
+  - 单词查询模式（英文单词 `en_word` / 中文词语 `zh_word`）彻底移除同义词（synonyms）、反义词（antonyms）、近义词要求。
+  - 明确增加指令约束（`Vocabulary rules for Mode 1 & Mode 2: Do NOT include synonyms, antonyms, or related words`），杜绝大模型额外输出冗余词汇。
+  - 核心保留：音标、词性缩写（pos）、精准释义及双语对照例句。
+  - 同步精简 UI 渲染层，去除同义词/反义词区域，使弹窗更加清爽聚焦，大幅缩减输出 Token 长度并加快生成响应速度。
+  - 新增 `tests/prompt-refinement.test.cjs` 自动化单元测试保障。
+
 
