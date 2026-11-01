@@ -6,7 +6,7 @@ const sourcePath = path.resolve(__dirname, '..', '划词翻译+生词高亮.txt'
 const source = fs.readFileSync(sourcePath, 'utf8');
 
 // 1. Check UserScript version bump
-assert.match(source, /\/\/\s*@version\s+4\.5\.[56]/, 'Script version should be bumped to at least 4.5.5');
+assert.match(source, /\/\/\s*@version\s+4\.[56]\.[0-9]+/, 'Script version should be bumped to at least 4.5.5');
 
 // 2. Check storage key and initial state safeguard
 assert.match(source, /GM_getValue\('lexipro_disable_thinking'/, 'Must read lexipro_disable_thinking from storage');

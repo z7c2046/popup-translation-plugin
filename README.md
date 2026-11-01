@@ -2,6 +2,10 @@
 
 Tampermonkey userscript for selection translation, Notion vocabulary sync, and highlighted vocabulary lookup.
 
+## Sub-projects
+
+- [`popup-translation-extension/`](./popup-translation-extension/): **Popup Translation 完整版 Chrome 扩展**（Manifest V3 架构），可在 Chrome `chrome://extensions/` 中直接开启开发者模式并以「加载已解压的扩展程序」导入使用。完整包含划词翻译、Notion 生词高亮、动森 UI 字典弹窗，以及本次新增的 **Reddit 帖子/评论** 与 **路透社 (Reuters) 新闻** 一键双语全文翻译！
+
 ## Configuration
 
 This repository does not store API credentials. Configure them in Tampermonkey storage before use:
@@ -109,4 +113,26 @@ This repository does not store API credentials. Configure them in Tampermonkey s
   - 同步精简 UI 渲染层，去除同义词/反义词区域，使弹窗更加清爽聚焦，大幅缩减输出 Token 长度并加快生成响应速度。
   - 新增 `tests/prompt-refinement.test.cjs` 自动化单元测试保障。
 
+### 4.6.0
 
+- **视觉与交互全面重构**：
+  - **全新蓝紫微光科技图标**：摒弃原有大橙色块，采用深邃蓝紫微光渐变（#2563EB - #7C3AED）与圆角质感双语字符设计；
+  - **深色磨砂黑极光悬浮胶囊**：悬浮按钮升级为磨砂半透明深色毛玻璃胶囊（Dark Frosted Glass），搭配发光指示器，小巧紧凑、支持自由拖拽与吸附，不遮挡 Reddit 内容。
+- **全新支持三种翻译显示样式与进站自动翻译开关（双端支持，一键即时热切换）**：
+  - **进入页面自动翻译 (Auto-translate)**：设置中心或悬浮菜单中开启后，打开 Reddit 帖子或路透社新闻时无需手动点击，自动完成整页翻译；深度支持 Reddit SPA 路由监听；
+  - **沉浸直接替换（默认推荐）**：直接沿用 Reddit 帖子和评论原有的 HTML 标签、字号、字体与行高排版，仅将其中的英文替换为中文，视觉上天衣无缝；
+  - **下划线双语对照**：上面显示英文原文，下方紧跟带有优雅虚线下划线的中文译文，字体字号直接继承原文，无多余边框遮挡；
+  - **独立轻量卡片**：在原文下方内嵌柔和微卡片，提供微型复制与折叠按钮。
+- **新增 Reddit 帖子与多层级评论一键翻译功能**：
+  - 在 Reddit 页面（`*.reddit.com`）右下角自动激活专属悬浮胶囊，支持自由拖拽与吸附记忆；
+  - 一键并发批量翻译帖子标题、正文与各级嵌套评论；
+  - 动态侦测向下滚动加载的新评论，胶囊自动显示增量未翻译角标（如 `+12`）。
+- **新增路透社 (Reuters) 新闻一键全文翻译功能**：
+  - 在路透社新闻页面（`*.reuters.com`）右下角自动激活专属悬浮胶囊；
+  - 一键并发翻译文章大标题、导语摘要与正文全部段落，智能过滤作者署名与版权小字；
+  - 支持一键「📋 复制译文」、「折叠/展开」与「还原为英文原文」。
+- **全新系统级 Chrome 扩展 `popup-translation-extension/`**：
+  - 基于 Chrome 官方 Manifest V3 标准构建，彻底规避脚本体积膨胀带来的阅读与管理复杂度；
+  - 完整继承油猴脚本的所有能力：全网划词翻译、动森原生 UI 字典弹窗、Notion 生词本增量同步（SWR）、页面彩色生词气泡高亮、输入框中英互译；
+  - 同步集成三种翻译样式、Reddit 与路透社一键全文翻译增强功能，开箱即用，直接通过 Chrome 扩展管理界面加载已解压程序即可使用。
+- 新增 `tests/chrome-extension.test.cjs` 自动化测试套件。

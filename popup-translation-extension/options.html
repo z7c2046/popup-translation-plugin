@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Popup Translation - 选项与配置中心</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <span class="brand-icon">译</span>
+        <div>
+          <h1>Popup Translation 设置中心</h1>
+          <p>配置 AI 翻译引擎、Notion 生词本增量同步与站点翻译偏好</p>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <!-- 大模型服务商与 API -->
+      <section class="card">
+        <h2 class="card-title">🤖 硅基流动 (SiliconFlow) 大语言模型配置</h2>
+        <p class="card-desc">全网划词翻译、Reddit 与路透社翻译的核心驱动引擎。默认已内置官方免费高速 Key。</p>
+
+        <div class="form-group">
+          <label for="sf-model-select">推荐免费模型</label>
+          <select id="sf-model-select" class="form-control">
+            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (官方默认推荐，极速高质)</option>
+            <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B (超长 256K 上下文)</option>
+            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B (通用强劲)</option>
+            <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414 (智谱通用 9B)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sf-key-input">硅基流动 API Key</label>
+          <div class="input-with-button">
+            <input type="password" id="sf-key-input" class="form-control" placeholder="sk-...">
+            <button type="button" id="btn-toggle-sf-key" class="btn-toggle-eye">👁️</button>
+          </div>
+          <span class="tip">如留空将自动回退使用内置免费 Key。数据仅保存在您的本地浏览器存储中。</span>
+        </div>
+
+        <div class="form-group">
+          <div class="switch-row">
+            <div>
+              <div class="switch-title">关闭模型深度思考 (推理链)</div>
+              <div class="switch-desc">跳过思考模型冗长的思维链推理过程，使单次查词与全文翻译在 1 秒以内极速直出。</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="disable-thinking-check" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="button-group">
+          <button type="button" id="btn-test-sf" class="btn btn-secondary">⚡ 测试 AI 翻译连通性</button>
+          <span id="test-sf-result" class="test-result"></span>
+        </div>
+      </section>
+
+      <!-- Notion 生词本同步 -->
+      <section class="card">
+        <h2 class="card-title">📓 Notion 生词本增量同步 (SWR)</h2>
+        <p class="card-desc">配置您的 Notion 知识库，在浏览网页时自动高亮生词本中的单词，并支持一键收藏新单词。</p>
+
+        <div class="form-group">
+          <label for="notion-token-input">Notion Integration Token</label>
+          <input type="password" id="notion-token-input" class="form-control" placeholder="ntn_... 或 secret_...">
+        </div>
+
+        <div class="form-group">
+          <label for="notion-db-input">Notion Database ID (数据库 ID)</label>
+          <input type="text" id="notion-db-input" class="form-control" placeholder="32 位数据库 ID">
+        </div>
+      </section>
+
+      <!-- 站点翻译设置 -->
+      <section class="card">
+        <h2 class="card-title">🌐 Reddit & 路透社 (Reuters) 翻译偏好</h2>
+        <p class="card-desc">自定义在 Reddit 帖子评论与路透社新闻页面上的翻译视觉呈现效果。</p>
+        <div class="form-group">
+          <label for="site-style-select">翻译显示样式</label>
+          <select id="site-style-select" class="form-control">
+            <option value="replace">沉浸式直接替换 (使用网站原生字体排版，直接将英文替换为中文，最纯粹)</option>
+            <option value="underline">下划线双语对照 (上面英文原文，下面紧贴带虚线下划线的中文译文)</option>
+            <option value="card">独立轻量卡片 (上面英文原文，下方内嵌独立译文卡片)</option>
+          </select>
+          <span class="tip">提示：在 Reddit 或路透社页面右下角悬浮胶囊中，也可随时点击展开菜单即时切换这 3 种样式。</span>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <div class="switch-row">
+            <div>
+              <div class="switch-title">进入页面自动翻译</div>
+              <div class="switch-desc">打开 Reddit 帖子或路透社新闻页面时，无需手动点击悬浮胶囊，自动开始全页翻译。</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="site-auto-translate-check">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 保存操作栏 -->
+      <div class="bottom-bar">
+        <button type="button" id="btn-save" class="btn btn-primary">💾 保存全部设置</button>
+        <button type="button" id="btn-reset" class="btn btn-text">恢复默认配置</button>
+        <span id="save-msg" class="save-msg"></span>
+      </div>
+    </main>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
+

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.5.6
+// @version      4.6.0
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -3473,6 +3473,9 @@ Formatting requirements: Output valid JSON only.`;
 
     // ================= 脚本初始化入口 =================
     function init() {
+        // 优先启动 Reddit 与路透社 (Reuters) 专属全文/帖子翻译增强
+        initSiteSpecificTranslator();
+
         if (!CONFIG.notionToken || !CONFIG.notionDatabaseId) {
             console.warn('[LexiPro & Notion] 未配置 Notion Token 或 Database ID');
             return;
@@ -3482,7 +3485,914 @@ Formatting requirements: Output valid JSON only.`;
         syncVocabData();
     }
 
-    // Go!
+    // ================= Reddit & 路透社 (Reuters) 全文/帖子翻译增强模块 =================
+    function initSiteSpecificTranslator() {
+        const host = window.location.hostname.toLowerCase();
+        const isReddit = host.includes('reddit.com');
+        const isReuters = host.includes('reuters.com');
+
+        if (!isReddit && !isReuters) return;
+
+        const siteConfig = {
+            name: isReddit ? 'Reddit' : '路透社',
+            isReddit,
+            isReuters
+        };
+
+        let siteItemsMap = new Map();
+        let siteItemCounter = 0;
+        let isSiteTranslating = false;
+        let siteTranslatedCount = 0;
+        let siteTotalCount = 0;
+        let siteUntranslatedNewCount = 0;
+        let isSiteShowingTranslation = false;
+
+        // 核心翻译样式：'replace' (沉浸替换原生字体) | 'underline' (虚线下划线双语) | 'card' (独立轻量卡片)
+        let siteTranslationStyle = GM_getValue('lexipro_site_translation_style', 'replace');
+
+        // 是否进入 Reddit / 路透社页面后自动开始翻译
+        let siteAutoTranslate = GM_getValue('lexipro_site_auto_translate', false);
+
+        // 注入现代高级质感 CSS（深色磨砂黑悬浮胶囊 + 3种翻译样式）
+        GM_addStyle(`
+            /* 悬浮胶囊容器 */
+            .lexipro-site-fab-container {
+                position: fixed;
+                z-index: 2147483640;
+                display: flex;
+                flex-direction: column;
+                align-items: flex-end;
+                user-select: none;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+            }
+
+            /* 现代深色磨砂黑极光胶囊 */
+            .lexipro-site-fab {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                background: rgba(15, 23, 42, 0.88);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                color: #F8FAFC;
+                padding: 8px 16px;
+                border-radius: 999px;
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.14);
+                cursor: pointer;
+                transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+                position: relative;
+            }
+            .lexipro-site-fab:hover {
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.4), 0 0 14px rgba(99, 102, 241, 0.35);
+                border-color: rgba(99, 102, 241, 0.45);
+            }
+            .lexipro-site-fab:active {
+                transform: translateY(1px) scale(0.98);
+            }
+            .lexipro-site-fab.dragging {
+                opacity: 0.82;
+                cursor: grabbing;
+            }
+            .lexipro-site-fab-icon {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                background: linear-gradient(135deg, #3B82F6, #8B5CF6);
+                border-radius: 50%;
+                font-size: 11px;
+                font-weight: bold;
+                color: #FFFFFF;
+                box-shadow: 0 1px 4px rgba(59, 130, 246, 0.4);
+            }
+            .lexipro-site-spinner {
+                display: inline-block;
+                animation: lexipro-spin 1s infinite linear;
+            }
+            @keyframes lexipro-spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            .lexipro-site-fab-label {
+                font-size: 13px;
+                font-weight: 600;
+                letter-spacing: 0.2px;
+                white-space: nowrap;
+            }
+            .lexipro-site-badge {
+                position: absolute;
+                top: -5px;
+                right: -5px;
+                background: #10B981;
+                color: #FFFFFF;
+                font-size: 10px;
+                font-weight: 700;
+                padding: 1px 6px;
+                border-radius: 999px;
+                border: 2px solid #0F172A;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            }
+
+            /* 悬浮菜单面板 */
+            .lexipro-site-menu {
+                display: none;
+                width: 236px;
+                background: rgba(15, 23, 42, 0.94);
+                backdrop-filter: blur(18px);
+                -webkit-backdrop-filter: blur(18px);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 16px;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+                padding: 12px;
+                margin-bottom: 10px;
+                color: #F8FAFC;
+                font-size: 13px;
+            }
+            .lexipro-site-menu.show {
+                display: block;
+            }
+            .lexipro-site-menu-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding-bottom: 8px;
+                margin-bottom: 8px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                font-size: 12px;
+                font-weight: 700;
+                color: #818CF8;
+            }
+            .lexipro-site-menu-btn {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                width: 100%;
+                padding: 7px 10px;
+                border-radius: 8px;
+                border: none;
+                background: transparent;
+                color: inherit;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                text-align: left;
+                transition: all 0.15s ease;
+            }
+            .lexipro-site-menu-btn:hover {
+                background: rgba(255, 255, 255, 0.1);
+                color: #A5B4FC;
+            }
+            .lexipro-style-group {
+                margin: 6px 0;
+                padding: 6px 8px;
+                background: rgba(255, 255, 255, 0.05);
+                border-radius: 8px;
+            }
+            .lexipro-style-title {
+                font-size: 11px;
+                color: #94A3B8;
+                margin-bottom: 4px;
+            }
+            .lexipro-style-option {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 4px 6px;
+                border-radius: 6px;
+                font-size: 12px;
+                cursor: pointer;
+                color: #CBD5E1;
+            }
+            .lexipro-style-option:hover {
+                background: rgba(255, 255, 255, 0.08);
+            }
+            .lexipro-style-option.active {
+                background: rgba(99, 102, 241, 0.25);
+                color: #A5B4FC;
+                font-weight: 600;
+            }
+
+            /* ================= 样式 2: 虚线下划线双语对照 ================= */
+            .lexipro-trans-underline {
+                margin-top: 4px;
+                padding-bottom: 2px;
+                border-bottom: 1.5px dashed #818CF8;
+                color: #475569;
+                font-family: inherit;
+                font-size: inherit;
+                line-height: inherit;
+                display: block;
+                opacity: 0.95;
+            }
+            @media (prefers-color-scheme: dark), [data-theme="dark"], body.theme-dark {
+                .lexipro-trans-underline {
+                    color: #CBD5E1;
+                    border-bottom-color: #6366F1;
+                }
+            }
+
+            /* ================= 样式 3: 独立轻量卡片 ================= */
+            .lexipro-trans-card {
+                margin: 8px 0 12px 0;
+                padding: 8px 12px;
+                background: rgba(241, 245, 249, 0.7);
+                border: 1px solid rgba(226, 232, 240, 0.9);
+                border-left: 3px solid #6366F1;
+                border-radius: 8px;
+                font-size: 14px;
+                line-height: 1.62;
+                color: #1E293B;
+                clear: both;
+            }
+            @media (prefers-color-scheme: dark), [data-theme="dark"], body.theme-dark {
+                .lexipro-trans-card {
+                    background: rgba(30, 41, 59, 0.7);
+                    border-color: rgba(51, 65, 85, 0.9);
+                    border-left-color: #818CF8;
+                    color: #E2E8F0;
+                }
+            }
+            .lexipro-trans-card-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 4px;
+                font-size: 11px;
+                user-select: none;
+            }
+            .lexipro-trans-card-badge {
+                color: #6366F1;
+                font-weight: 600;
+            }
+            .lexipro-trans-card-btn {
+                background: transparent;
+                border: none;
+                font-size: 11px;
+                color: #64748B;
+                cursor: pointer;
+                padding: 1px 5px;
+                border-radius: 4px;
+            }
+            .lexipro-trans-card-btn:hover {
+                background: rgba(0, 0, 0, 0.05);
+                color: #0F172A;
+            }
+            .lexipro-site-toast {
+                position: fixed;
+                bottom: 24px;
+                left: 50%;
+                transform: translateX(-50%) translateY(20px);
+                background: rgba(15, 23, 42, 0.94);
+                color: #FFFFFF;
+                padding: 8px 18px;
+                border-radius: 999px;
+                font-size: 13px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(8px);
+                z-index: 2147483647;
+                opacity: 0;
+                pointer-events: none;
+                transition: all 0.22s ease;
+            }
+            .lexipro-site-toast.show {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        `);
+
+        // DOM 元素收集
+        function collectSiteElements() {
+            const newlyCollected = [];
+
+            if (siteConfig.isReddit) {
+                document.querySelectorAll('shreddit-post [slot="title"], shreddit-post a[slot="title"], h1[slot="title"], [data-testid="post-title"], div[data-testid="post-container"] h1, p.title a.title').forEach(el => {
+                    addSiteItem(el, 'title', newlyCollected);
+                });
+                document.querySelectorAll('shreddit-post [slot="text-body"], [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
+                    addSiteItem(el, 'body', newlyCollected);
+                });
+                document.querySelectorAll('shreddit-comment [slot="comment"], shreddit-comment div[id*="-comment-rtjson-content"], div[data-testid="comment"], div.Comment, div.comment div.usertext-body').forEach(el => {
+                    addSiteItem(el, 'comment', newlyCollected);
+                });
+                document.querySelectorAll('shreddit-comment p').forEach(el => {
+                    if (el.closest('[slot="comment"]') || el.closest('div[id*="-comment-rtjson-content"]')) return;
+                    addSiteItem(el, 'comment', newlyCollected);
+                });
+            } else if (siteConfig.isReuters) {
+                document.querySelectorAll('h1[data-testid="Heading"], header h1, h1.article-header__title, article h1').forEach(el => {
+                    addSiteItem(el, 'title', newlyCollected);
+                });
+                document.querySelectorAll('p[data-testid*="paragraph-0"], p[data-testid="Paragraph"], header p').forEach(el => {
+                    addSiteItem(el, 'lead', newlyCollected);
+                });
+                document.querySelectorAll('article div[data-testid*="paragraph-"], article p[data-testid*="paragraph-"], div[class*="article-body__content"] p, div[data-testid="article-body"] p').forEach(el => {
+                    const text = (el.innerText || '').trim();
+                    if (text.startsWith('Reporting by') || text.startsWith('Editing by') || text.includes('Our Standards:')) return;
+                    addSiteItem(el, 'paragraph', newlyCollected);
+                });
+            }
+
+            return newlyCollected;
+        }
+
+        function addSiteItem(element, type, collectorArray) {
+            if (!element || element.dataset.lexiproSiteId) return;
+            if (element.closest('.lexipro-site-fab-container') || element.closest('.lexipro-trans-card') || element.closest('.lexipro-trans-underline') || element.closest('#imt-shadow-host')) return;
+
+            const text = (element.innerText || '').trim();
+            if (!text || text.length < 2) return;
+            if (/^https?:\/\/\S+$/i.test(text)) return;
+
+            const id = 'lpsite_' + (++siteItemCounter) + '_' + Date.now();
+            element.dataset.lexiproSiteId = id;
+
+            const item = {
+                id,
+                type,
+                element,
+                originalHTML: element.innerHTML,
+                originalText: text,
+                translatedText: null,
+                injectedNode: null,
+                status: 'pending'
+            };
+
+            siteItemsMap.set(id, item);
+            collectorArray.push(item);
+        }
+
+        // 核心渲染逻辑：应用 3 种翻译样式之一
+        function applyItemStyle(item) {
+            if (!item.element || !item.translatedText) return;
+
+            // 清理已存在的辅助节点
+            if (item.injectedNode && item.injectedNode.parentNode) {
+                item.injectedNode.remove();
+                item.injectedNode = null;
+            }
+
+            if (!isSiteShowingTranslation) {
+                // 还原状态
+                item.element.innerHTML = item.originalHTML;
+                item.element.style.display = '';
+                return;
+            }
+
+            if (siteTranslationStyle === 'replace') {
+                // 样式 1: 沉浸式直接替换（保持 Reddit/路透社原有字体、字号与段落样式）
+                item.element.innerText = item.translatedText;
+                item.element.style.display = '';
+            } else if (siteTranslationStyle === 'underline') {
+                // 样式 2: 上面原文，下面紧贴带虚线下划线的译文（继承原字体）
+                item.element.innerHTML = item.originalHTML;
+                item.element.style.display = '';
+
+                const underNode = document.createElement('div');
+                underNode.className = 'lexipro-trans-underline';
+                underNode.dataset.forSiteId = item.id;
+                underNode.innerText = item.translatedText;
+
+                if (item.element.nextSibling) {
+                    item.element.parentNode.insertBefore(underNode, item.element.nextSibling);
+                } else {
+                    item.element.parentNode.appendChild(underNode);
+                }
+                item.injectedNode = underNode;
+            } else {
+                // 样式 3: 独立轻量卡片模式
+                item.element.innerHTML = item.originalHTML;
+                item.element.style.display = '';
+
+                const card = document.createElement('div');
+                card.className = 'lexipro-trans-card';
+                card.dataset.forSiteId = item.id;
+                card.innerHTML = `
+                    <div class="lexipro-trans-card-header">
+                        <span class="lexipro-trans-card-badge">✨ 译文</span>
+                        <button class="lexipro-trans-card-btn" title="复制译文">📋 复制</button>
+                    </div>
+                    <div class="lexipro-trans-card-body">${escapeHtml(item.translatedText)}</div>
+                `;
+
+                const copyBtn = card.querySelector('.lexipro-trans-card-btn');
+                copyBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(item.translatedText).then(() => {
+                        copyBtn.innerText = '✅ 已复制';
+                        setTimeout(() => { copyBtn.innerText = '📋 复制'; }, 2000);
+                    });
+                });
+
+                if (item.element.nextSibling) {
+                    item.element.parentNode.insertBefore(card, item.element.nextSibling);
+                } else {
+                    item.element.parentNode.appendChild(card);
+                }
+                item.injectedNode = card;
+            }
+        }
+
+        // 切换样式并热更新
+        function setTranslationStyle(newStyle) {
+            siteTranslationStyle = newStyle;
+            GM_setValue('lexipro_site_translation_style', newStyle);
+            updateStyleMenuUI();
+            if (isSiteShowingTranslation) {
+                siteItemsMap.forEach(item => {
+                    if (item.status === 'done') {
+                        applyItemStyle(item);
+                    }
+                });
+            }
+            const nameMap = { replace: '沉浸替换 (原生字体)', underline: '下划线双语对照', card: '轻量卡片对照' };
+            showSiteToast('已切换样式: ' + (nameMap[newStyle] || newStyle));
+        }
+
+        function restoreSiteOriginal() {
+            isSiteShowingTranslation = false;
+            siteItemsMap.forEach(item => {
+                if (item.element && item.originalHTML) {
+                    item.element.innerHTML = item.originalHTML;
+                    item.element.style.display = '';
+                }
+                if (item.injectedNode && item.injectedNode.parentNode) {
+                    item.injectedNode.remove();
+                    item.injectedNode = null;
+                }
+            });
+            updateSiteFabState();
+            showSiteToast('已还原为原始英文显示');
+        }
+
+        // 调度与执行翻译
+        async function runSiteTranslation() {
+            if (isSiteTranslating) return;
+
+            collectSiteElements();
+            const pendingItems = Array.from(siteItemsMap.values()).filter(it => it.status === 'pending');
+
+            if (pendingItems.length === 0) {
+                showSiteToast('本页全部内容均已翻译完成 ✨');
+                isSiteShowingTranslation = true;
+                siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
+                updateSiteFabState();
+                return;
+            }
+
+            isSiteTranslating = true;
+            siteTotalCount = siteItemsMap.size;
+            siteUntranslatedNewCount = 0;
+            updateSiteFabState();
+
+            try {
+                const batches = [];
+                let curBatch = [];
+                let curLen = 0;
+
+                for (const it of pendingItems) {
+                    if (it.originalText.length > 350 || it.type === 'body') {
+                        batches.push([it]);
+                    } else {
+                        curBatch.push(it);
+                        curLen += it.originalText.length;
+                        if (curBatch.length >= 6 || curLen > 800) {
+                            batches.push(curBatch);
+                            curBatch = [];
+                            curLen = 0;
+                        }
+                    }
+                }
+                if (curBatch.length > 0) batches.push(curBatch);
+
+                let batchIdx = 0;
+                const workers = Array.from({ length: Math.min(3, batches.length) }, async () => {
+                    while (batchIdx < batches.length) {
+                        const batch = batches[batchIdx++];
+                        await processSiteBatch(batch);
+                        updateSiteFabState();
+                    }
+                });
+
+                await Promise.all(workers);
+
+                isSiteShowingTranslation = true;
+                siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
+                showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
+            } catch (e) {
+                console.error('[LexiPro] 网页全文翻译出错:', e);
+                showSiteToast('⚠️ 翻译中断: ' + (e.message || e));
+            } finally {
+                isSiteTranslating = false;
+                updateSiteFabState();
+            }
+        }
+
+        async function processSiteBatch(batch) {
+            if (!batch || batch.length === 0) return;
+
+            if (batch.length === 1) {
+                const it = batch[0];
+                try {
+                    it.status = 'translating';
+                    const prompt = `Translate the following ${siteConfig.name} text into natural Simplified Chinese. Return ONLY the translation without quotes, notes, or markdown blocks.\n\n"${it.originalText}"`;
+                    const res = await requestLLMChatCompletion({
+                        messages: [
+                            { role: "system", content: "You are a professional translator. Return ONLY the translated Chinese text." },
+                            { role: "user", content: prompt }
+                        ],
+                        temperature: 0.2,
+                        timeout: 30000
+                    });
+                    it.translatedText = cleanSiteTrans(res);
+                    it.status = 'done';
+                    siteTranslatedCount++;
+                    applyItemStyle(it);
+                } catch (e) {
+                    it.status = 'error';
+                }
+                return;
+            }
+
+            try {
+                const itemsPayload = batch.map(it => ({ id: it.id, text: it.originalText }));
+                const sysPrompt = `Translate these ${siteConfig.name} contents into fluent Simplified Chinese. Return RAW JSON ONLY matching this format:\n{\n  "translations": [\n    { "id": "item_id", "text": "Translated Chinese text" }\n  ]\n}`;
+                const userPrompt = JSON.stringify(itemsPayload, null, 2);
+
+                const res = await requestLLMChatCompletion({
+                    messages: [
+                        { role: "system", content: sysPrompt },
+                        { role: "user", content: userPrompt }
+                    ],
+                    temperature: 0.2,
+                    timeout: 40000
+                });
+
+                let parsed = null;
+                try {
+                    let cleaned = res.trim();
+                    if (cleaned.includes('```json')) cleaned = cleaned.split('```json')[1].split('```')[0].trim();
+                    else if (cleaned.includes('```')) cleaned = cleaned.split('```')[1].split('```')[0].trim();
+                    parsed = JSON.parse(cleaned);
+                } catch (pe) {}
+
+                const map = new Map();
+                if (Array.isArray(parsed?.translations)) {
+                    parsed.translations.forEach(t => { if (t && t.id && t.text) map.set(t.id, cleanSiteTrans(t.text)); });
+                }
+
+                for (const it of batch) {
+                    const trans = map.get(it.id);
+                    if (trans) {
+                        it.translatedText = trans;
+                        it.status = 'done';
+                        siteTranslatedCount++;
+                        applyItemStyle(it);
+                    } else {
+                        try {
+                            const single = await requestLLMChatCompletion({
+                                messages: [
+                                    { role: "system", content: "Translate to Simplified Chinese. Return ONLY translated text." },
+                                    { role: "user", content: it.originalText }
+                                ],
+                                temperature: 0.2,
+                                timeout: 20000
+                            });
+                            it.translatedText = cleanSiteTrans(single);
+                            it.status = 'done';
+                            siteTranslatedCount++;
+                            applyItemStyle(it);
+                        } catch (se) {
+                            it.status = 'error';
+                        }
+                    }
+                }
+            } catch (err) {
+                for (const it of batch) {
+                    try {
+                        const single = await requestLLMChatCompletion({
+                            messages: [
+                                { role: "system", content: "Translate to Simplified Chinese. Return ONLY translated text." },
+                                { role: "user", content: it.originalText }
+                            ],
+                            temperature: 0.2,
+                            timeout: 20000
+                        });
+                        it.translatedText = cleanSiteTrans(single);
+                        it.status = 'done';
+                        siteTranslatedCount++;
+                        applyItemStyle(it);
+                    } catch (se) {
+                        it.status = 'error';
+                    }
+                }
+            }
+        }
+
+        function cleanSiteTrans(str) {
+            if (!str) return '';
+            let s = str.trim();
+            if ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+                s = s.slice(1, -1).trim();
+            }
+            return s;
+        }
+
+        // 悬浮 UI 构建
+        let fabWrapper = null;
+        function buildSiteFab() {
+            if (document.getElementById('lexipro-site-fab-root')) return;
+
+            fabWrapper = document.createElement('div');
+            fabWrapper.id = 'lexipro-site-fab-root';
+            fabWrapper.className = 'lexipro-site-fab-container';
+
+            const savedPos = GM_getValue('lexipro_site_fab_pos', null);
+            let b = 32, r = 32;
+            if (savedPos && typeof savedPos.bottom === 'number' && typeof savedPos.right === 'number') {
+                b = Math.max(16, Math.min(window.innerHeight - 80, savedPos.bottom));
+                r = Math.max(16, Math.min(window.innerWidth - 80, savedPos.right));
+            }
+            fabWrapper.style.bottom = b + 'px';
+            fabWrapper.style.right = r + 'px';
+
+            fabWrapper.innerHTML = `
+                <div class="lexipro-site-menu" id="lexipro-site-menu">
+                    <div class="lexipro-site-menu-header">
+                        <span>${siteConfig.name} 翻译增强</span>
+                        <span id="lexipro-site-status-text" style="font-size:11px;font-weight:normal;color:#94A3B8;">就绪</span>
+                    </div>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-translate">🌐 一键翻译本页</button>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-restore" style="display:none;">🔄 还原为英文原文</button>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-new-items" style="display:none;">✨ 翻译新增内容</button>
+                    
+                    <div class="lexipro-style-group">
+                        <div class="lexipro-style-title">翻译显示样式：</div>
+                        <div class="lexipro-style-option" data-style="replace">
+                            <span>沉浸替换 (原生字体)</span>
+                            <span class="check-icon">✓</span>
+                        </div>
+                        <div class="lexipro-style-option" data-style="underline">
+                            <span>下划线双语对照</span>
+                            <span class="check-icon">✓</span>
+                        </div>
+                        <div class="lexipro-style-option" data-style="card">
+                            <span>独立卡片对照</span>
+                            <span class="check-icon">✓</span>
+                        </div>
+                    </div>
+
+                    <div style="height:1px;background:rgba(255,255,255,0.08);margin:6px 0;"></div>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-auto-toggle">
+                        <span>⚡ 进站自动翻译:</span>
+                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${siteAutoTranslate ? '#10B981' : '#94A3B8'};">${siteAutoTranslate ? '开启' : '关闭'}</span>
+                    </button>
+                </div>
+                <div class="lexipro-site-fab" id="lexipro-site-fab">
+                    <div class="lexipro-site-fab-icon">
+                        <span class="lexipro-site-spinner" style="display:none;">⏳</span>
+                        <span class="lexipro-site-logo-icon">译</span>
+                    </div>
+                    <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">翻译${siteConfig.name}</div>
+                    <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;">0</div>
+                </div>
+            `;
+
+            document.body.appendChild(fabWrapper);
+
+            const fab = fabWrapper.querySelector('#lexipro-site-fab');
+            const menu = fabWrapper.querySelector('#lexipro-site-menu');
+            const btnTranslate = fabWrapper.querySelector('#lps-btn-translate');
+            const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
+            const btnNewItems = fabWrapper.querySelector('#lps-btn-new-items');
+
+            updateStyleMenuUI();
+
+            fab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!isSiteShowingTranslation && !isSiteTranslating) {
+                    runSiteTranslation();
+                } else {
+                    menu.classList.toggle('show');
+                }
+            });
+
+            fab.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                menu.classList.toggle('show');
+            });
+
+            btnTranslate.addEventListener('click', () => {
+                menu.classList.remove('show');
+                runSiteTranslation();
+            });
+
+            btnRestore.addEventListener('click', () => {
+                menu.classList.remove('show');
+                restoreSiteOriginal();
+            });
+
+            btnNewItems.addEventListener('click', () => {
+                menu.classList.remove('show');
+                runSiteTranslation();
+            });
+
+            const btnAutoToggle = fabWrapper.querySelector('#lps-btn-auto-toggle');
+            const autoStatusText = fabWrapper.querySelector('#lps-auto-status');
+            btnAutoToggle.addEventListener('click', () => {
+                siteAutoTranslate = !siteAutoTranslate;
+                GM_setValue('lexipro_site_auto_translate', siteAutoTranslate);
+                autoStatusText.innerText = siteAutoTranslate ? '开启' : '关闭';
+                autoStatusText.style.color = siteAutoTranslate ? '#10B981' : '#94A3B8';
+                showSiteToast('进入页面自动翻译: ' + (siteAutoTranslate ? '已开启' : '已关闭'));
+            });
+
+            // 样式单选项点击
+            fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const chosenStyle = opt.dataset.style;
+                    setTranslationStyle(chosenStyle);
+                });
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!fabWrapper.contains(e.target)) {
+                    menu.classList.remove('show');
+                }
+            });
+
+            setupFabDrag(fabWrapper, fab);
+        }
+
+        function updateStyleMenuUI() {
+            if (!fabWrapper) return;
+            fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
+                const isActive = opt.dataset.style === siteTranslationStyle;
+                opt.classList.toggle('active', isActive);
+                const check = opt.querySelector('.check-icon');
+                if (check) check.style.display = isActive ? 'inline' : 'none';
+            });
+        }
+
+        function setupFabDrag(container, handle) {
+            let dragging = false;
+            let startX = 0, startY = 0;
+            let initRight = 0, initBottom = 0;
+
+            handle.addEventListener('mousedown', (e) => {
+                if (e.button !== 0) return;
+                dragging = false;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                const rect = container.getBoundingClientRect();
+                initRight = window.innerWidth - rect.right;
+                initBottom = window.innerHeight - rect.bottom;
+
+                function onMove(ev) {
+                    const dx = ev.clientX - startX;
+                    const dy = ev.clientY - startY;
+                    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+                        dragging = true;
+                        handle.classList.add('dragging');
+                        const newR = Math.max(12, Math.min(window.innerWidth - 80, initRight - dx));
+                        const newB = Math.max(12, Math.min(window.innerHeight - 80, initBottom - dy));
+                        container.style.right = newR + 'px';
+                        container.style.bottom = newB + 'px';
+                    }
+                }
+
+                function onUp() {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    handle.classList.remove('dragging');
+                    if (dragging) {
+                        const r = window.innerWidth - container.getBoundingClientRect().right;
+                        const b = window.innerHeight - container.getBoundingClientRect().bottom;
+                        GM_setValue('lexipro_site_fab_pos', { right: Math.round(r), bottom: Math.round(b) });
+                    }
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        }
+
+        function updateSiteFabState() {
+            if (!fabWrapper) return;
+            const label = fabWrapper.querySelector('#lexipro-site-fab-label');
+            const badge = fabWrapper.querySelector('#lexipro-site-badge');
+            const spin = fabWrapper.querySelector('.lexipro-site-spinner');
+            const logo = fabWrapper.querySelector('.lexipro-site-logo-icon');
+            const btnTrans = fabWrapper.querySelector('#lps-btn-translate');
+            const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
+            const btnNew = fabWrapper.querySelector('#lps-btn-new-items');
+            const statusText = fabWrapper.querySelector('#lexipro-site-status-text');
+
+            if (isSiteTranslating) {
+                spin.style.display = 'inline-block';
+                logo.style.display = 'none';
+                label.innerText = `翻译中 ${siteTranslatedCount}/${siteTotalCount}`;
+                statusText.innerText = '翻译中...';
+            } else if (isSiteShowingTranslation) {
+                spin.style.display = 'none';
+                logo.style.display = 'inline-block';
+                label.innerText = `已翻译 (${siteTranslatedCount})`;
+                btnTrans.style.display = 'none';
+                btnRestore.style.display = 'flex';
+                statusText.innerText = '已翻译';
+            } else {
+                spin.style.display = 'none';
+                logo.style.display = 'inline-block';
+                label.innerText = '翻译' + siteConfig.name;
+                btnTrans.style.display = 'flex';
+                btnRestore.style.display = 'none';
+                statusText.innerText = '就绪';
+            }
+
+            if (siteUntranslatedNewCount > 0 && isSiteShowingTranslation) {
+                badge.style.display = 'flex';
+                badge.innerText = '+' + siteUntranslatedNewCount;
+                btnNew.style.display = 'flex';
+                btnNew.innerText = `✨ 翻译新增内容 (${siteUntranslatedNewCount}条)`;
+            } else {
+                badge.style.display = 'none';
+                btnNew.style.display = 'none';
+            }
+        }
+
+        function showSiteToast(msg) {
+            let toast = document.getElementById('lexipro-site-toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'lexipro-site-toast';
+                toast.className = 'lexipro-site-toast';
+                document.body.appendChild(toast);
+            }
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        }
+
+        let observerTimer = null;
+        const siteObserver = new MutationObserver(() => {
+            if (observerTimer) clearTimeout(observerTimer);
+            observerTimer = setTimeout(() => {
+                const found = collectSiteElements();
+                if (found.length > 0 && isSiteShowingTranslation) {
+                    siteUntranslatedNewCount += found.length;
+                    updateSiteFabState();
+                }
+            }, 600);
+        });
+
+        function startSiteEngine() {
+            buildSiteFab();
+            collectSiteElements();
+            if (document.body) {
+                siteObserver.observe(document.body, { childList: true, subtree: true });
+            }
+            console.log(`[LexiPro] ${siteConfig.name} 专属翻译增强引擎已启动，已探测项目: ${siteItemsMap.size}`);
+
+            // 若开启了进站自动翻译，在页面初始渲染完毕后自动启动翻译
+            if (siteAutoTranslate) {
+                setTimeout(() => {
+                    runSiteTranslation();
+                }, 1200);
+            }
+        }
+
+        if (document.body) {
+            startSiteEngine();
+        } else {
+            document.addEventListener('DOMContentLoaded', startSiteEngine);
+        }
+
+        // 若开启了进站自动翻译，在页面初始渲染完毕后自动启动翻译
+        if (siteAutoTranslate) {
+            setTimeout(() => {
+                runSiteTranslation();
+            }, 1200);
+        }
+
+        // SPA 页面路由变动检测（如 Reddit 列表点击进帖子无刷新跳转）
+        let siteLastUrl = window.location.href;
+        setInterval(() => {
+            if (window.location.href !== siteLastUrl) {
+                siteLastUrl = window.location.href;
+                if (siteAutoTranslate) {
+                    setTimeout(() => {
+                        runSiteTranslation();
+                    }, 1200);
+                }
+            }
+        }, 1000);
+    }
+
+
+
+    // 启动系统核心初始化入口
     init();
 
 })();
