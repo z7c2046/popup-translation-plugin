@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.6.0
+// @version      4.6.2
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -58,6 +58,18 @@
         initialDisableThinking = Boolean(initialDisableThinking);
     }
 
+    // 清理迁移已失效的旧版测试用 Notion Token
+    let initialNotionToken = GM_getValue('lexipro_notion_token', null);
+    if (!initialNotionToken || initialNotionToken === 'REDACTED_LEGACY_NOTION_TOKEN') {
+        initialNotionToken = '';
+        GM_setValue('lexipro_notion_token', '');
+    }
+    let initialNotionDbId = GM_getValue('lexipro_notion_database_id', null);
+    if (!initialNotionDbId || (initialNotionDbId === '11112222333344445555666677778888' && !initialNotionToken)) {
+        initialNotionDbId = '';
+        GM_setValue('lexipro_notion_database_id', '');
+    }
+
     // ================= 配置区 =================
     const CONFIG = {
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
@@ -78,8 +90,8 @@
                 enableThinking: !initialDisableThinking
             }
         },
-        notionToken: 'REDACTED_LEGACY_NOTION_TOKEN',
-        notionDatabaseId: '11112222333344445555666677778888',
+        notionToken: initialNotionToken,
+        notionDatabaseId: initialNotionDbId,
         highlightClass: 'notion-vocab-highlight',
         cacheTTL: 12 * 60 * 60 * 1000, // 本地缓存有效期：12小时
         defaultTriggerMode: 'click', // 默认小红点激活模式：'hover' (悬停) 或 'click' (点击)
@@ -3323,7 +3335,24 @@ Formatting requirements: Output valid JSON only.`;
     }
 
     function translateText(text) {
-        const systemPrompt = `You are a professional translator. If the input is in Chinese, translate it to English. If the input is in English, translate it to Chinese. Return ONLY the translated text, with no explanations, no markdown blocks, no prefix/suffix, and no extra quotes. Keep the tone natural and accurate.`;
+        // 精确判定输入语言：若包含中文字符，则定向翻译为英文；反之定向翻译为中文
+        const hasChinese = /[\u4e00-\u9fa5\u3000-\u303f\uff01-\uff0f\uff1a-\uff20\uff3b-\uff40\uff5b-\uff65]/.test(text);
+
+        let systemPrompt;
+        if (hasChinese) {
+            // 中文 -> 英文（强约束：只做翻译，即使是问句也绝不回答问题）
+            systemPrompt = `You are a professional translator. The user entered Chinese text. Your SOLE task is to translate it into natural, fluent, and idiomatic English.
+CRITICAL RULES:
+1. Translate to English ONLY.
+2. Even if the input is a question (e.g. "为什么不..."), do NOT answer the question! You must translate the question sentence itself into English.
+3. Return ONLY the translated English sentence. No quotes, no markdown fences, no explanatory prefix or suffix.`;
+        } else {
+            // 英文 -> 中文（强约束：只做翻译，严禁回答问题）
+            systemPrompt = `你是一名专业双语翻译官。用户输入的是英文内容，你的唯一任务是将其翻译为地道、自然的简体中文。
+严格要求：
+1. 必须且仅翻译为中文。即使输入是一个问题，也绝对不要去回答问题本身，必须仅翻译该句子。
+2. 仅输出最终的中文译文，不要引号，不要 markdown 格式，不要多余的前缀、后缀或解释。`;
+        }
 
         return requestLLMChatCompletion({
             timeout: 30000,
@@ -3335,12 +3364,13 @@ Formatting requirements: Output valid JSON only.`;
             ]
         }).then(content => {
             content = content.trim();
-            // 移除可能存在的首尾引号
-            if (content.startsWith('"') && content.endsWith('"')) {
-                content = content.slice(1, -1);
+            // 移除可能存在的 markdown 代码块包裹
+            if (content.startsWith('```') && content.endsWith('```')) {
+                content = content.replace(/^```[a-zA-Z]*\n?/, '').replace(/\n?```$/, '').trim();
             }
-            if (content.startsWith("'") && content.endsWith("'")) {
-                content = content.slice(1, -1);
+            // 移除首尾引号
+            if ((content.startsWith('"') && content.endsWith('"')) || (content.startsWith("'") && content.endsWith("'"))) {
+                content = content.slice(1, -1).trim();
             }
             return content.trim();
         }).catch(e => {
@@ -3396,6 +3426,9 @@ Formatting requirements: Output valid JSON only.`;
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
                 target.select();
                 success = document.execCommand('insertText', false, newText);
+                if (!success) {
+                    setNativeInputValue(target, newText);
+                }
             } else if (target.isContentEditable) {
                 const range = document.createRange();
                 range.selectNodeContents(target);
@@ -3403,47 +3436,85 @@ Formatting requirements: Output valid JSON only.`;
                 sel.removeAllRanges();
                 sel.addRange(range);
                 success = document.execCommand('insertText', false, newText);
+                if (!success) {
+                    target.innerHTML = '';
+                    target.appendChild(document.createTextNode(newText));
+                }
             }
         } catch (e) {
-            console.error('[LexiPro] execCommand 替换失败，采用常规赋值兜底:', e);
-        }
-
-        if (!success) {
+            console.error('[LexiPro] execCommand 替换失败，采用原生赋值兜底:', e);
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-                target.value = newText;
+                setNativeInputValue(target, newText);
             } else if (target.isContentEditable) {
                 target.innerText = newText;
             }
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        // 统一派发 React/Lit/原生事件通知输入框状态更新
+        target.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: newText }));
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+
+        // 光标定位至文本末尾
+        try {
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+                if (typeof target.setSelectionRange === 'function') {
+                    target.setSelectionRange(target.value.length, target.value.length);
+                }
+            } else if (target.isContentEditable) {
+                const range = document.createRange();
+                range.selectNodeContents(target);
+                range.collapse(false);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        } catch (posErr) {}
+    }
+
+    // 兼容 React / Vue 受控组件的原生 setter
+    function setNativeInputValue(element, value) {
+        const valueSetter = Object.getOwnPropertyDescriptor(element, 'value')?.set;
+        const prototype = Object.getPrototypeOf(element);
+        const prototypeValueSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+
+        if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+            prototypeValueSetter.call(element, value);
+        } else if (valueSetter) {
+            valueSetter.call(element, value);
+        } else {
+            element.value = value;
         }
     }
 
     async function handleInlineTranslation(target) {
+        // 定位真正的可编辑目标节点（如在外层 contenteditable 容器内的子节点）
+        const editable = (target.isContentEditable ? (target.closest('[contenteditable="true"]') || target) : target);
         let originalText = '';
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-            originalText = target.value;
-        } else if (target.isContentEditable) {
-            originalText = target.innerText || target.textContent || '';
+        if (editable.tagName === 'INPUT' || editable.tagName === 'TEXTAREA') {
+            originalText = editable.value;
+        } else if (editable.isContentEditable) {
+            originalText = editable.innerText || editable.textContent || '';
         }
 
         const textToTranslate = originalText.replace(/[\s\u00A0]+$/, '');
         if (!textToTranslate) return;
 
-        target.dataset.translating = 'true';
-        showInputLoading(target);
+        editable.dataset.translating = 'true';
+        showInputLoading(editable);
 
         try {
             const translated = await translateText(textToTranslate);
-            if (translated && translated !== textToTranslate) {
-                replaceElementContent(target, translated);
+            if (translated) {
+                replaceElementContent(editable, translated);
             }
         } catch (err) {
             console.error('[LexiPro] 连续空格键自动翻译出错:', err);
-            replaceElementContent(target, textToTranslate);
+            // 发生异常时清理刚才输入的连续空格
+            replaceElementContent(editable, textToTranslate);
         } finally {
-            target.dataset.translating = 'false';
-            hideInputLoading(target);
+            editable.dataset.translating = 'false';
+            hideInputLoading(editable);
         }
     }
 
@@ -3513,7 +3584,28 @@ Formatting requirements: Output valid JSON only.`;
         // 是否进入 Reddit / 路透社页面后自动开始翻译
         let siteAutoTranslate = GM_getValue('lexipro_site_auto_translate', false);
 
-        // 注入现代高级质感 CSS（深色磨砂黑悬浮胶囊 + 3种翻译样式）
+        // 视觉皮肤主题：'market_desk' (金融终端深浅模式 · 默认) | 'animal_island' (动森经典)
+        let siteUITheme = GM_getValue('lexipro_ui_theme', 'market_desk');
+
+        // 硅基流动多模型轮询竞速池
+        const SF_FREE_ROSTER = [
+            "Qwen/Qwen2.5-7B-Instruct",
+            "THUDM/GLM-4-9B-0414",
+            "Qwen/Qwen3.5-4B",
+            "Qwen/Qwen3-8B"
+        ];
+
+        function getModelForBatch(seedIndex = 0) {
+            const currentProvider = CONFIG.llmProvider || 'siliconflow';
+            if (currentProvider !== 'siliconflow') {
+                return null;
+            }
+            const currentModel = CONFIG.llmProviders?.siliconflow?.model || "Qwen/Qwen2.5-7B-Instruct";
+            const pool = [currentModel, ...SF_FREE_ROSTER].filter((v, i, a) => a.indexOf(v) === i);
+            return pool[Math.abs(seedIndex) % pool.length];
+        }
+
+        // 注入 1:1 来自 market_desk_skeleton_demo.html 的金融终端高级配色与微型胶囊样式
         GM_addStyle(`
             /* 悬浮胶囊容器 */
             .lexipro-site-fab-container {
@@ -3523,29 +3615,33 @@ Formatting requirements: Output valid JSON only.`;
                 flex-direction: column;
                 align-items: flex-end;
                 user-select: none;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             }
 
-            /* 现代深色磨砂黑极光胶囊 */
+            /* Market Desk 金融终端极简悬浮胶囊 */
             .lexipro-site-fab {
                 display: flex;
                 align-items: center;
-                gap: 8px;
-                background: rgba(15, 23, 42, 0.88);
+                gap: 10px;
+                background: rgba(20, 23, 27, 0.94);
                 backdrop-filter: blur(16px);
                 -webkit-backdrop-filter: blur(16px);
-                color: #F8FAFC;
-                padding: 8px 16px;
+                color: #eef1f4;
+                padding: 10px 20px;
+                min-height: 44px;
                 border-radius: 999px;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.14);
+                border: 1px solid #262b31;
+                box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
                 cursor: pointer;
                 transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
                 position: relative;
+                box-sizing: border-box;
             }
             .lexipro-site-fab:hover {
+                background: #191d22;
+                border-color: #3b4552;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(84, 138, 250, 0.25);
                 transform: translateY(-2px) scale(1.02);
-                box-shadow: 0 8px 24px rgba(15, 23, 42, 0.4), 0 0 14px rgba(99, 102, 241, 0.35);
-                border-color: rgba(99, 102, 241, 0.45);
             }
             .lexipro-site-fab:active {
                 transform: translateY(1px) scale(0.98);
@@ -3558,14 +3654,15 @@ Formatting requirements: Output valid JSON only.`;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 20px;
-                height: 20px;
-                background: linear-gradient(135deg, #3B82F6, #8B5CF6);
-                border-radius: 50%;
-                font-size: 11px;
-                font-weight: bold;
+                width: 24px;
+                height: 24px;
+                background: linear-gradient(130deg, #4d89f2, #2052b7);
+                border-radius: 7px;
+                font-size: 12px;
+                font-weight: 850;
                 color: #FFFFFF;
-                box-shadow: 0 1px 4px rgba(59, 130, 246, 0.4);
+                box-shadow: 0 2px 8px rgba(38, 90, 186, 0.35);
+                flex-shrink: 0;
             }
             .lexipro-site-spinner {
                 display: inline-block;
@@ -3576,39 +3673,59 @@ Formatting requirements: Output valid JSON only.`;
                 to { transform: rotate(360deg); }
             }
             .lexipro-site-fab-label {
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: 0.2px;
+                font-size: 13.5px;
+                font-weight: 650;
+                letter-spacing: -0.2px;
                 white-space: nowrap;
             }
             .lexipro-site-badge {
                 position: absolute;
                 top: -5px;
                 right: -5px;
-                background: #10B981;
-                color: #FFFFFF;
+                background: #31c39a;
+                color: #0b0d10;
                 font-size: 10px;
-                font-weight: 700;
+                font-weight: 750;
                 padding: 1px 6px;
                 border-radius: 999px;
-                border: 2px solid #0F172A;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+                border: 2px solid #0b0d10;
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
             }
 
-            /* 悬浮菜单面板 */
+            /* 白天模式自适应 (Light Mode) */
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
+                .lexipro-site-fab {
+                    background: rgba(255, 255, 255, 0.95);
+                    color: #0f172a;
+                    border-color: #cbd5e1;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+                }
+                .lexipro-site-fab:hover {
+                    background: #f8fafc;
+                    border-color: #94a3b8;
+                }
+            }
+
+            /* 悬浮菜单面板 (Market Desk 面板质感) */
             .lexipro-site-menu {
                 display: none;
-                width: 236px;
-                background: rgba(15, 23, 42, 0.94);
-                backdrop-filter: blur(18px);
-                -webkit-backdrop-filter: blur(18px);
-                border: 1px solid rgba(255, 255, 255, 0.12);
-                border-radius: 16px;
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+                width: 242px;
+                background: #14171b;
+                border: 1px solid #262b31;
+                border-radius: 12px;
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
                 padding: 12px;
                 margin-bottom: 10px;
-                color: #F8FAFC;
-                font-size: 13px;
+                color: #eef1f4;
+                font-size: 12.5px;
+            }
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
+                .lexipro-site-menu {
+                    background: #ffffff;
+                    border-color: #cbd5e1;
+                    color: #0f172a;
+                    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15);
+                }
             }
             .lexipro-site-menu.show {
                 display: block;
@@ -3622,7 +3739,7 @@ Formatting requirements: Output valid JSON only.`;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 font-size: 12px;
                 font-weight: 700;
-                color: #818CF8;
+                color: #548afa;
             }
             .lexipro-site-menu-btn {
                 display: flex;
@@ -3630,8 +3747,8 @@ Formatting requirements: Output valid JSON only.`;
                 gap: 8px;
                 width: 100%;
                 padding: 7px 10px;
-                border-radius: 8px;
-                border: none;
+                border-radius: 7px;
+                border: 1px solid transparent;
                 background: transparent;
                 color: inherit;
                 font-size: 12px;
@@ -3641,18 +3758,33 @@ Formatting requirements: Output valid JSON only.`;
                 transition: all 0.15s ease;
             }
             .lexipro-site-menu-btn:hover {
-                background: rgba(255, 255, 255, 0.1);
-                color: #A5B4FC;
+                background: #191d22;
+                border-color: #2b3036;
+                color: #f3f5f8;
+            }
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
+                .lexipro-site-menu-btn:hover {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                    color: #0f172a;
+                }
             }
             .lexipro-style-group {
                 margin: 6px 0;
                 padding: 6px 8px;
-                background: rgba(255, 255, 255, 0.05);
+                background: #191d22;
+                border: 1px solid #20252b;
                 border-radius: 8px;
+            }
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
+                .lexipro-style-group {
+                    background: #f8fafc;
+                    border-color: #e2e8f0;
+                }
             }
             .lexipro-style-title {
                 font-size: 11px;
-                color: #94A3B8;
+                color: #8b949f;
                 margin-bottom: 4px;
             }
             .lexipro-style-option {
@@ -3663,55 +3795,113 @@ Formatting requirements: Output valid JSON only.`;
                 border-radius: 6px;
                 font-size: 12px;
                 cursor: pointer;
-                color: #CBD5E1;
+                color: #aeb7c0;
             }
             .lexipro-style-option:hover {
-                background: rgba(255, 255, 255, 0.08);
+                background: #252a31;
+                color: #eef1f4;
             }
             .lexipro-style-option.active {
-                background: rgba(99, 102, 241, 0.25);
-                color: #A5B4FC;
+                background: #1a202a;
+                border: 1px solid #2e3b50;
+                color: #9fb9e5;
                 font-weight: 600;
+            }
+
+            /* ================= 样式 1 辅助：Market Desk 原文/译文 切换微型胶囊 ================= */
+            .lexipro-orig-toggle-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                margin-left: 8px;
+                padding: 2px 7px;
+                font-size: 11px;
+                line-height: 16px;
+                border-radius: 6px;
+                border: 1px solid #2b3036;
+                background: #191d22;
+                color: #aeb7c0;
+                cursor: pointer;
+                vertical-align: middle;
+                transition: all 0.16s ease;
+                user-select: none;
+                font-family: ui-monospace, "SFMono-Regular", Consolas, -apple-system, sans-serif;
+                font-weight: 500;
+                box-sizing: border-box;
+                white-space: nowrap;
+            }
+            .lexipro-orig-toggle-btn:hover {
+                background: #252a31;
+                border-color: #3b4552;
+                color: #eef1f4;
+                transform: translateY(-1px);
+            }
+            .lexipro-orig-toggle-btn.showing-orig {
+                background: #1a202a;
+                border-color: #2e3b50;
+                color: #75a5ff;
+            }
+            .lexipro-orig-toggle-icon {
+                font-size: 11px;
+                opacity: 0.85;
+            }
+
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
+                .lexipro-orig-toggle-btn {
+                    background: #f1f5f9;
+                    border-color: #cbd5e1;
+                    color: #334155;
+                }
+                .lexipro-orig-toggle-btn:hover {
+                    background: #e2e8f0;
+                    border-color: #94a3b8;
+                    color: #0f172a;
+                }
+                .lexipro-orig-toggle-btn.showing-orig {
+                    background: rgba(37, 99, 235, 0.08);
+                    border-color: #93c5fd;
+                    color: #2563eb;
+                }
             }
 
             /* ================= 样式 2: 虚线下划线双语对照 ================= */
             .lexipro-trans-underline {
                 margin-top: 4px;
                 padding-bottom: 2px;
-                border-bottom: 1.5px dashed #818CF8;
-                color: #475569;
+                border-bottom: 1.5px dashed #548afa;
+                color: #aeb7c0;
                 font-family: inherit;
                 font-size: inherit;
                 line-height: inherit;
                 display: block;
                 opacity: 0.95;
             }
-            @media (prefers-color-scheme: dark), [data-theme="dark"], body.theme-dark {
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
                 .lexipro-trans-underline {
-                    color: #CBD5E1;
-                    border-bottom-color: #6366F1;
+                    color: #334155;
+                    border-bottom-color: #2563eb;
                 }
             }
 
             /* ================= 样式 3: 独立轻量卡片 ================= */
             .lexipro-trans-card {
                 margin: 8px 0 12px 0;
-                padding: 8px 12px;
-                background: rgba(241, 245, 249, 0.7);
-                border: 1px solid rgba(226, 232, 240, 0.9);
-                border-left: 3px solid #6366F1;
+                padding: 10px 14px;
+                background: #14171b;
+                border: 1px solid #262b31;
+                border-left: 3px solid #548afa;
                 border-radius: 8px;
-                font-size: 14px;
+                font-size: 13.5px;
                 line-height: 1.62;
-                color: #1E293B;
+                color: #eef1f4;
                 clear: both;
             }
-            @media (prefers-color-scheme: dark), [data-theme="dark"], body.theme-dark {
+            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
                 .lexipro-trans-card {
-                    background: rgba(30, 41, 59, 0.7);
-                    border-color: rgba(51, 65, 85, 0.9);
-                    border-left-color: #818CF8;
-                    color: #E2E8F0;
+                    background: #ffffff;
+                    border-color: #cbd5e1;
+                    border-left-color: #2563eb;
+                    color: #0f172a;
                 }
             }
             .lexipro-trans-card-header {
@@ -3723,33 +3913,34 @@ Formatting requirements: Output valid JSON only.`;
                 user-select: none;
             }
             .lexipro-trans-card-badge {
-                color: #6366F1;
-                font-weight: 600;
+                color: #548afa;
+                font-weight: 700;
             }
             .lexipro-trans-card-btn {
-                background: transparent;
-                border: none;
+                background: #191d22;
+                border: 1px solid #262b31;
                 font-size: 11px;
-                color: #64748B;
+                color: #8b949f;
                 cursor: pointer;
-                padding: 1px 5px;
-                border-radius: 4px;
+                padding: 2px 7px;
+                border-radius: 5px;
             }
             .lexipro-trans-card-btn:hover {
-                background: rgba(0, 0, 0, 0.05);
-                color: #0F172A;
+                background: #252a31;
+                color: #eef1f4;
             }
             .lexipro-site-toast {
                 position: fixed;
                 bottom: 24px;
                 left: 50%;
                 transform: translateX(-50%) translateY(20px);
-                background: rgba(15, 23, 42, 0.94);
-                color: #FFFFFF;
+                background: #14171b;
+                border: 1px solid #262b31;
+                color: #eef1f4;
                 padding: 8px 18px;
                 border-radius: 999px;
-                font-size: 13px;
-                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+                font-size: 12.5px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
                 backdrop-filter: blur(8px);
                 z-index: 2147483647;
                 opacity: 0;
@@ -3762,17 +3953,26 @@ Formatting requirements: Output valid JSON only.`;
             }
         `);
 
-        // DOM 元素收集
+        // DOM 元素收集（针对 Reddit 与路透社，精准防御父子互斥，防止正文消失）
         function collectSiteElements() {
             const newlyCollected = [];
 
             if (siteConfig.isReddit) {
+                // 1. 帖子大标题
                 document.querySelectorAll('shreddit-post [slot="title"], shreddit-post a[slot="title"], h1[slot="title"], [data-testid="post-title"], div[data-testid="post-container"] h1, p.title a.title').forEach(el => {
                     addSiteItem(el, 'title', newlyCollected);
                 });
-                document.querySelectorAll('shreddit-post [slot="text-body"], [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
+
+                // 2. 帖子正文（优先精准提取真正放文本的内部段落/容器，防止破坏外层插槽结构）
+                document.querySelectorAll('shreddit-post [slot="text-body"] div[id*="-post-rtjson-content"], shreddit-post [slot="text-body"] > div, shreddit-post [slot="text-body"] p, [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
                     addSiteItem(el, 'body', newlyCollected);
                 });
+                // 备用兜底
+                document.querySelectorAll('shreddit-post [slot="text-body"]').forEach(el => {
+                    addSiteItem(el, 'body', newlyCollected);
+                });
+
+                // 3. 各级评论
                 document.querySelectorAll('shreddit-comment [slot="comment"], shreddit-comment div[id*="-comment-rtjson-content"], div[data-testid="comment"], div.Comment, div.comment div.usertext-body').forEach(el => {
                     addSiteItem(el, 'comment', newlyCollected);
                 });
@@ -3801,6 +4001,10 @@ Formatting requirements: Output valid JSON only.`;
             if (!element || element.dataset.lexiproSiteId) return;
             if (element.closest('.lexipro-site-fab-container') || element.closest('.lexipro-trans-card') || element.closest('.lexipro-trans-underline') || element.closest('#imt-shadow-host')) return;
 
+            // 核心防御：防止父子节点重复收集、互踩覆盖造成帖子正文在滚动后凭空消失
+            if (element.closest('[data-lexipro-site-id]')) return;
+            if (element.querySelector('[data-lexipro-site-id]')) return;
+
             const text = (element.innerText || '').trim();
             if (!text || text.length < 2) return;
             if (/^https?:\/\/\S+$/i.test(text)) return;
@@ -3816,6 +4020,7 @@ Formatting requirements: Output valid JSON only.`;
                 originalText: text,
                 translatedText: null,
                 injectedNode: null,
+                isShowingOriginal: false,
                 status: 'pending'
             };
 
@@ -3823,7 +4028,52 @@ Formatting requirements: Output valid JSON only.`;
             collectorArray.push(item);
         }
 
-        // 核心渲染逻辑：应用 3 种翻译样式之一
+        // 视口空间绝对排序：确保页面自顶向下（标题、正文、前排热评）优先出屏
+        function sortPendingItemsByVisualOrder(items) {
+            return items.slice().sort((a, b) => {
+                if (a.type === 'title' && b.type !== 'title') return -1;
+                if (b.type === 'title' && a.type !== 'title') return 1;
+                if (a.type === 'body' && b.type !== 'body') return -1;
+                if (b.type === 'body' && a.type !== 'body') return 1;
+
+                const rectA = a.element ? a.element.getBoundingClientRect() : { top: 0 };
+                const rectB = b.element ? b.element.getBoundingClientRect() : { top: 0 };
+                const topA = rectA.top + (window.scrollY || 0);
+                const topB = rectB.top + (window.scrollY || 0);
+                return topA - topB;
+            });
+        }
+
+        // 批次拆分构造器
+        function createBatches(items, maxPerBatch = 6) {
+            const batches = [];
+            let curBatch = [];
+            let curLen = 0;
+            for (const it of items) {
+                if (it.originalText.length > 350 || it.type === 'body') {
+                    if (curBatch.length > 0) {
+                        batches.push(curBatch);
+                        curBatch = [];
+                        curLen = 0;
+                    }
+                    batches.push([it]);
+                } else {
+                    curBatch.push(it);
+                    curLen += it.originalText.length;
+                    if (curBatch.length >= maxPerBatch || curLen > 800) {
+                        batches.push(curBatch);
+                        curBatch = [];
+                        curLen = 0;
+                    }
+                }
+            }
+            if (curBatch.length > 0) {
+                batches.push(curBatch);
+            }
+            return batches;
+        }
+
+        // 核心渲染逻辑：应用 3 种翻译样式之一（支持沉浸替换模式下的 Market Desk 微型胶囊切换）
         function applyItemStyle(item) {
             if (!item.element || !item.translatedText) return;
 
@@ -3835,15 +4085,57 @@ Formatting requirements: Output valid JSON only.`;
 
             if (!isSiteShowingTranslation) {
                 // 还原状态
+                item.isShowingOriginal = false;
                 item.element.innerHTML = item.originalHTML;
                 item.element.style.display = '';
                 return;
             }
 
             if (siteTranslationStyle === 'replace') {
-                // 样式 1: 沉浸式直接替换（保持 Reddit/路透社原有字体、字号与段落样式）
-                item.element.innerText = item.translatedText;
+                // 样式 1: 沉浸式直接替换（继承原生字体，并附带旁边无缝切换原文按钮）
+                const isShowingOrig = item.isShowingOriginal === true;
+                item.element.innerHTML = '';
+
+                const textSpan = document.createElement('span');
+                textSpan.className = 'lexipro-immersive-text';
+                textSpan.style.fontFamily = 'inherit';
+                textSpan.style.fontSize = 'inherit';
+                textSpan.style.lineHeight = 'inherit';
+                textSpan.style.color = 'inherit';
+                textSpan.style.fontWeight = 'inherit';
+                // 如果是多段正文，保真多段落换行排版
+                if (item.type === 'body' || item.translatedText.includes('\n')) {
+                    textSpan.style.display = 'block';
+                    textSpan.style.whiteSpace = 'pre-wrap';
+                }
+                textSpan.title = isShowingOrig ? `【中文译文】: ${item.translatedText}` : `【英文原文】: ${item.originalText}`;
+
+                if (isShowingOrig) {
+                    textSpan.innerHTML = item.originalHTML;
+                } else {
+                    textSpan.innerText = item.translatedText;
+                }
+                item.element.appendChild(textSpan);
+
+                // Market Desk 风格原文/译文切换微型胶囊
+                const toggleBtn = document.createElement('button');
+                toggleBtn.className = 'lexipro-orig-toggle-btn' + (isShowingOrig ? ' showing-orig' : '');
+                toggleBtn.type = 'button';
+                toggleBtn.title = isShowingOrig ? '点击切换为中文译文' : '点击查看英文原文';
+                toggleBtn.innerHTML = isShowingOrig
+                    ? '<span class="lexipro-orig-toggle-icon">⇄</span><span class="lexipro-orig-toggle-text">译文</span>'
+                    : '<span class="lexipro-orig-toggle-icon">⇄</span><span class="lexipro-orig-toggle-text">原文</span>';
+
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    item.isShowingOriginal = !item.isShowingOriginal;
+                    applyItemStyle(item);
+                });
+
+                item.element.appendChild(toggleBtn);
                 item.element.style.display = '';
+                item.element.style.minHeight = '1em'; // 防御高度坍塌
             } else if (siteTranslationStyle === 'underline') {
                 // 样式 2: 上面原文，下面紧贴带虚线下划线的译文（继承原字体）
                 item.element.innerHTML = item.originalHTML;
@@ -3913,6 +4205,7 @@ Formatting requirements: Output valid JSON only.`;
         function restoreSiteOriginal() {
             isSiteShowingTranslation = false;
             siteItemsMap.forEach(item => {
+                item.isShowingOriginal = false;
                 if (item.element && item.originalHTML) {
                     item.element.innerHTML = item.originalHTML;
                     item.element.style.display = '';
@@ -3926,7 +4219,7 @@ Formatting requirements: Output valid JSON only.`;
             showSiteToast('已还原为原始英文显示');
         }
 
-        // 调度与执行翻译
+        // 调度与执行翻译（前 10 条高优先级即时出屏 + 4 并发后台 Worker 流式渐进渲染）
         async function runSiteTranslation() {
             if (isSiteTranslating) return;
 
@@ -3941,44 +4234,44 @@ Formatting requirements: Output valid JSON only.`;
                 return;
             }
 
+            // 核心改进：立即开启显示翻译状态，后续每翻译一条直接上屏！
             isSiteTranslating = true;
+            isSiteShowingTranslation = true;
             siteTotalCount = siteItemsMap.size;
             siteUntranslatedNewCount = 0;
             updateSiteFabState();
 
             try {
-                const batches = [];
-                let curBatch = [];
-                let curLen = 0;
+                // 1. 严格自顶向下视觉排序：保证最上面的帖子标题、正文与前排热评排在最前面
+                const sortedItems = sortPendingItemsByVisualOrder(pendingItems);
 
-                for (const it of pendingItems) {
-                    if (it.originalText.length > 350 || it.type === 'body') {
-                        batches.push([it]);
-                    } else {
-                        curBatch.push(it);
-                        curLen += it.originalText.length;
-                        if (curBatch.length >= 6 || curLen > 800) {
-                            batches.push(curBatch);
-                            curBatch = [];
-                            curLen = 0;
-                        }
-                    }
+                // 2. 核心优先队列：提取前 10 条作为第一高优先级批次（用户当前眼前看到的内容）
+                const priorityItems = sortedItems.slice(0, 10);
+                const remainingItems = sortedItems.slice(10);
+
+                // 前 10 条分拆为小批次并发竞速，完成后立即上屏呈现给用户
+                const priorityBatches = createBatches(priorityItems, 5);
+                if (priorityBatches.length > 0) {
+                    await Promise.all(priorityBatches.map((b, idx) => processSiteBatch(b, idx)));
+                    updateSiteFabState();
                 }
-                if (curBatch.length > 0) batches.push(curBatch);
 
-                let batchIdx = 0;
-                const workers = Array.from({ length: Math.min(3, batches.length) }, async () => {
-                    while (batchIdx < batches.length) {
-                        const batch = batches[batchIdx++];
-                        await processSiteBatch(batch);
-                        updateSiteFabState();
-                    }
-                });
+                // 3. 后续批次（第 11 条往后）进入后台 Worker 并发池，边翻译边动态上屏，无需等待所有加载完成
+                if (remainingItems.length > 0) {
+                    const backgroundBatches = createBatches(remainingItems, 6);
+                    let bIdx = 0;
+                    const concurrency = Math.min(4, Math.max(2, backgroundBatches.length));
+                    const workers = Array.from({ length: concurrency }, async (_, workerId) => {
+                        while (bIdx < backgroundBatches.length) {
+                            const currentBatchIdx = bIdx++;
+                            const batch = backgroundBatches[currentBatchIdx];
+                            await processSiteBatch(batch, workerId + currentBatchIdx);
+                            updateSiteFabState();
+                        }
+                    });
+                    await Promise.all(workers);
+                }
 
-                await Promise.all(workers);
-
-                isSiteShowingTranslation = true;
-                siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
                 showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
             } catch (e) {
                 console.error('[LexiPro] 网页全文翻译出错:', e);
@@ -3989,26 +4282,43 @@ Formatting requirements: Output valid JSON only.`;
             }
         }
 
-        async function processSiteBatch(batch) {
+        async function processSiteBatch(batch, seedIndex = 0) {
             if (!batch || batch.length === 0) return;
+
+            const primaryModel = getModelForBatch(seedIndex);
+            const fallbackModel = getModelForBatch(seedIndex + 1);
 
             if (batch.length === 1) {
                 const it = batch[0];
                 try {
                     it.status = 'translating';
                     const prompt = `Translate the following ${siteConfig.name} text into natural Simplified Chinese. Return ONLY the translation without quotes, notes, or markdown blocks.\n\n"${it.originalText}"`;
-                    const res = await requestLLMChatCompletion({
-                        messages: [
-                            { role: "system", content: "You are a professional translator. Return ONLY the translated Chinese text." },
-                            { role: "user", content: prompt }
-                        ],
-                        temperature: 0.2,
-                        timeout: 30000
-                    });
+                    let res;
+                    try {
+                        res = await requestLLMChatCompletion({
+                            messages: [
+                                { role: "system", content: "You are a professional translator. Return ONLY the translated Chinese text." },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 0.2,
+                            timeout: 20000,
+                            modelOverride: primaryModel
+                        });
+                    } catch (err1) {
+                        res = await requestLLMChatCompletion({
+                            messages: [
+                                { role: "system", content: "You are a professional translator. Return ONLY the translated Chinese text." },
+                                { role: "user", content: prompt }
+                            ],
+                            temperature: 0.2,
+                            timeout: 20000,
+                            modelOverride: fallbackModel
+                        });
+                    }
                     it.translatedText = cleanSiteTrans(res);
                     it.status = 'done';
                     siteTranslatedCount++;
-                    applyItemStyle(it);
+                    applyItemStyle(it); // 即时渲染上屏！
                 } catch (e) {
                     it.status = 'error';
                 }
@@ -4020,14 +4330,28 @@ Formatting requirements: Output valid JSON only.`;
                 const sysPrompt = `Translate these ${siteConfig.name} contents into fluent Simplified Chinese. Return RAW JSON ONLY matching this format:\n{\n  "translations": [\n    { "id": "item_id", "text": "Translated Chinese text" }\n  ]\n}`;
                 const userPrompt = JSON.stringify(itemsPayload, null, 2);
 
-                const res = await requestLLMChatCompletion({
-                    messages: [
-                        { role: "system", content: sysPrompt },
-                        { role: "user", content: userPrompt }
-                    ],
-                    temperature: 0.2,
-                    timeout: 40000
-                });
+                let res;
+                try {
+                    res = await requestLLMChatCompletion({
+                        messages: [
+                            { role: "system", content: sysPrompt },
+                            { role: "user", content: userPrompt }
+                        ],
+                        temperature: 0.2,
+                        timeout: 30000,
+                        modelOverride: primaryModel
+                    });
+                } catch (err1) {
+                    res = await requestLLMChatCompletion({
+                        messages: [
+                            { role: "system", content: sysPrompt },
+                            { role: "user", content: userPrompt }
+                        ],
+                        temperature: 0.2,
+                        timeout: 30000,
+                        modelOverride: fallbackModel
+                    });
+                }
 
                 let parsed = null;
                 try {
@@ -4048,7 +4372,7 @@ Formatting requirements: Output valid JSON only.`;
                         it.translatedText = trans;
                         it.status = 'done';
                         siteTranslatedCount++;
-                        applyItemStyle(it);
+                        applyItemStyle(it); // 即时上屏！
                     } else {
                         try {
                             const single = await requestLLMChatCompletion({
@@ -4057,12 +4381,13 @@ Formatting requirements: Output valid JSON only.`;
                                     { role: "user", content: it.originalText }
                                 ],
                                 temperature: 0.2,
-                                timeout: 20000
+                                timeout: 18000,
+                                modelOverride: fallbackModel
                             });
                             it.translatedText = cleanSiteTrans(single);
                             it.status = 'done';
                             siteTranslatedCount++;
-                            applyItemStyle(it);
+                            applyItemStyle(it); // 即时上屏！
                         } catch (se) {
                             it.status = 'error';
                         }
@@ -4077,12 +4402,13 @@ Formatting requirements: Output valid JSON only.`;
                                 { role: "user", content: it.originalText }
                             ],
                             temperature: 0.2,
-                            timeout: 20000
+                            timeout: 18000,
+                            modelOverride: fallbackModel
                         });
                         it.translatedText = cleanSiteTrans(single);
                         it.status = 'done';
                         siteTranslatedCount++;
-                        applyItemStyle(it);
+                        applyItemStyle(it); // 即时上屏！
                     } catch (se) {
                         it.status = 'error';
                     }
@@ -4109,7 +4435,7 @@ Formatting requirements: Output valid JSON only.`;
             fabWrapper.className = 'lexipro-site-fab-container';
 
             const savedPos = GM_getValue('lexipro_site_fab_pos', null);
-            let b = 32, r = 32;
+            let b = 40, r = 32;
             if (savedPos && typeof savedPos.bottom === 'number' && typeof savedPos.right === 'number') {
                 b = Math.max(16, Math.min(window.innerHeight - 80, savedPos.bottom));
                 r = Math.max(16, Math.min(window.innerWidth - 80, savedPos.right));
@@ -4121,7 +4447,7 @@ Formatting requirements: Output valid JSON only.`;
                 <div class="lexipro-site-menu" id="lexipro-site-menu">
                     <div class="lexipro-site-menu-header">
                         <span>${siteConfig.name} 翻译增强</span>
-                        <span id="lexipro-site-status-text" style="font-size:11px;font-weight:normal;color:#94A3B8;">就绪</span>
+                        <span id="lexipro-site-status-text" style="font-size:11px;font-weight:normal;color:#8b949f;">就绪</span>
                     </div>
                     <button class="lexipro-site-menu-btn" id="lps-btn-translate">🌐 一键翻译本页</button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-restore" style="display:none;">🔄 还原为英文原文</button>
@@ -4143,16 +4469,20 @@ Formatting requirements: Output valid JSON only.`;
                         </div>
                     </div>
 
-                    <div style="height:1px;background:rgba(255,255,255,0.08);margin:6px 0;"></div>
+                    <div style="height:1px;background:#262b31;margin:6px 0;"></div>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-theme-toggle">
+                        <span>🎨 界面视觉皮肤:</span>
+                        <span id="lps-theme-status" style="margin-left:auto;font-weight:bold;color:#548afa;">${siteUITheme === 'animal_island' ? '动森经典' : 'Market Desk'}</span>
+                    </button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-auto-toggle">
                         <span>⚡ 进站自动翻译:</span>
-                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${siteAutoTranslate ? '#10B981' : '#94A3B8'};">${siteAutoTranslate ? '开启' : '关闭'}</span>
+                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${siteAutoTranslate ? '#31c39a' : '#8b949f'};">${siteAutoTranslate ? '开启' : '关闭'}</span>
                     </button>
                 </div>
                 <div class="lexipro-site-fab" id="lexipro-site-fab">
                     <div class="lexipro-site-fab-icon">
                         <span class="lexipro-site-spinner" style="display:none;">⏳</span>
-                        <span class="lexipro-site-logo-icon">译</span>
+                        <span class="lexipro-site-logo-icon">MD</span>
                     </div>
                     <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">翻译${siteConfig.name}</div>
                     <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;">0</div>
@@ -4198,13 +4528,25 @@ Formatting requirements: Output valid JSON only.`;
                 runSiteTranslation();
             });
 
+            // 皮肤切换
+            const btnThemeToggle = fabWrapper.querySelector('#lps-btn-theme-toggle');
+            const themeStatusText = fabWrapper.querySelector('#lps-theme-status');
+            btnThemeToggle.addEventListener('click', () => {
+                siteUITheme = siteUITheme === 'animal_island' ? 'market_desk' : 'animal_island';
+                GM_setValue('lexipro_ui_theme', siteUITheme);
+                themeStatusText.innerText = siteUITheme === 'animal_island' ? '动森经典' : 'Market Desk';
+                const shadowHost = document.getElementById('imt-shadow-host');
+                if (shadowHost) shadowHost.setAttribute('data-theme', siteUITheme);
+                showSiteToast('已切换皮肤: ' + (siteUITheme === 'animal_island' ? '动森温馨经典' : 'Market Desk 金融终端高级质感'));
+            });
+
             const btnAutoToggle = fabWrapper.querySelector('#lps-btn-auto-toggle');
             const autoStatusText = fabWrapper.querySelector('#lps-auto-status');
             btnAutoToggle.addEventListener('click', () => {
                 siteAutoTranslate = !siteAutoTranslate;
                 GM_setValue('lexipro_site_auto_translate', siteAutoTranslate);
                 autoStatusText.innerText = siteAutoTranslate ? '开启' : '关闭';
-                autoStatusText.style.color = siteAutoTranslate ? '#10B981' : '#94A3B8';
+                autoStatusText.style.color = siteAutoTranslate ? '#31c39a' : '#8b949f';
                 showSiteToast('进入页面自动翻译: ' + (siteAutoTranslate ? '已开启' : '已关闭'));
             });
 
@@ -4369,13 +4711,6 @@ Formatting requirements: Output valid JSON only.`;
             document.addEventListener('DOMContentLoaded', startSiteEngine);
         }
 
-        // 若开启了进站自动翻译，在页面初始渲染完毕后自动启动翻译
-        if (siteAutoTranslate) {
-            setTimeout(() => {
-                runSiteTranslation();
-            }, 1200);
-        }
-
         // SPA 页面路由变动检测（如 Reddit 列表点击进帖子无刷新跳转）
         let siteLastUrl = window.location.href;
         setInterval(() => {
@@ -4389,8 +4724,6 @@ Formatting requirements: Output valid JSON only.`;
             }
         }, 1000);
     }
-
-
 
     // 启动系统核心初始化入口
     init();

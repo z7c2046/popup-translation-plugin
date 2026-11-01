@@ -3,16 +3,18 @@
  */
 
 const DEFAULT_CONFIG = {
+  lexipro_ui_theme: 'market_desk',
   lexipro_sf_model: 'Qwen/Qwen2.5-7B-Instruct',
   lexipro_sf_api_key: '',
   lexipro_disable_thinking: true,
-  lexipro_notion_token: 'REDACTED_LEGACY_NOTION_TOKEN',
-  lexipro_notion_database_id: '11112222333344445555666677778888',
+  lexipro_notion_token: '',
+  lexipro_notion_database_id: '',
   lexipro_site_translation_style: 'replace',
   lexipro_site_auto_translate: false
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const themeSelect = document.getElementById('ui-theme-select');
   const modelSelect = document.getElementById('sf-model-select');
   const keyInput = document.getElementById('sf-key-input');
   const btnToggleKey = document.getElementById('btn-toggle-sf-key');
@@ -93,6 +95,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 保存配置
   btnSave.addEventListener('click', async () => {
     const toSave = {
+      lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim() || DEFAULT_CONFIG.lexipro_sf_api_key,
       lexipro_disable_thinking: thinkingCheck.checked,
@@ -120,6 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function fillForm(cfg) {
+    if (themeSelect) themeSelect.value = cfg.lexipro_ui_theme || 'market_desk';
     modelSelect.value = cfg.lexipro_sf_model || DEFAULT_CONFIG.lexipro_sf_model;
     keyInput.value = cfg.lexipro_sf_api_key || DEFAULT_CONFIG.lexipro_sf_api_key;
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;

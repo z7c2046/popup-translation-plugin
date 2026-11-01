@@ -44,4 +44,31 @@ assert.ok(userscript.includes('siteAutoTranslate'), 'Userscript must support aut
 const optionsHtml = fs.readFileSync(path.join(extDir, 'options.html'), 'utf8');
 assert.ok(optionsHtml.includes('id="site-auto-translate-check"'), 'options.html must have auto translate checkbox');
 
-console.log('Popup Translation Chrome Extension & Userscript auto-translate and 3-style tests passed successfully!');
+// 验证前 10 条优先出屏、多模型轮询竞速、沉浸式原文切换按钮与悬浮胶囊增高
+for (const [name, code] of [['content.js', contentJs], ['userscript', userscript]]) {
+    assert.ok(code.includes('min-height: 44px'), `${name} must increase fab height to min 44px`);
+    assert.ok(code.includes('lexipro-orig-toggle-btn'), `${name} must include toggle original text button`);
+    assert.ok(code.includes('sortPendingItemsByVisualOrder'), `${name} must sort items from top to bottom`);
+    assert.ok(code.includes('sortedItems.slice(0, 10)'), `${name} must slice top 10 items for priority batch`);
+    assert.ok(code.includes('getModelForBatch'), `${name} must support multi-model pool round-robin`);
+    assert.ok(code.includes('initialNotionToken'), `${name} must dynamically read and sanitize notion token`);
+    assert.ok(!code.includes("notionToken: 'REDACTED_LEGACY_NOTION_TOKEN'"), `${name} must not hardcode invalid legacy notion token`);
+    assert.ok(code.includes('hasChinese'), `${name} must detect Chinese input for directional translation`);
+    assert.ok(code.includes('do NOT answer the question'), `${name} must prevent model from answering questions instead of translating`);
+    assert.ok(code.includes('setNativeInputValue'), `${name} must include React/controlled input native value setter`);
+    assert.ok(!code.includes('/^https?://S+'), `${name} must not contain broken URL regex causing ReferenceError S`);
+    assert.ok(code.includes('/^https?:\\/\\/\\S+$/i'), `${name} must contain valid URL regex`);
+    assert.ok(code.includes("element.closest('[data-lexipro-site-id]')"), `${name} must prevent parent-child duplicate capture to protect post body`);
+    assert.ok(code.includes('market_desk'), `${name} must support market_desk theme`);
+    assert.ok(code.includes('animal_island'), `${name} must support animal_island theme`);
+}
+
+// 验证 options.js 默认不再下发已失效的测试 Notion Token
+const optionsJs = fs.readFileSync(path.join(extDir, 'options.js'), 'utf8');
+assert.ok(optionsJs.includes("lexipro_notion_token: ''"), 'options.js must default notion token to empty string');
+assert.ok(optionsJs.includes('lexipro_ui_theme'), 'options.js must manage ui theme option');
+
+// 验证 options.html 包含主题选择控件
+assert.ok(optionsHtml.includes('id="ui-theme-select"'), 'options.html must have ui theme select');
+
+console.log('Popup Translation Chrome Extension & Userscript progressive streaming, multi-model racing, and toggle original tests passed successfully!');

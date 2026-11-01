@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSiteTranslate = document.getElementById('btn-site-translate');
   const btnSiteTranslateText = document.getElementById('btn-site-translate-text');
   const btnOpenOptions = document.getElementById('btn-open-options');
+  const quickThemeSelect = document.getElementById('quick-theme-select');
   const quickStyleSelect = document.getElementById('quick-style-select');
   const quickAutoCheck = document.getElementById('quick-auto-check');
   const quickAutoLabel = document.getElementById('quick-auto-label');
