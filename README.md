@@ -177,3 +177,33 @@ This repository does not store API credentials. Configure them in Tampermonkey s
 - **油猴脚本与 Chrome 扩展双端 100% 严格同步更新**。
 - 自动化测试套件 `tests/chrome-extension.test.cjs` 同步扩充断言保障。
 
+### 4.6.3 蓝图体验架构全面升级与双端可信实现 (基于 GEMINI_TRANSLATION_UX_BLUEPRINT)
+
+- **Popup 与 Content 通信重构，彻底杜绝脆弱 Scripting 注入**：
+  - 移除对 `chrome.scripting.executeScript` 的非法特权依赖，重构为标准的 `chrome.tabs.sendMessage` 消息机制（`GET_PAGE_STATE`, `START_PAGE_TRANSLATION`, `RETRY_FAILED`, `TOGGLE_ORIGINAL` 等）；
+  - 增加真实页面连接感知，连接中或未注入页面友好提示「请刷新网页后重试」，杜绝假报成功与自动关闭面板；
+  - 修复 `quick-theme-select` 主题切换未接线问题，支持即时保存与多标签页热更新。
+- **真实模型覆盖与备用模型轮询 (Model Override in Effect)**：
+  - 修复 `requestLLMChatCompletion` 未解构 `modelOverride` 参数的根本缺陷，确保重试和轮询时实际发送的 HTTP 请求 `body.model` 严格采用指定备选模型；
+  - 页面级翻译请求引入 `requestScope: 'page'`，与划词查词请求句柄物理隔离，避免划词查词时误杀正在执行的页面翻译。
+- **后台代理超时全覆盖与客户端主动中止**：
+  - `background.js` 中 `timer` 移入 `try...finally`，确保超时计时器覆盖包含响应体读取在内的完整数据流；
+  - 扩展桥 `GM_xmlhttpRequest` 具备唯一 `requestId`，在调用 `.abort()` 时向后台派发 `GM_XHR_ABORT` 消息真实终止底层 Fetch，并正确调用 `onabort` 使 Promise 妥善 settle，杜绝异步悬挂。
+- **原生 DOM 深度保留渲染 (DOM Preservation)**：
+  - 彻底摒弃反序列化重写 `innerHTML` 的破坏性做法，创建独立的 `origWrapper` 原生子节点专属容器保留原有 DOM 树及 React 事件绑定；
+  - 切换原文时仅切换显示样式与胶囊状态，不销毁节点，无额外网络消耗；还原网页时原生节点完整无损。
+- **SPA 换页隔离与 Generation 生命周期管理**：
+  - 引入 `siteGeneration` 自增代数与路由监听；当用户在 Reddit 等单页应用中前进/后退/切帖时，立即自增代数并终止上一代请求、清空旧状态，异步回包校验代数，杜绝旧页面数据污染新页面。
+- **失败条目精准单项重试与可信状态机**：
+  - 维护清晰状态机（`pending`, `translating`, `done`, `failed`），支持 `runSiteTranslation({ retryFailedOnly: true })` 仅重试失败项，绝不重复翻译已完成条目；
+  - 修复零正文时虚假提示「全部完成」的缺陷，准确反馈未完成数量与重试入口。
+- **WCAG 高对比度与 `--lp-*` 语义色板规范**：
+  - 全面引入蓝图规范语义 Token（`--lp-bg`, `--lp-surface`, `--lp-text`, `--lp-text-secondary`, `--lp-primary` 等）；
+  - 将次要提示文本对比度由原先的 2.43:1 大幅提升至 5.82:1，彻底满足 WCAG AA 级要求；
+  - 彻底修复 CSS 中将 DOM 选择器误写进 `@media` 列表的语法错误。
+- **Options 设置中心重构与本地实时预览**：
+  - 增加本地静态排版效果预览区（固定提供真实英文新闻与评论示例，随模式与主题切换即时展示排版效果，零网络消耗）；
+  - 规范化配置保存语义，用户清空 API Key 时严格保存为空，不暗中回填内置 Key。
+- **测试套件全面升级**：
+  - 新增 `tests/blueprint-ux.test.cjs` 蓝图规范自动化验收测试，现存 8 个测试套件全部通过（8/8 pass）；
+  - 更新 `audit/2026-11-02/audit-probes.cjs` 与 `audit-results.json`，验证修复后所有探针全绿。

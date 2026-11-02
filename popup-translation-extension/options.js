@@ -1,5 +1,6 @@
 /**
  * LexiPro - Options Script
+ * 遵循 GEMINI_TRANSLATION_UX_BLUEPRINT 规范：真实保存语义、静态排版预览、深浅自适应与请求连通性测试
  */
 
 const DEFAULT_CONFIG = {
@@ -29,12 +30,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSave = document.getElementById('btn-save');
   const btnReset = document.getElementById('btn-reset');
   const saveMsg = document.getElementById('save-msg');
+  const previewBox = document.getElementById('preview-box');
 
   // 读取配置
   const stored = await chrome.storage.local.get(DEFAULT_CONFIG);
   fillForm(stored);
+  updatePreview();
 
-  // 密码显示切换
+  // 密码显示/隐藏切换
   btnToggleKey.addEventListener('click', () => {
     if (keyInput.type === 'password') {
       keyInput.type = 'text';
@@ -45,7 +48,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 测试 API
+  // 本地实时排版效果预览 (零网络消耗)
+  function updatePreview() {
+    if (!previewBox) return;
+    const style = siteStyleSelect.value || 'replace';
+    const isDark = (themeSelect.value === 'market_desk' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    const items = [
+      {
+        orig: 'Revenue for the third quarter may rise by 5% amid robust data center demand.',
+        trans: '得益于数据中心强劲的需求，第三季度营收可能增长 5% 保留。'
+      },
+      {
+        orig: 'I keep holding my shares because the chip supply cycle is clearly turning upward.',
+        trans: '我继续持有股票，因为芯片供应周期显然正在向上反转。'
+      }
+    ];
+
+    if (style === 'replace') {
+      previewBox.innerHTML = items.map((it, idx) => `
+        <div style="margin-bottom: 10px; font-size: 14px; line-height: 1.6; color: ${isDark ? '#E5EAF0' : '#20252B'};">
+          <span>${it.trans}</span>
+          <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; font-size: 11px; border-radius: 5px; border: 1px solid ${isDark ? '#3B4551' : '#CBD5E1'}; background: ${isDark ? '#2A313A' : '#EEF2F6'}; color: ${isDark ? '#8DB4FF' : '#285FBA'}; cursor: pointer;">⇄ 原文</span>
+        </div>
+      `).join('');
+    } else if (style === 'underline') {
+      previewBox.innerHTML = items.map((it, idx) => `
+        <div style="margin-bottom: 12px; font-size: 14px; line-height: 1.5;">
+          <div style="color: ${isDark ? '#AAB4C0' : '#4B5563'};">${it.orig}</div>
+          <div style="border-bottom: 1.5px dashed ${isDark ? '#8DB4FF' : '#285FBA'}; color: ${isDark ? '#E5EAF0' : '#20252B'}; padding-bottom: 2px; margin-top: 3px;">${it.trans}</div>
+        </div>
+      `).join('');
+    } else if (style === 'card') {
+      previewBox.innerHTML = items.map((it, idx) => `
+        <div style="margin-bottom: 12px; font-size: 13.5px;">
+          <div style="color: ${isDark ? '#AAB4C0' : '#4B5563'}; margin-bottom: 4px;">${it.orig}</div>
+          <div style="background: ${isDark ? '#20252C' : '#FFFFFF'}; border: 1px solid ${isDark ? '#3B4551' : '#DCE2E9'}; border-left: 3px solid ${isDark ? '#8DB4FF' : '#285FBA'}; border-radius: 6px; padding: 6px 10px; color: ${isDark ? '#E5EAF0' : '#20252B'};">
+            <span style="font-size: 10.5px; font-weight: bold; color: ${isDark ? '#8DB4FF' : '#285FBA'}; margin-right: 6px;">[译文]</span>${it.trans}
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  siteStyleSelect.addEventListener('change', updatePreview);
+  themeSelect.addEventListener('change', updatePreview);
+
+  // 测试 API 连通性
   btnTestSf.addEventListener('click', async () => {
     testSfResult.innerText = '正在测试连接...';
     testSfResult.className = 'test-result';
@@ -53,10 +102,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const testBody = {
       model: modelSelect.value,
       messages: [
-        { role: 'system', content: 'You are a translator.' },
-        { role: 'user', content: 'Translate to Chinese: Hello LexiPro!' }
+        { role: 'system', content: 'You are a professional translator. Return only the translated text.' },
+        { role: 'user', content: 'Translate to Chinese: The system is ready.' }
       ],
-      temperature: 0.2
+      temperature: 0.1
     };
 
     if (thinkingCheck.checked) {
@@ -81,7 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.success && res.response?.status >= 200 && res.response?.status < 300) {
         const json = JSON.parse(res.response.responseText);
         const trans = json.choices?.[0]?.message?.content || '';
-        testSfResult.innerText = `✅ 连接成功！模型返回: "${trans.trim()}"`;
+        testSfResult.innerText = `✅ 连接成功！模型响应: "${trans.trim()}"`;
         testSfResult.className = 'test-result text-success';
       } else {
         throw new Error(res?.response?.responseText || res?.error || '请求失败');
@@ -92,12 +141,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // 保存配置
+  // 保存配置（遵循蓝图 P1-13：真实保存，清空即清空，不暗中回填内置 Key）
   btnSave.addEventListener('click', async () => {
     const toSave = {
       lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
       lexipro_sf_model: modelSelect.value,
-      lexipro_sf_api_key: keyInput.value.trim() || DEFAULT_CONFIG.lexipro_sf_api_key,
+      lexipro_sf_api_key: keyInput.value.trim(),
       lexipro_disable_thinking: thinkingCheck.checked,
       lexipro_notion_token: notionTokenInput.value.trim(),
       lexipro_notion_database_id: notionDbInput.value.trim(),
@@ -106,17 +155,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     await chrome.storage.local.set(toSave);
-    saveMsg.innerText = '✅ 配置已成功保存！';
+    saveMsg.innerText = '✅ 配置已成功保存！已向页面广播热更新。';
     saveMsg.className = 'save-msg text-success';
     setTimeout(() => { saveMsg.innerText = ''; }, 3000);
   });
 
-  // 恢复出厂
+  // 恢复出厂默认配置
   btnReset.addEventListener('click', async () => {
     if (confirm('确定要恢复出厂默认设置吗？')) {
       await chrome.storage.local.set(DEFAULT_CONFIG);
       fillForm(DEFAULT_CONFIG);
-      saveMsg.innerText = '已恢复默认设置';
+      updatePreview();
+      saveMsg.innerText = '已恢复出厂默认设置';
       saveMsg.className = 'save-msg';
       setTimeout(() => { saveMsg.innerText = ''; }, 2500);
     }
@@ -125,7 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function fillForm(cfg) {
     if (themeSelect) themeSelect.value = cfg.lexipro_ui_theme || 'market_desk';
     modelSelect.value = cfg.lexipro_sf_model || DEFAULT_CONFIG.lexipro_sf_model;
-    keyInput.value = cfg.lexipro_sf_api_key || DEFAULT_CONFIG.lexipro_sf_api_key;
+    keyInput.value = cfg.lexipro_sf_api_key || '';
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
@@ -133,4 +183,3 @@ document.addEventListener('DOMContentLoaded', async () => {
     siteAutoTranslateCheck.checked = Boolean(cfg.lexipro_site_auto_translate);
   }
 });
-

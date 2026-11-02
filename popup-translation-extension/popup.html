@@ -27,6 +27,7 @@
         <span class="badge" id="env-badge">检测中...</span>
       </div>
       <div class="status-hint" id="env-hint">全网划词翻译与生词高亮已就绪，鼠标划词即刻触发</div>
+      <div id="conn-status-msg" style="display: none; margin-top: 6px; font-size: 11.5px; color: #b33e45; line-height: 1.4;"></div>
     </div>
 
     <!-- 站点专属增强操作区 (Reddit / 路透社) -->
@@ -36,23 +37,23 @@
         <span>🌐</span>
         <span id="btn-site-translate-text">一键翻译全页内容</span>
       </button>
-      <div class="theme-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
+      <div class="theme-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
         <span style="color: #64748B;">视觉皮肤:</span>
-        <select id="quick-theme-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11px; background: #FFF; outline: none;">
+        <select id="quick-theme-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11.5px; background: #FFF; outline: none;">
           <option value="market_desk">Market Desk (金融终端)</option>
           <option value="animal_island">动森经典 (温馨纸质)</option>
         </select>
       </div>
-      <div class="style-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-        <span style="color: #64748B;">呈现样式:</span>
-        <select id="quick-style-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11px; background: #FFF; outline: none;">
-          <option value="replace">沉浸直接替换 (原生字体)</option>
-          <option value="underline">下划线双语对照</option>
-          <option value="card">独立轻量卡片</option>
+      <div class="style-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+        <span style="color: #64748B;">呈现模式:</span>
+        <select id="quick-style-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11.5px; background: #FFF; outline: none;">
+          <option value="replace">中文阅读 (原生排版)</option>
+          <option value="underline">双语对照 (段落对应)</option>
+          <option value="card">译文卡片 (独立卡片)</option>
         </select>
       </div>
-      <div class="auto-toggle-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 11px;">
-        <span style="color: #64748B;">进入页面自动翻译:</span>
+      <div class="auto-toggle-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
+        <span style="color: #64748B;">打开此网站时自动翻译:</span>
         <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
           <input type="checkbox" id="quick-auto-check">
           <span id="quick-auto-label" style="font-weight: 600; color: #475569;">已关闭</span>
@@ -73,7 +74,7 @@
       <div class="feature-item">
         <div class="feature-info">
           <div class="feature-title">Reddit 帖子与评论翻译</div>
-          <div class="feature-desc">在 Reddit 页面右下角显示一键双语翻译悬浮胶囊</div>
+          <div class="feature-desc">在 Reddit 页面右下角显示专属翻译悬浮胶囊</div>
         </div>
         <span class="tag tag-active">自动适配</span>
       </div>
@@ -81,7 +82,7 @@
       <div class="feature-item">
         <div class="feature-info">
           <div class="feature-title">路透社 (Reuters) 新闻翻译</div>
-          <div class="feature-desc">在路透社新闻页面右下角显示一键双语翻译悬浮胶囊</div>
+          <div class="feature-desc">在路透社新闻页面右下角显示专属翻译悬浮胶囊</div>
         </div>
         <span class="tag tag-active">自动适配</span>
       </div>
@@ -89,11 +90,10 @@
 
     <!-- 底部状态 -->
     <footer class="footer">
-      <span>已同步最新 SiliconFlow 与 Notion 算法 · v4.6.0</span>
+      <span>已同步最新 SiliconFlow 与 Notion 算法 · v4.6.3</span>
     </footer>
   </div>
 
   <script src="popup.js"></script>
 </body>
 </html>
-

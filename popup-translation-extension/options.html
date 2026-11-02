@@ -13,32 +13,82 @@
         <span class="brand-icon">译</span>
         <div>
           <h1>Popup Translation 设置中心</h1>
-          <p>配置 AI 翻译引擎、Notion 生词本增量同步与站点翻译偏好</p>
+          <p>配置阅读呈现模式、站点翻译规则、AI 翻译引擎与生词本同步</p>
         </div>
       </div>
     </header>
 
     <main class="content">
-      <!-- 大模型服务商与 API -->
+      <!-- 1. 阅读与呈现偏好 (含本地静态实时预览) -->
       <section class="card">
-        <h2 class="card-title">🤖 硅基流动 (SiliconFlow) 大语言模型配置</h2>
-        <p class="card-desc">全网划词翻译、Reddit 与路透社翻译的核心驱动引擎。默认已内置官方免费高速 Key。</p>
+        <h2 class="card-title">📖 阅读与呈现偏好</h2>
+        <p class="card-desc">针对中文母语者优化：随心选择沉浸中文或中英对照，并可即时查看排版效果。</p>
+
+        <div class="form-group">
+          <label for="site-style-select">呈现模式</label>
+          <select id="site-style-select" class="form-control">
+            <option value="replace">中文阅读 (原生排版，直接以中文流畅阅读，每段可一键切换原文)</option>
+            <option value="underline">双语对照 (保留完整英文，每段英文下方紧贴中文译文)</option>
+            <option value="card">译文卡片 (上方英文原文，下方独立卡片承载译文与复制工具)</option>
+          </select>
+          <span class="tip">提示：在 Reddit 或路透社页面右下角的悬浮胶囊工具条中，也可随时点击设置齿轮即时切换。</span>
+        </div>
+
+        <!-- 本地静态效果预览区 (零网络请求，不消耗 API Token) -->
+        <div class="form-group">
+          <label>👀 排版效果即时预览 (本地模拟)</label>
+          <div class="preview-box" id="preview-box">
+            <div class="preview-item" id="preview-item-1">
+              <div class="preview-orig" id="preview-orig-1">Revenue for the third quarter may rise by 5% amid robust data center demand.</div>
+              <div class="preview-trans" id="preview-trans-1">得益于数据中心强劲的需求，第三季度营收可能增长 5%。</div>
+            </div>
+            <div class="preview-item" id="preview-item-2" style="margin-top: 12px;">
+              <div class="preview-orig" id="preview-orig-2">I keep holding my shares because the chip supply cycle is clearly turning upward.</div>
+              <div class="preview-trans" id="preview-trans-2">我继续持有股票，因为芯片供应周期显然正在向上反转。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. 网站规则与视觉外观 -->
+      <section class="card">
+        <h2 class="card-title">🌐 站点规则与视觉外观</h2>
+        <p class="card-desc">配置 Reddit 社区与路透社新闻页面的自动化行为与视觉皮肤。</p>
 
         <div class="form-group">
           <label for="ui-theme-select">🎨 界面视觉皮肤 (Theme)</label>
           <select id="ui-theme-select" class="form-control">
-            <option value="market_desk">Market Desk (金融终端高级深浅模式 · 默认推荐)</option>
-            <option value="animal_island">动森经典 (Animal Island 温馨纸质小清新)</option>
+            <option value="market_desk">Market Desk (金融终端高级深浅自适应 · 默认推荐)</option>
+            <option value="animal_island">动森经典 (Animal Island 温馨纸质风格)</option>
           </select>
-          <span class="tip">Market Desk 皮肤基于专业金融终端设计，自动自适应网页白天与黑夜模式；动森皮肤为经典暖色纸质风格。</span>
+          <span class="tip">Market Desk 皮肤基于专业阅读与金融终端设计，自动自适应系统与网页深浅色；动森经典保留经典温馨纸感。</span>
         </div>
 
         <div class="form-group">
-          <label for="sf-model-select">推荐免费模型</label>
+          <div class="switch-row">
+            <div>
+              <div class="switch-title">打开此网站时自动翻译</div>
+              <div class="switch-desc">进入 Reddit 帖子或路透社新闻页面时，无需手动点击胶囊，自动开始全页翻译。</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="site-auto-translate-check">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. 大模型翻译服务与 API -->
+      <section class="card">
+        <h2 class="card-title">🤖 硅基流动 (SiliconFlow) 大语言模型配置</h2>
+        <p class="card-desc">全网划词翻译、Reddit 与路透社翻译的核心驱动引擎。</p>
+
+        <div class="form-group">
+          <label for="sf-model-select">推荐翻译模型</label>
           <select id="sf-model-select" class="form-control">
-            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (官方默认推荐，极速高质)</option>
-            <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B (超长 256K 上下文)</option>
-            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B (通用强劲)</option>
+            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (官方推荐，翻译极速且自然)</option>
+            <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B (超长上下文支持)</option>
+            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B (通用强劲能力)</option>
             <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414 (智谱通用 9B)</option>
           </select>
         </div>
@@ -49,14 +99,14 @@
             <input type="password" id="sf-key-input" class="form-control" placeholder="sk-...">
             <button type="button" id="btn-toggle-sf-key" class="btn-toggle-eye">👁️</button>
           </div>
-          <span class="tip">如留空将自动回退使用内置免费 Key。数据仅保存在您的本地浏览器存储中。</span>
+          <span class="tip">如留空可回退使用公共测试 Key。保存时将严格保存您的实际输入。数据仅保存在您的本地浏览器中。</span>
         </div>
 
         <div class="form-group">
           <div class="switch-row">
             <div>
-              <div class="switch-title">关闭模型深度思考 (推理链)</div>
-              <div class="switch-desc">跳过思考模型冗长的思维链推理过程，使单次查词与全文翻译在 1 秒以内极速直出。</div>
+              <div class="switch-title">翻译响应模式：快速响应 (推荐)</div>
+              <div class="switch-desc">跳过冗长的思考模型思维链推理，使单次查词与段落翻译极速上屏。</div>
             </div>
             <label class="switch">
               <input type="checkbox" id="disable-thinking-check" checked>
@@ -71,10 +121,10 @@
         </div>
       </section>
 
-      <!-- Notion 生词本同步 -->
+      <!-- 4. 生词本与 Notion 增量同步 -->
       <section class="card">
-        <h2 class="card-title">📓 Notion 生词本增量同步 (SWR)</h2>
-        <p class="card-desc">配置您的 Notion 知识库，在浏览网页时自动高亮生词本中的单词，并支持一键收藏新单词。</p>
+        <h2 class="card-title">📓 Notion 生词本同步 (可选)</h2>
+        <p class="card-desc">配置您的 Notion 知识库，在浏览网页时自动高亮生词本中的单词。此项为可选增强，未配置不影响页面翻译与划词。</p>
 
         <div class="form-group">
           <label for="notion-token-input">Notion Integration Token</label>
@@ -87,38 +137,10 @@
         </div>
       </section>
 
-      <!-- 站点翻译设置 -->
-      <section class="card">
-        <h2 class="card-title">🌐 Reddit & 路透社 (Reuters) 翻译偏好</h2>
-        <p class="card-desc">自定义在 Reddit 帖子评论与路透社新闻页面上的翻译视觉呈现效果。</p>
-        <div class="form-group">
-          <label for="site-style-select">翻译显示样式</label>
-          <select id="site-style-select" class="form-control">
-            <option value="replace">沉浸式直接替换 (使用网站原生字体排版，直接将英文替换为中文，最纯粹)</option>
-            <option value="underline">下划线双语对照 (上面英文原文，下面紧贴带虚线下划线的中文译文)</option>
-            <option value="card">独立轻量卡片 (上面英文原文，下方内嵌独立译文卡片)</option>
-          </select>
-          <span class="tip">提示：在 Reddit 或路透社页面右下角悬浮胶囊中，也可随时点击展开菜单即时切换这 3 种样式。</span>
-        </div>
-
-        <div class="form-group" style="margin-top: 16px;">
-          <div class="switch-row">
-            <div>
-              <div class="switch-title">进入页面自动翻译</div>
-              <div class="switch-desc">打开 Reddit 帖子或路透社新闻页面时，无需手动点击悬浮胶囊，自动开始全页翻译。</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="site-auto-translate-check">
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
-      </section>
-
       <!-- 保存操作栏 -->
       <div class="bottom-bar">
         <button type="button" id="btn-save" class="btn btn-primary">💾 保存全部设置</button>
-        <button type="button" id="btn-reset" class="btn btn-text">恢复默认配置</button>
+        <button type="button" id="btn-reset" class="btn btn-text">恢复出厂配置</button>
         <span id="save-msg" class="save-msg"></span>
       </div>
     </main>
@@ -127,4 +149,3 @@
   <script src="options.js"></script>
 </body>
 </html>
-

@@ -34,9 +34,11 @@
 
     function GM_xmlhttpRequest(details) {
         let isAborted = false;
+        const requestId = 'xhr_' + Math.random().toString(36).slice(2) + '_' + Date.now();
         chrome.runtime.sendMessage({
             type: 'GM_XHR',
             details: {
+                requestId,
                 url: details.url,
                 method: details.method || 'GET',
                 headers: details.headers || {},
@@ -60,8 +62,32 @@
         });
 
         return {
-            abort: () => { isAborted = true; }
+            abort: () => {
+                if (isAborted) return;
+                isAborted = true;
+                try {
+                    const p = chrome.runtime.sendMessage({ type: 'GM_XHR_ABORT', requestId });
+                    if (p && typeof p.catch === 'function') p.catch(() => {});
+                } catch (e) {}
+                if (typeof details.onabort === 'function') {
+                    details.onabort();
+                }
+            }
         };
+    }
+
+    // 存储变更监听与热更新支持
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+        chrome.storage.onChanged.addListener((changes, areaName) => {
+            if (areaName === 'local') {
+                for (const [key, change] of Object.entries(changes)) {
+                    __storageCache[key] = change.newValue;
+                    if (typeof window !== 'undefined' && typeof window.__lexipro_onStorageChange === 'function') {
+                        window.__lexipro_onStorageChange(key, change.newValue);
+                    }
+                }
+            }
+        });
     }
 
     chrome.storage.local.get(null, (storedItems) => {
@@ -3233,12 +3259,17 @@ Formatting requirements: Output valid JSON only.`;
         }
     }
 
+    // 页面级翻译请求独立管理器（与划词查词请求完全隔离，避免划词互踩取消）
+    const activePageRequests = new Set();
+
     function requestLLMChatCompletion({
         messages,
         temperature = 0.1,
         responseFormat = null,
         timeout = 45000,
-        maxTokens = 2048
+        maxTokens = 2048,
+        modelOverride = null,
+        requestScope = 'selection'
     }) {
         const providerKey = CONFIG.llmProvider || 'siliconflow';
         if (providerKey === 'kimi_free') {
@@ -3255,7 +3286,7 @@ Formatting requirements: Output valid JSON only.`;
             }
 
             const body = {
-                model: provider.model,
+                model: modelOverride || provider.model,
                 messages,
                 temperature,
                 stream: false,
@@ -3278,7 +3309,16 @@ Formatting requirements: Output valid JSON only.`;
                 body.thinking = { type: 'enabled' };
             }
 
-            const req = GM_xmlhttpRequest({
+            let reqHandle = null;
+            const cleanupReq = () => {
+                if (requestScope === 'page' && reqHandle) {
+                    activePageRequests.delete(reqHandle);
+                } else if (activeFetchRequest === reqHandle) {
+                    activeFetchRequest = null;
+                }
+            };
+
+            reqHandle = GM_xmlhttpRequest({
                 method: "POST",
                 url: provider.apiUrl,
                 timeout,
@@ -3288,6 +3328,7 @@ Formatting requirements: Output valid JSON only.`;
                 },
                 data: JSON.stringify(body),
                 onload: function(response) {
+                    cleanupReq();
                     if (response.status >= 200 && response.status < 300) {
                         try {
                             const resJson = JSON.parse(response.responseText);
@@ -3310,16 +3351,24 @@ Formatting requirements: Output valid JSON only.`;
                     }
                 },
                 onerror: function() {
+                    cleanupReq();
                     reject(new Error(`${provider.name} 网络连接出错`));
                 },
                 ontimeout: function() {
+                    cleanupReq();
                     reject(new Error(`${provider.name} 在 ${Math.round(timeout / 1000)} 秒内未完成响应，请稍后重试`));
                 },
                 onabort: function() {
+                    cleanupReq();
                     reject(new Error(`${provider.name} 请求已取消`));
                 }
             });
-            activeFetchRequest = req;
+
+            if (requestScope === 'page') {
+                activePageRequests.add(reqHandle);
+            } else {
+                activeFetchRequest = reqHandle;
+            }
         });
     }
 
@@ -3611,111 +3660,225 @@ CRITICAL RULES:
 
     // ================= Reddit & 路透社 (Reuters) 全文/帖子翻译增强模块 =================
     function initSiteSpecificTranslator() {
-        const host = window.location.hostname.toLowerCase();
-        const isReddit = host.includes('reddit.com');
-        const isReuters = host.includes('reuters.com');
-
+        const hostname = location.hostname.toLowerCase();
+        const isReddit = hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
+        const isReuters = hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
         if (!isReddit && !isReuters) return;
 
-        const siteConfig = {
-            name: isReddit ? 'Reddit' : '路透社',
-            isReddit,
-            isReuters
+        const siteConfig = isReddit ? {
+            name: 'Reddit',
+            isReddit: true,
+            isReuters: false,
+            desc: 'Reddit 帖子与评论专属双语/沉浸式增强'
+        } : {
+            name: '路透社',
+            isReddit: false,
+            isReuters: true,
+            desc: '路透社 (Reuters) 新闻专属双语/沉浸式增强'
         };
 
-        let siteItemsMap = new Map();
-        let siteItemCounter = 0;
+        // 页面任务生命周期与代数（SPA 路由切换与隔离管理）
+        let siteGeneration = 0;
         let isSiteTranslating = false;
-        let siteTranslatedCount = 0;
-        let siteTotalCount = 0;
-        let siteUntranslatedNewCount = 0;
         let isSiteShowingTranslation = false;
+        let siteTotalCount = 0;
+        let siteTranslatedCount = 0;
+        let siteUntranslatedNewCount = 0;
+        let siteItemCounter = 0;
+        const siteItemsMap = new Map();
 
-        // 核心翻译样式：'replace' (沉浸替换原生字体) | 'underline' (虚线下划线双语) | 'card' (独立轻量卡片)
+        // 3 种呈现模式：replace（中文阅读，默认）、underline（双语对照）、card（独立卡片）
         let siteTranslationStyle = GM_getValue('lexipro_site_translation_style', 'replace');
-
-        // 是否进入 Reddit / 路透社页面后自动开始翻译
-        let siteAutoTranslate = GM_getValue('lexipro_site_auto_translate', false);
-
-        // 视觉皮肤主题：'market_desk' (金融终端深浅模式 · 默认) | 'animal_island' (动森经典)
+        let siteAutoTranslate = Boolean(GM_getValue('lexipro_site_auto_translate', false));
         let siteUITheme = GM_getValue('lexipro_ui_theme', 'market_desk');
 
-        // 硅基流动多模型轮询竞速池
-        const SF_FREE_ROSTER = [
-            "Qwen/Qwen2.5-7B-Instruct",
-            "THUDM/GLM-4-9B-0414",
-            "Qwen/Qwen3.5-4B",
-            "Qwen/Qwen3-8B"
+        // 多模型备用轮询与竞速池（SiliconFlow 高质模型梯队）
+        const SF_FALLBACK_MODELS = [
+            'Qwen/Qwen2.5-7B-Instruct',
+            'Qwen/Qwen3.5-4B',
+            'Qwen/Qwen3-8B',
+            'THUDM/GLM-4-9B-0414'
         ];
 
         function getModelForBatch(seedIndex = 0) {
-            const currentProvider = CONFIG.llmProvider || 'siliconflow';
-            if (currentProvider !== 'siliconflow') {
-                return null;
-            }
-            const currentModel = CONFIG.llmProviders?.siliconflow?.model || "Qwen/Qwen2.5-7B-Instruct";
-            const pool = [currentModel, ...SF_FREE_ROSTER].filter((v, i, a) => a.indexOf(v) === i);
-            return pool[Math.abs(seedIndex) % pool.length];
+            const configuredModel = CONFIG.llmProvider === 'siliconflow' ? CONFIG.siliconflowModel : null;
+            if (configuredModel && seedIndex === 0) return configuredModel;
+            return SF_FALLBACK_MODELS[Math.abs(seedIndex) % SF_FALLBACK_MODELS.length];
         }
 
-        // 注入 1:1 来自 market_desk_skeleton_demo.html 的金融终端高级配色与微型胶囊样式
+        // 注入 Market Desk 终端配色与高对比度规范 CSS（深浅自适应）
         GM_addStyle(`
-            /* 悬浮胶囊容器 */
+            :root {
+                --lp-bg: #14171b;
+                --lp-surface: #191d22;
+                --lp-surface-subtle: #252a31;
+                --lp-text: #eef1f4;
+                --lp-text-secondary: #8b949f;
+                --lp-border: #262b31;
+                --lp-primary: #548afa;
+                --lp-on-primary: #ffffff;
+                --lp-success: #31c39a;
+                --lp-warning: #e9be70;
+                --lp-error: #ff9fa5;
+            }
+            @media (prefers-color-scheme: light) {
+                :root {
+                    --lp-bg: #f8fafc;
+                    --lp-surface: #ffffff;
+                    --lp-surface-subtle: #f1f5f9;
+                    --lp-text: #0f172a;
+                    --lp-text-secondary: #64748b;
+                    --lp-border: #cbd5e1;
+                    --lp-primary: #2563eb;
+                    --lp-on-primary: #ffffff;
+                    --lp-success: #10b981;
+                    --lp-warning: #8a5700;
+                    --lp-error: #b33e45;
+                }
+            }
+            [data-theme="light"] .lexipro-site-fab,
+            [data-color-mode="light"] .lexipro-site-fab,
+            body.theme-light .lexipro-site-fab {
+                background: rgba(255, 255, 255, 0.95) !important;
+                color: #0f172a !important;
+                border-color: #cbd5e1 !important;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+            }
+            [data-theme="light"] .lexipro-site-menu,
+            [data-color-mode="light"] .lexipro-site-menu,
+            body.theme-light .lexipro-site-menu {
+                background: #ffffff !important;
+                border-color: #cbd5e1 !important;
+                color: #0f172a !important;
+                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15) !important;
+            }
+            [data-theme="light"] .lexipro-site-menu-btn:hover,
+            [data-color-mode="light"] .lexipro-site-menu-btn:hover,
+            body.theme-light .lexipro-site-menu-btn:hover {
+                background: #f1f5f9 !important;
+                border-color: #cbd5e1 !important;
+                color: #0f172a !important;
+            }
+            [data-theme="light"] .lexipro-style-group,
+            [data-color-mode="light"] .lexipro-style-group,
+            body.theme-light .lexipro-style-group {
+                background: #f8fafc !important;
+                border-color: #e2e8f0 !important;
+            }
+            [data-theme="light"] .lexipro-orig-toggle-btn,
+            [data-color-mode="light"] .lexipro-orig-toggle-btn,
+            body.theme-light .lexipro-orig-toggle-btn {
+                background: #f1f5f9 !important;
+                border-color: #cbd5e1 !important;
+                color: #334155 !important;
+            }
+            [data-theme="light"] .lexipro-orig-toggle-btn:hover,
+            [data-color-mode="light"] .lexipro-orig-toggle-btn:hover,
+            body.theme-light .lexipro-orig-toggle-btn:hover {
+                background: #e2e8f0 !important;
+                border-color: #94a3b8 !important;
+                color: #0f172a !important;
+            }
+            [data-theme="light"] .lexipro-orig-toggle-btn.showing-orig,
+            [data-color-mode="light"] .lexipro-orig-toggle-btn.showing-orig,
+            body.theme-light .lexipro-orig-toggle-btn.showing-orig {
+                background: rgba(37, 99, 235, 0.08) !important;
+                border-color: #93c5fd !important;
+                color: #2563eb !important;
+            }
+            [data-theme="light"] .lexipro-trans-underline,
+            [data-color-mode="light"] .lexipro-trans-underline,
+            body.theme-light .lexipro-trans-underline {
+                color: #334155 !important;
+                border-bottom-color: #2563eb !important;
+            }
+            [data-theme="light"] .lexipro-trans-card,
+            [data-color-mode="light"] .lexipro-trans-card,
+            body.theme-light .lexipro-trans-card {
+                background: #ffffff !important;
+                border-color: #cbd5e1 !important;
+                border-left-color: #2563eb !important;
+                color: #0f172a !important;
+            }
+
             .lexipro-site-fab-container {
                 position: fixed;
-                z-index: 2147483640;
+                z-index: 2147483646;
                 display: flex;
                 flex-direction: column;
                 align-items: flex-end;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
                 user-select: none;
-                font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
             }
-
-            /* Market Desk 金融终端极简悬浮胶囊 */
+            .lexipro-site-fab-toolbar {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+            }
             .lexipro-site-fab {
                 display: flex;
                 align-items: center;
-                gap: 10px;
-                background: rgba(20, 23, 27, 0.94);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                color: #eef1f4;
-                padding: 10px 20px;
+                gap: 8px;
+                padding: 0 16px;
+                height: 44px;
                 min-height: 44px;
                 border-radius: 999px;
+                background: rgba(20, 23, 27, 0.94);
+                color: #eef1f4;
                 border: 1px solid #262b31;
                 box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+                backdrop-filter: blur(10px);
                 cursor: pointer;
-                transition: all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
-                position: relative;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
                 box-sizing: border-box;
             }
             .lexipro-site-fab:hover {
                 background: #191d22;
                 border-color: #3b4552;
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 16px rgba(84, 138, 250, 0.25);
-                transform: translateY(-2px) scale(1.02);
+                transform: translateY(-1px);
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
             }
             .lexipro-site-fab:active {
-                transform: translateY(1px) scale(0.98);
+                transform: translateY(0);
             }
             .lexipro-site-fab.dragging {
-                opacity: 0.82;
+                opacity: 0.8;
                 cursor: grabbing;
+            }
+            .lexipro-site-fab-more {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 38px;
+                height: 44px;
+                min-height: 44px;
+                border-radius: 999px;
+                background: rgba(20, 23, 27, 0.94);
+                color: #8b949f;
+                border: 1px solid #262b31;
+                box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+                backdrop-filter: blur(10px);
+                cursor: pointer;
+                transition: all 0.2s ease;
+                font-size: 14px;
+            }
+            .lexipro-site-fab-more:hover {
+                background: #191d22;
+                color: #eef1f4;
+                border-color: #3b4552;
             }
             .lexipro-site-fab-icon {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 24px;
-                height: 24px;
-                background: linear-gradient(130deg, #4d89f2, #2052b7);
-                border-radius: 7px;
-                font-size: 12px;
-                font-weight: 850;
-                color: #FFFFFF;
-                box-shadow: 0 2px 8px rgba(38, 90, 186, 0.35);
-                flex-shrink: 0;
+                font-size: 16px;
+            }
+            .lexipro-site-logo-icon {
+                font-weight: 800;
+                font-size: 13px;
+                letter-spacing: -0.5px;
+                color: #548afa;
+                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             }
             .lexipro-site-spinner {
                 display: inline-block;
@@ -3734,7 +3897,7 @@ CRITICAL RULES:
             .lexipro-site-badge {
                 position: absolute;
                 top: -5px;
-                right: -5px;
+                right: 36px;
                 background: #31c39a;
                 color: #0b0d10;
                 font-size: 10px;
@@ -3745,24 +3908,10 @@ CRITICAL RULES:
                 box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
             }
 
-            /* 白天模式自适应 (Light Mode) */
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-site-fab {
-                    background: rgba(255, 255, 255, 0.95);
-                    color: #0f172a;
-                    border-color: #cbd5e1;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-                }
-                .lexipro-site-fab:hover {
-                    background: #f8fafc;
-                    border-color: #94a3b8;
-                }
-            }
-
-            /* 悬浮菜单面板 (Market Desk 面板质感) */
+            /* 悬浮菜单面板 */
             .lexipro-site-menu {
                 display: none;
-                width: 242px;
+                width: 256px;
                 background: #14171b;
                 border: 1px solid #262b31;
                 border-radius: 12px;
@@ -3771,14 +3920,6 @@ CRITICAL RULES:
                 margin-bottom: 10px;
                 color: #eef1f4;
                 font-size: 12.5px;
-            }
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-site-menu {
-                    background: #ffffff;
-                    border-color: #cbd5e1;
-                    color: #0f172a;
-                    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15);
-                }
             }
             .lexipro-site-menu.show {
                 display: block;
@@ -3815,25 +3956,12 @@ CRITICAL RULES:
                 border-color: #2b3036;
                 color: #f3f5f8;
             }
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-site-menu-btn:hover {
-                    background: #f1f5f9;
-                    border-color: #cbd5e1;
-                    color: #0f172a;
-                }
-            }
             .lexipro-style-group {
                 margin: 6px 0;
                 padding: 6px 8px;
                 background: #191d22;
                 border: 1px solid #20252b;
                 border-radius: 8px;
-            }
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-style-group {
-                    background: #f8fafc;
-                    border-color: #e2e8f0;
-                }
             }
             .lexipro-style-title {
                 font-size: 11px;
@@ -3861,7 +3989,7 @@ CRITICAL RULES:
                 font-weight: 600;
             }
 
-            /* ================= 样式 1 辅助：Market Desk 原文/译文 切换微型胶囊 ================= */
+            /* 原文/中文 切换微型胶囊按钮 */
             .lexipro-orig-toggle-btn {
                 display: inline-flex;
                 align-items: center;
@@ -3899,25 +4027,7 @@ CRITICAL RULES:
                 opacity: 0.85;
             }
 
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-orig-toggle-btn {
-                    background: #f1f5f9;
-                    border-color: #cbd5e1;
-                    color: #334155;
-                }
-                .lexipro-orig-toggle-btn:hover {
-                    background: #e2e8f0;
-                    border-color: #94a3b8;
-                    color: #0f172a;
-                }
-                .lexipro-orig-toggle-btn.showing-orig {
-                    background: rgba(37, 99, 235, 0.08);
-                    border-color: #93c5fd;
-                    color: #2563eb;
-                }
-            }
-
-            /* ================= 样式 2: 虚线下划线双语对照 ================= */
+            /* 样式 2: 虚线下划线双语对照 */
             .lexipro-trans-underline {
                 margin-top: 4px;
                 padding-bottom: 2px;
@@ -3929,14 +4039,8 @@ CRITICAL RULES:
                 display: block;
                 opacity: 0.95;
             }
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-trans-underline {
-                    color: #334155;
-                    border-bottom-color: #2563eb;
-                }
-            }
 
-            /* ================= 样式 3: 独立轻量卡片 ================= */
+            /* 样式 3: 独立轻量卡片 */
             .lexipro-trans-card {
                 margin: 8px 0 12px 0;
                 padding: 10px 14px;
@@ -3948,14 +4052,6 @@ CRITICAL RULES:
                 line-height: 1.62;
                 color: #eef1f4;
                 clear: both;
-            }
-            @media (prefers-color-scheme: light), [data-theme="light"], body.theme-light {
-                .lexipro-trans-card {
-                    background: #ffffff;
-                    border-color: #cbd5e1;
-                    border-left-color: #2563eb;
-                    color: #0f172a;
-                }
             }
             .lexipro-trans-card-header {
                 display: flex;
@@ -3982,6 +4078,7 @@ CRITICAL RULES:
                 background: #252a31;
                 color: #eef1f4;
             }
+
             .lexipro-site-toast {
                 position: fixed;
                 bottom: 24px;
@@ -4020,7 +4117,6 @@ CRITICAL RULES:
                 document.querySelectorAll('shreddit-post [slot="text-body"] div[id*="-post-rtjson-content"], shreddit-post [slot="text-body"] > div, shreddit-post [slot="text-body"] p, [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
                     addSiteItem(el, 'body', newlyCollected);
                 });
-                // 备用兜底
                 document.querySelectorAll('shreddit-post [slot="text-body"]').forEach(el => {
                     addSiteItem(el, 'body', newlyCollected);
                 });
@@ -4069,12 +4165,13 @@ CRITICAL RULES:
                 id,
                 type,
                 element,
-                originalHTML: element.innerHTML,
+                origWrapper: null,
+                transContainer: null,
                 originalText: text,
                 translatedText: null,
                 injectedNode: null,
                 isShowingOriginal: false,
-                status: 'pending'
+                status: 'pending' // pending | translating | done | failed
             };
 
             siteItemsMap.set(id, item);
@@ -4126,58 +4223,98 @@ CRITICAL RULES:
             return batches;
         }
 
-        // 核心渲染逻辑：应用 3 种翻译样式之一（支持沉浸替换模式下的 Market Desk 微型胶囊切换）
+        // 核心渲染逻辑：应用 3 种翻译样式（保留原 DOM 树，杜绝 innerHTML 反序列化破坏事件与状态）
         function applyItemStyle(item) {
             if (!item.element || !item.translatedText) return;
 
-            // 清理已存在的辅助节点
+            // 清理已存在的辅助独立节点
             if (item.injectedNode && item.injectedNode.parentNode) {
                 item.injectedNode.remove();
                 item.injectedNode = null;
             }
 
+            // 初始化或取得原生子节点的包装器（保留所有子节点及绑定在上面的原生事件监听）
+            let origWrapper = item.origWrapper;
+            if (!origWrapper || !origWrapper.isConnected) {
+                origWrapper = item.element.querySelector(':scope > .lexipro-orig-wrapper');
+                if (!origWrapper) {
+                    origWrapper = document.createElement('span');
+                    origWrapper.className = 'lexipro-orig-wrapper';
+                    while (item.element.firstChild) {
+                        origWrapper.appendChild(item.element.firstChild);
+                    }
+                    item.element.appendChild(origWrapper);
+                }
+                item.origWrapper = origWrapper;
+            }
+
+            let transContainer = item.transContainer;
+            if (!transContainer || !transContainer.isConnected) {
+                transContainer = item.element.querySelector(':scope > .lexipro-trans-container');
+                item.transContainer = transContainer;
+            }
+
             if (!isSiteShowingTranslation) {
-                // 还原状态
+                // 还原状态：显示原生内容，隐藏译文
                 item.isShowingOriginal = false;
-                item.element.innerHTML = item.originalHTML;
-                item.element.style.display = '';
+                if (origWrapper) origWrapper.style.display = '';
+                if (transContainer) transContainer.style.display = 'none';
                 return;
             }
 
             if (siteTranslationStyle === 'replace') {
-                // 样式 1: 沉浸式直接替换（继承原生字体，并附带旁边无缝切换原文按钮）
+                // 模式 1: 沉浸式中文阅读（原节点保留隐藏，展示中文与切换胶囊）
+                if (!transContainer) {
+                    transContainer = document.createElement('span');
+                    transContainer.className = 'lexipro-trans-container';
+                    item.element.appendChild(transContainer);
+                    item.transContainer = transContainer;
+                }
+
+                transContainer.innerHTML = '';
                 const isShowingOrig = item.isShowingOriginal === true;
-                item.element.innerHTML = '';
 
-                const textSpan = document.createElement('span');
-                textSpan.className = 'lexipro-immersive-text';
-                textSpan.style.fontFamily = 'inherit';
-                textSpan.style.fontSize = 'inherit';
-                textSpan.style.lineHeight = 'inherit';
-                textSpan.style.color = 'inherit';
-                textSpan.style.fontWeight = 'inherit';
-                // 如果是多段正文，保真多段落换行排版
-                if (item.type === 'body' || item.translatedText.includes('\n')) {
-                    textSpan.style.display = 'block';
-                    textSpan.style.whiteSpace = 'pre-wrap';
+                origWrapper.style.display = isShowingOrig ? '' : 'none';
+                transContainer.style.display = isShowingOrig ? 'inline-flex' : 'inline';
+
+                if (!isShowingOrig) {
+                    const textSpan = document.createElement('span');
+                    textSpan.className = 'lexipro-immersive-text';
+                    textSpan.style.fontFamily = 'inherit';
+                    textSpan.style.fontSize = 'inherit';
+                    textSpan.style.lineHeight = 'inherit';
+                    textSpan.style.color = 'inherit';
+                    textSpan.style.fontWeight = 'inherit';
+
+                    if (item.type === 'body' || item.translatedText.includes('\n')) {
+                        const paras = item.translatedText.split(/\n\s*\n/).filter(p => p.trim());
+                        if (paras.length > 1) {
+                            paras.forEach(p => {
+                                const pEl = document.createElement('p');
+                                pEl.style.margin = '0 0 10px 0';
+                                pEl.style.lineHeight = '1.7';
+                                pEl.innerText = p.trim();
+                                textSpan.appendChild(pEl);
+                            });
+                        } else {
+                            textSpan.innerText = item.translatedText;
+                            textSpan.style.whiteSpace = 'pre-line';
+                        }
+                    } else {
+                        textSpan.innerText = item.translatedText;
+                    }
+                    transContainer.appendChild(textSpan);
                 }
-                textSpan.title = isShowingOrig ? `【中文译文】: ${item.translatedText}` : `【英文原文】: ${item.originalText}`;
 
-                if (isShowingOrig) {
-                    textSpan.innerHTML = item.originalHTML;
-                } else {
-                    textSpan.innerText = item.translatedText;
-                }
-                item.element.appendChild(textSpan);
-
-                // Market Desk 风格原文/译文切换微型胶囊
-                const toggleBtn = document.createElement('button');
+                // 微型切换原文/中文胶囊按钮
+                const toggleBtn = document.createElement('span');
                 toggleBtn.className = 'lexipro-orig-toggle-btn' + (isShowingOrig ? ' showing-orig' : '');
-                toggleBtn.type = 'button';
-                toggleBtn.title = isShowingOrig ? '点击切换为中文译文' : '点击查看英文原文';
-                toggleBtn.innerHTML = isShowingOrig
-                    ? '<span class="lexipro-orig-toggle-icon">⇄</span><span class="lexipro-orig-toggle-text">译文</span>'
-                    : '<span class="lexipro-orig-toggle-icon">⇄</span><span class="lexipro-orig-toggle-text">原文</span>';
+                toggleBtn.setAttribute('role', 'button');
+                toggleBtn.setAttribute('tabindex', '0');
+                toggleBtn.setAttribute('title', isShowingOrig ? '点击返回中文译文' : '点击查看英文原文');
+                toggleBtn.innerHTML = isShowingOrig 
+                    ? '<span class="lexipro-orig-toggle-icon">⇄</span> 中文'
+                    : '<span class="lexipro-orig-toggle-icon">⇄</span> 原文';
 
                 toggleBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -4186,113 +4323,85 @@ CRITICAL RULES:
                     applyItemStyle(item);
                 });
 
-                item.element.appendChild(toggleBtn);
-                item.element.style.display = '';
-                item.element.style.minHeight = '1em'; // 防御高度坍塌
+                transContainer.appendChild(toggleBtn);
             } else if (siteTranslationStyle === 'underline') {
-                // 样式 2: 上面原文，下面紧贴带虚线下划线的译文（继承原字体）
-                item.element.innerHTML = item.originalHTML;
-                item.element.style.display = '';
+                // 模式 2: 下划线双语对照
+                if (origWrapper) origWrapper.style.display = '';
+                if (transContainer) transContainer.style.display = 'none';
 
-                const underNode = document.createElement('div');
-                underNode.className = 'lexipro-trans-underline';
-                underNode.dataset.forSiteId = item.id;
-                underNode.innerText = item.translatedText;
-
-                if (item.element.nextSibling) {
-                    item.element.parentNode.insertBefore(underNode, item.element.nextSibling);
-                } else {
-                    item.element.parentNode.appendChild(underNode);
-                }
-                item.injectedNode = underNode;
-            } else {
-                // 样式 3: 独立轻量卡片模式
-                item.element.innerHTML = item.originalHTML;
-                item.element.style.display = '';
+                const under = document.createElement('div');
+                under.className = 'lexipro-trans-underline';
+                under.innerText = item.translatedText;
+                item.element.appendChild(under);
+                item.injectedNode = under;
+            } else if (siteTranslationStyle === 'card') {
+                // 模式 3: 独立卡片对照
+                if (origWrapper) origWrapper.style.display = '';
+                if (transContainer) transContainer.style.display = 'none';
 
                 const card = document.createElement('div');
                 card.className = 'lexipro-trans-card';
-                card.dataset.forSiteId = item.id;
                 card.innerHTML = `
                     <div class="lexipro-trans-card-header">
-                        <span class="lexipro-trans-card-badge">✨ 译文</span>
-                        <button class="lexipro-trans-card-btn" title="复制译文">📋 复制</button>
+                        <span class="lexipro-trans-card-badge">中文译文</span>
+                        <button class="lexipro-trans-card-btn" type="button">复制</button>
                     </div>
-                    <div class="lexipro-trans-card-body">${escapeHtml(item.translatedText)}</div>
+                    <div class="lexipro-trans-card-body">${escapeHtml(item.translatedText).replace(/\n/g, '<br>')}</div>
                 `;
-
                 const copyBtn = card.querySelector('.lexipro-trans-card-btn');
                 copyBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    navigator.clipboard.writeText(item.translatedText).then(() => {
-                        copyBtn.innerText = '✅ 已复制';
-                        setTimeout(() => { copyBtn.innerText = '📋 复制'; }, 2000);
-                    });
+                    navigator.clipboard.writeText(item.translatedText);
+                    copyBtn.innerText = '已复制';
+                    setTimeout(() => { copyBtn.innerText = '复制'; }, 2000);
                 });
-
-                if (item.element.nextSibling) {
-                    item.element.parentNode.insertBefore(card, item.element.nextSibling);
-                } else {
-                    item.element.parentNode.appendChild(card);
-                }
+                item.element.appendChild(card);
                 item.injectedNode = card;
             }
         }
 
-        // 切换样式并热更新
-        function setTranslationStyle(newStyle) {
-            siteTranslationStyle = newStyle;
-            GM_setValue('lexipro_site_translation_style', newStyle);
-            updateStyleMenuUI();
-            if (isSiteShowingTranslation) {
-                siteItemsMap.forEach(item => {
-                    if (item.status === 'done') {
-                        applyItemStyle(item);
+        // 核心翻译调度器（支持失败项单独重试、视口自顶向下流式上屏、请求作用域隔离）
+        async function runSiteTranslation({ retryFailedOnly = false } = {}) {
+            if (isSiteTranslating) {
+                showSiteToast('正在翻译中，请稍候...');
+                return;
+            }
+
+            collectSiteElements();
+
+            if (retryFailedOnly) {
+                // 仅将失败项重新置入待翻译状态，绝不重复翻译已成功的条目
+                siteItemsMap.forEach(it => {
+                    if (it.status === 'failed' || it.status === 'error') {
+                        it.status = 'pending';
                     }
                 });
             }
-            const nameMap = { replace: '沉浸替换 (原生字体)', underline: '下划线双语对照', card: '轻量卡片对照' };
-            showSiteToast('已切换样式: ' + (nameMap[newStyle] || newStyle));
-        }
 
-        function restoreSiteOriginal() {
-            isSiteShowingTranslation = false;
-            siteItemsMap.forEach(item => {
-                item.isShowingOriginal = false;
-                if (item.element && item.originalHTML) {
-                    item.element.innerHTML = item.originalHTML;
-                    item.element.style.display = '';
-                }
-                if (item.injectedNode && item.injectedNode.parentNode) {
-                    item.injectedNode.remove();
-                    item.injectedNode = null;
-                }
-            });
-            updateSiteFabState();
-            showSiteToast('已还原为原始英文显示');
-        }
-
-        // 调度与执行翻译（前 10 条高优先级即时出屏 + 4 并发后台 Worker 流式渐进渲染）
-        async function runSiteTranslation() {
-            if (isSiteTranslating) return;
-
-            collectSiteElements();
             const pendingItems = Array.from(siteItemsMap.values()).filter(it => it.status === 'pending');
 
             if (pendingItems.length === 0) {
-                showSiteToast('本页全部内容均已翻译完成 ✨');
+                const failedCount = Array.from(siteItemsMap.values()).filter(it => it.status === 'failed' || it.status === 'error').length;
+                if (siteItemsMap.size === 0) {
+                    showSiteToast('未发现可翻译正文');
+                } else if (failedCount > 0) {
+                    showSiteToast(`当前有 ${failedCount} 条翻译未完成，可点击重试`);
+                } else {
+                    showSiteToast('本页全部内容均已翻译完成 ✨');
+                }
                 isSiteShowingTranslation = true;
                 siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
                 updateSiteFabState();
                 return;
             }
 
-            // 核心改进：立即开启显示翻译状态，后续每翻译一条直接上屏！
             isSiteTranslating = true;
             isSiteShowingTranslation = true;
             siteTotalCount = siteItemsMap.size;
             siteUntranslatedNewCount = 0;
             updateSiteFabState();
+
+            const thisGen = siteGeneration;
 
             try {
                 // 1. 严格自顶向下视觉排序：保证最上面的帖子标题、正文与前排热评排在最前面
@@ -4305,37 +4414,51 @@ CRITICAL RULES:
                 // 前 10 条分拆为小批次并发竞速，完成后立即上屏呈现给用户
                 const priorityBatches = createBatches(priorityItems, 5);
                 if (priorityBatches.length > 0) {
-                    await Promise.all(priorityBatches.map((b, idx) => processSiteBatch(b, idx)));
+                    await Promise.all(priorityBatches.map((b, idx) => processSiteBatch(b, idx, thisGen)));
+                    if (thisGen !== siteGeneration) return;
                     updateSiteFabState();
                 }
 
-                // 3. 后续批次（第 11 条往后）进入后台 Worker 并发池，边翻译边动态上屏，无需等待所有加载完成
+                // 3. 后续批次（第 11 条往后）进入后台 Worker 并发池，边翻译边动态上屏
                 if (remainingItems.length > 0) {
                     const backgroundBatches = createBatches(remainingItems, 6);
                     let bIdx = 0;
                     const concurrency = Math.min(4, Math.max(2, backgroundBatches.length));
                     const workers = Array.from({ length: concurrency }, async (_, workerId) => {
                         while (bIdx < backgroundBatches.length) {
+                            if (thisGen !== siteGeneration) break;
                             const currentBatchIdx = bIdx++;
                             const batch = backgroundBatches[currentBatchIdx];
-                            await processSiteBatch(batch, workerId + currentBatchIdx);
+                            await processSiteBatch(batch, workerId + currentBatchIdx, thisGen);
+                            if (thisGen !== siteGeneration) break;
                             updateSiteFabState();
                         }
                     });
                     await Promise.all(workers);
                 }
 
-                showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
+                if (thisGen !== siteGeneration) return;
+
+                const finalFailed = Array.from(siteItemsMap.values()).filter(it => it.status === 'failed' || it.status === 'error').length;
+                siteTranslatedCount = Array.from(siteItemsMap.values()).filter(it => it.status === 'done').length;
+
+                if (finalFailed > 0) {
+                    showSiteToast(`已翻译 ${siteTranslatedCount} 条，${finalFailed} 条暂未完成（可重试）`);
+                } else {
+                    showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
+                }
             } catch (e) {
                 console.error('[LexiPro] 网页全文翻译出错:', e);
                 showSiteToast('⚠️ 翻译中断: ' + (e.message || e));
             } finally {
-                isSiteTranslating = false;
-                updateSiteFabState();
+                if (thisGen === siteGeneration) {
+                    isSiteTranslating = false;
+                    updateSiteFabState();
+                }
             }
         }
 
-        async function processSiteBatch(batch, seedIndex = 0) {
+        async function processSiteBatch(batch, seedIndex = 0, gen = siteGeneration) {
             if (!batch || batch.length === 0) return;
 
             const primaryModel = getModelForBatch(seedIndex);
@@ -4355,7 +4478,8 @@ CRITICAL RULES:
                             ],
                             temperature: 0.2,
                             timeout: 20000,
-                            modelOverride: primaryModel
+                            modelOverride: primaryModel,
+                            requestScope: 'page'
                         });
                     } catch (err1) {
                         res = await requestLLMChatCompletion({
@@ -4365,15 +4489,18 @@ CRITICAL RULES:
                             ],
                             temperature: 0.2,
                             timeout: 20000,
-                            modelOverride: fallbackModel
+                            modelOverride: fallbackModel,
+                            requestScope: 'page'
                         });
                     }
+                    if (gen !== siteGeneration) return;
                     it.translatedText = cleanSiteTrans(res);
                     it.status = 'done';
-                    siteTranslatedCount++;
-                    applyItemStyle(it); // 即时渲染上屏！
+                    siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
+                    applyItemStyle(it);
                 } catch (e) {
-                    it.status = 'error';
+                    if (gen !== siteGeneration) return;
+                    it.status = 'failed';
                 }
                 return;
             }
@@ -4392,7 +4519,8 @@ CRITICAL RULES:
                         ],
                         temperature: 0.2,
                         timeout: 30000,
-                        modelOverride: primaryModel
+                        modelOverride: primaryModel,
+                        requestScope: 'page'
                     });
                 } catch (err1) {
                     res = await requestLLMChatCompletion({
@@ -4402,9 +4530,12 @@ CRITICAL RULES:
                         ],
                         temperature: 0.2,
                         timeout: 30000,
-                        modelOverride: fallbackModel
+                        modelOverride: fallbackModel,
+                        requestScope: 'page'
                     });
                 }
+
+                if (gen !== siteGeneration) return;
 
                 let parsed = null;
                 try {
@@ -4420,12 +4551,13 @@ CRITICAL RULES:
                 }
 
                 for (const it of batch) {
+                    if (gen !== siteGeneration) return;
                     const trans = map.get(it.id);
                     if (trans) {
                         it.translatedText = trans;
                         it.status = 'done';
-                        siteTranslatedCount++;
-                        applyItemStyle(it); // 即时上屏！
+                        siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
+                        applyItemStyle(it);
                     } else {
                         try {
                             const single = await requestLLMChatCompletion({
@@ -4435,18 +4567,22 @@ CRITICAL RULES:
                                 ],
                                 temperature: 0.2,
                                 timeout: 18000,
-                                modelOverride: fallbackModel
+                                modelOverride: fallbackModel,
+                                requestScope: 'page'
                             });
+                            if (gen !== siteGeneration) return;
                             it.translatedText = cleanSiteTrans(single);
                             it.status = 'done';
-                            siteTranslatedCount++;
-                            applyItemStyle(it); // 即时上屏！
+                            siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
+                            applyItemStyle(it);
                         } catch (se) {
-                            it.status = 'error';
+                            if (gen !== siteGeneration) return;
+                            it.status = 'failed';
                         }
                     }
                 }
             } catch (err) {
+                if (gen !== siteGeneration) return;
                 for (const it of batch) {
                     try {
                         const single = await requestLLMChatCompletion({
@@ -4456,14 +4592,17 @@ CRITICAL RULES:
                             ],
                             temperature: 0.2,
                             timeout: 18000,
-                            modelOverride: fallbackModel
+                            modelOverride: fallbackModel,
+                            requestScope: 'page'
                         });
+                        if (gen !== siteGeneration) return;
                         it.translatedText = cleanSiteTrans(single);
                         it.status = 'done';
-                        siteTranslatedCount++;
-                        applyItemStyle(it); // 即时上屏！
+                        siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
+                        applyItemStyle(it);
                     } catch (se) {
-                        it.status = 'error';
+                        if (gen !== siteGeneration) return;
+                        it.status = 'failed';
                     }
                 }
             }
@@ -4478,7 +4617,30 @@ CRITICAL RULES:
             return s;
         }
 
-        // 悬浮 UI 构建
+        // 还原所有内容为原生状态
+        function restoreSiteOriginal() {
+            isSiteShowingTranslation = false;
+            siteItemsMap.forEach(it => {
+                applyItemStyle(it);
+            });
+            updateSiteFabState();
+            showSiteToast('已切换为原生英文内容');
+        }
+
+        // 切换显示样式
+        function setTranslationStyle(newStyle) {
+            siteTranslationStyle = newStyle;
+            GM_setValue('lexipro_site_translation_style', newStyle);
+            updateStyleMenuUI();
+            if (isSiteShowingTranslation) {
+                siteItemsMap.forEach(it => {
+                    if (it.status === 'done') applyItemStyle(it);
+                });
+            }
+            showSiteToast('呈现样式已切换为: ' + (newStyle === 'replace' ? '中文阅读 (原生字体)' : newStyle === 'underline' ? '下划线双语对照' : '独立轻量卡片'));
+        }
+
+        // 悬浮 UI 构建（双按钮设计：主操作 + 更多选项）
         let fabWrapper = null;
         function buildSiteFab() {
             if (document.getElementById('lexipro-site-fab-root')) return;
@@ -4503,13 +4665,14 @@ CRITICAL RULES:
                         <span id="lexipro-site-status-text" style="font-size:11px;font-weight:normal;color:#8b949f;">就绪</span>
                     </div>
                     <button class="lexipro-site-menu-btn" id="lps-btn-translate">🌐 一键翻译本页</button>
+                    <button class="lexipro-site-menu-btn" id="lps-btn-retry" style="display:none;color:#ff9fa5;">⚠️ 重试未完成段落</button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-restore" style="display:none;">🔄 还原为英文原文</button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-new-items" style="display:none;">✨ 翻译新增内容</button>
                     
                     <div class="lexipro-style-group">
                         <div class="lexipro-style-title">翻译显示样式：</div>
                         <div class="lexipro-style-option" data-style="replace">
-                            <span>沉浸替换 (原生字体)</span>
+                            <span>中文阅读 (原生排版)</span>
                             <span class="check-icon">✓</span>
                         </div>
                         <div class="lexipro-style-option" data-style="underline">
@@ -4532,12 +4695,15 @@ CRITICAL RULES:
                         <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${siteAutoTranslate ? '#31c39a' : '#8b949f'};">${siteAutoTranslate ? '开启' : '关闭'}</span>
                     </button>
                 </div>
-                <div class="lexipro-site-fab" id="lexipro-site-fab">
-                    <div class="lexipro-site-fab-icon">
-                        <span class="lexipro-site-spinner" style="display:none;">⏳</span>
-                        <span class="lexipro-site-logo-icon">MD</span>
+                <div class="lexipro-site-fab-toolbar">
+                    <div class="lexipro-site-fab" id="lexipro-site-fab">
+                        <div class="lexipro-site-fab-icon">
+                            <span class="lexipro-site-spinner" style="display:none;">⏳</span>
+                            <span class="lexipro-site-logo-icon">MD</span>
+                        </div>
+                        <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">翻译${siteConfig.name}</div>
                     </div>
-                    <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">翻译${siteConfig.name}</div>
+                    <button class="lexipro-site-fab-more" id="lexipro-site-fab-more" title="翻译选项与设置">⚙️</button>
                     <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;">0</div>
                 </div>
             `;
@@ -4545,8 +4711,10 @@ CRITICAL RULES:
             document.body.appendChild(fabWrapper);
 
             const fab = fabWrapper.querySelector('#lexipro-site-fab');
+            const fabMore = fabWrapper.querySelector('#lexipro-site-fab-more');
             const menu = fabWrapper.querySelector('#lexipro-site-menu');
             const btnTranslate = fabWrapper.querySelector('#lps-btn-translate');
+            const btnRetry = fabWrapper.querySelector('#lps-btn-retry');
             const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
             const btnNewItems = fabWrapper.querySelector('#lps-btn-new-items');
 
@@ -4556,9 +4724,22 @@ CRITICAL RULES:
                 e.stopPropagation();
                 if (!isSiteShowingTranslation && !isSiteTranslating) {
                     runSiteTranslation();
+                } else if (isSiteShowingTranslation && !isSiteTranslating) {
+                    // 已翻译状态下点击主按钮快速切换原文与中文
+                    const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
+                    siteItemsMap.forEach(it => {
+                        it.isShowingOriginal = !isShowingOrig;
+                        applyItemStyle(it);
+                    });
+                    updateSiteFabState();
                 } else {
                     menu.classList.toggle('show');
                 }
+            });
+
+            fabMore.addEventListener('click', (e) => {
+                e.stopPropagation();
+                menu.classList.toggle('show');
             });
 
             fab.addEventListener('contextmenu', (e) => {
@@ -4571,6 +4752,11 @@ CRITICAL RULES:
                 runSiteTranslation();
             });
 
+            btnRetry.addEventListener('click', () => {
+                menu.classList.remove('show');
+                runSiteTranslation({ retryFailedOnly: true });
+            });
+
             btnRestore.addEventListener('click', () => {
                 menu.classList.remove('show');
                 restoreSiteOriginal();
@@ -4581,7 +4767,6 @@ CRITICAL RULES:
                 runSiteTranslation();
             });
 
-            // 皮肤切换
             const btnThemeToggle = fabWrapper.querySelector('#lps-btn-theme-toggle');
             const themeStatusText = fabWrapper.querySelector('#lps-theme-status');
             btnThemeToggle.addEventListener('click', () => {
@@ -4603,7 +4788,6 @@ CRITICAL RULES:
                 showSiteToast('进入页面自动翻译: ' + (siteAutoTranslate ? '已开启' : '已关闭'));
             });
 
-            // 样式单选项点击
             fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
                 opt.addEventListener('click', () => {
                     const chosenStyle = opt.dataset.style;
@@ -4681,9 +4865,13 @@ CRITICAL RULES:
             const spin = fabWrapper.querySelector('.lexipro-site-spinner');
             const logo = fabWrapper.querySelector('.lexipro-site-logo-icon');
             const btnTrans = fabWrapper.querySelector('#lps-btn-translate');
+            const btnRetry = fabWrapper.querySelector('#lps-btn-retry');
             const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
             const btnNew = fabWrapper.querySelector('#lps-btn-new-items');
             const statusText = fabWrapper.querySelector('#lexipro-site-status-text');
+
+            const failedCount = Array.from(siteItemsMap.values()).filter(it => it.status === 'failed' || it.status === 'error').length;
+            const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
 
             if (isSiteTranslating) {
                 spin.style.display = 'inline-block';
@@ -4693,7 +4881,7 @@ CRITICAL RULES:
             } else if (isSiteShowingTranslation) {
                 spin.style.display = 'none';
                 logo.style.display = 'inline-block';
-                label.innerText = `已翻译 (${siteTranslatedCount})`;
+                label.innerText = isShowingOrig ? `显示原文 (${siteTranslatedCount})` : `已翻译 (${siteTranslatedCount})`;
                 btnTrans.style.display = 'none';
                 btnRestore.style.display = 'flex';
                 statusText.innerText = '已翻译';
@@ -4704,6 +4892,13 @@ CRITICAL RULES:
                 btnTrans.style.display = 'flex';
                 btnRestore.style.display = 'none';
                 statusText.innerText = '就绪';
+            }
+
+            if (btnRetry) {
+                btnRetry.style.display = (!isSiteTranslating && failedCount > 0) ? 'flex' : 'none';
+                if (failedCount > 0) {
+                    btnRetry.innerText = `⚠️ 重试未完成段落 (${failedCount}条)`;
+                }
             }
 
             if (siteUntranslatedNewCount > 0 && isSiteShowingTranslation) {
@@ -4742,40 +4937,141 @@ CRITICAL RULES:
             }, 600);
         });
 
+        // SPA 换页检测与生命周期隔离处理
+        function onSiteUrlChange() {
+            siteGeneration++;
+            // 取消属于上一页的所有未完成请求
+            activePageRequests.forEach(req => {
+                try { req.abort(); } catch (e) {}
+            });
+            activePageRequests.clear();
+
+            siteItemsMap.clear();
+            siteItemCounter = 0;
+            siteTranslatedCount = 0;
+            siteTotalCount = 0;
+            siteUntranslatedNewCount = 0;
+            isSiteTranslating = false;
+            isSiteShowingTranslation = false;
+
+            setTimeout(() => {
+                collectSiteElements();
+                updateSiteFabState();
+                if (siteAutoTranslate) {
+                    runSiteTranslation();
+                }
+            }, 1000);
+        }
+
+        let lastSiteUrl = location.href;
+        setInterval(() => {
+            if (location.href !== lastSiteUrl) {
+                lastSiteUrl = location.href;
+                onSiteUrlChange();
+            }
+        }, 800);
+        window.addEventListener('popstate', onSiteUrlChange);
+
+        // 扩展环境与 Popup 的消息交互支持
+        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+            chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+                if (msg.type === 'GET_PAGE_STATE') {
+                    sendResponse({
+                        supported: true,
+                        connected: true,
+                        siteName: siteConfig.name,
+                        jobState: isSiteTranslating ? 'running' : (isSiteShowingTranslation ? 'completed' : 'idle'),
+                        totalCount: siteItemsMap.size,
+                        translatedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length,
+                        failedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'failed' || x.status === 'error').length,
+                        pendingCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'pending').length,
+                        isShowingOriginal: Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal),
+                        displayMode: siteTranslationStyle,
+                        autoTranslate: siteAutoTranslate,
+                        theme: siteUITheme
+                    });
+                    return true;
+                }
+                if (msg.type === 'START_PAGE_TRANSLATION') {
+                    runSiteTranslation();
+                    sendResponse({ success: true });
+                    return true;
+                }
+                if (msg.type === 'RETRY_FAILED') {
+                    runSiteTranslation({ retryFailedOnly: true });
+                    sendResponse({ success: true });
+                    return true;
+                }
+                if (msg.type === 'TOGGLE_ORIGINAL') {
+                    const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
+                    siteItemsMap.forEach(it => {
+                        it.isShowingOriginal = !isShowingOrig;
+                        applyItemStyle(it);
+                    });
+                    updateSiteFabState();
+                    sendResponse({ success: true, isShowingOriginal: !isShowingOrig });
+                    return true;
+                }
+                if (msg.type === 'SET_DISPLAY_MODE') {
+                    setTranslationStyle(msg.mode);
+                    sendResponse({ success: true });
+                    return true;
+                }
+                if (msg.type === 'SET_THEME') {
+                    siteUITheme = msg.theme;
+                    GM_setValue('lexipro_ui_theme', msg.theme);
+                    const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
+                    if (themeStatusText) themeStatusText.innerText = msg.theme === 'animal_island' ? '动森经典' : 'Market Desk';
+                    sendResponse({ success: true });
+                    return true;
+                }
+            });
+        }
+
+        // 配置热更新钩子（由 storage 监听回调）
+        if (typeof window !== 'undefined') {
+            window.__lexipro_onStorageChange = (key, value) => {
+                if (key === 'lexipro_site_translation_style' && value) {
+                    siteTranslationStyle = value;
+                    updateStyleMenuUI();
+                    if (isSiteShowingTranslation) {
+                        siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
+                    }
+                } else if (key === 'lexipro_site_auto_translate') {
+                    siteAutoTranslate = Boolean(value);
+                    const autoStatusText = fabWrapper?.querySelector('#lps-auto-status');
+                    if (autoStatusText) {
+                        autoStatusText.innerText = siteAutoTranslate ? '开启' : '关闭';
+                        autoStatusText.style.color = siteAutoTranslate ? '#31c39a' : '#8b949f';
+                    }
+                } else if (key === 'lexipro_ui_theme' && value) {
+                    siteUITheme = value;
+                    const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
+                    if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
+                }
+            };
+        }
+
         function startSiteEngine() {
             buildSiteFab();
             collectSiteElements();
             if (document.body) {
                 siteObserver.observe(document.body, { childList: true, subtree: true });
             }
-            console.log(`[LexiPro] ${siteConfig.name} 专属翻译增强引擎已启动，已探测项目: ${siteItemsMap.size}`);
 
-            // 若开启了进站自动翻译，在页面初始渲染完毕后自动启动翻译
+            // 进站自动翻译特性支持
             if (siteAutoTranslate) {
                 setTimeout(() => {
                     runSiteTranslation();
-                }, 1200);
+                }, 1500);
             }
         }
 
-        if (document.body) {
-            startSiteEngine();
-        } else {
+        if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', startSiteEngine);
+        } else {
+            startSiteEngine();
         }
-
-        // SPA 页面路由变动检测（如 Reddit 列表点击进帖子无刷新跳转）
-        let siteLastUrl = window.location.href;
-        setInterval(() => {
-            if (window.location.href !== siteLastUrl) {
-                siteLastUrl = window.location.href;
-                if (siteAutoTranslate) {
-                    setTimeout(() => {
-                        runSiteTranslation();
-                    }, 1200);
-                }
-            }
-        }, 1000);
     }
 
     // 启动系统核心初始化入口

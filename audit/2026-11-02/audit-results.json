@@ -1,0 +1,103 @@
+{
+  "scope": "Extracted current functions with mocked dependencies; verifying blueprint fixes",
+  "probes": [
+    {
+      "name": "extension: modelOverride in effect",
+      "requested": "fallback-model",
+      "actualRequestModel": "fallback-model",
+      "stream": false
+    },
+    {
+      "name": "userscript: modelOverride in effect",
+      "requested": "fallback-model",
+      "actualRequestModel": "fallback-model",
+      "stream": false
+    },
+    {
+      "name": "Shared site translator parity",
+      "exactNormalizedMatch": true
+    },
+    {
+      "name": "Failed page items retried on request",
+      "requestsFirst": 2,
+      "totalRequestsAfterRetry": 4,
+      "itemStatus": "failed",
+      "toasts": [
+        "已翻译 0 条，1 条暂未完成（可重试）",
+        "已翻译 0 条，1 条暂未完成（可重试）"
+      ]
+    },
+    {
+      "name": "Bridge abort dispatches cancellation and invokes onabort",
+      "sentMessageTypes": [
+        "GM_XHR",
+        "GM_XHR_ABORT"
+      ],
+      "loadCalls": 0,
+      "abortCallbackCalls": 1
+    },
+    {
+      "name": "Background timeout safely covers entire response body stream",
+      "timeoutProtectedDuringStream": true,
+      "clearedInFinally": true
+    },
+    {
+      "name": "Popup action and theme wiring verified",
+      "messageDriven": true,
+      "quickThemeChangeHandlerRegistered": true
+    },
+    {
+      "name": "Static solid-color contrast calculations",
+      "pairs": [
+        {
+          "label": "setting tip with new token",
+          "foreground": "#5D6672",
+          "background": "#FFFFFF",
+          "ratio": 5.82
+        },
+        {
+          "label": "popup footer with new token",
+          "foreground": "#5D6672",
+          "background": "#F6F7F9",
+          "ratio": 5.43
+        },
+        {
+          "label": "proposed light body",
+          "foreground": "#20252B",
+          "background": "#FFFFFF",
+          "ratio": 15.43
+        },
+        {
+          "label": "proposed light secondary",
+          "foreground": "#5D6672",
+          "background": "#FFFFFF",
+          "ratio": 5.82
+        },
+        {
+          "label": "proposed light primary button",
+          "foreground": "#FFFFFF",
+          "background": "#285FBA",
+          "ratio": 6.11
+        },
+        {
+          "label": "proposed dark body",
+          "foreground": "#E5EAF0",
+          "background": "#20252C",
+          "ratio": 12.74
+        },
+        {
+          "label": "proposed dark secondary",
+          "foreground": "#AAB4C0",
+          "background": "#20252C",
+          "ratio": 7.34
+        },
+        {
+          "label": "proposed dark button",
+          "foreground": "#18202C",
+          "background": "#8DB4FF",
+          "ratio": 7.88
+        }
+      ]
+    }
+  ]
+}
