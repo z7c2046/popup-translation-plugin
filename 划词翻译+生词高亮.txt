@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.7.1
+// @version      4.7.2
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -58,16 +58,22 @@
         initialDisableThinking = Boolean(initialDisableThinking);
     }
 
-    // 清理迁移已失效的旧版测试用 Notion Token
-    let initialNotionToken = GM_getValue('lexipro_notion_token', null);
-    if (!initialNotionToken || initialNotionToken === 'REDACTED_LEGACY_NOTION_TOKEN') {
+    // 读取 Notion 配置与安全清理（仅清理已失效的旧版测试用硬编码 Token，绝不破坏用户填写的合法配置）
+    let initialNotionToken = GM_getValue('lexipro_notion_token', '') || '';
+    if (initialNotionToken === 'REDACTED_LEGACY_NOTION_TOKEN') {
         initialNotionToken = '';
         GM_setValue('lexipro_notion_token', '');
     }
-    let initialNotionDbId = GM_getValue('lexipro_notion_database_id', null);
-    if (!initialNotionDbId || (initialNotionDbId === '11112222333344445555666677778888' && !initialNotionToken)) {
+    let initialNotionDbId = GM_getValue('lexipro_notion_database_id', '') || '';
+    if (initialNotionDbId === '11112222333344445555666677778888' && !initialNotionToken) {
         initialNotionDbId = '';
         GM_setValue('lexipro_notion_database_id', '');
+    }
+    if (initialNotionDbId) {
+        const m = initialNotionDbId.match(/([a-f0-9]{32})/i) || initialNotionDbId.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+        if (m) {
+            initialNotionDbId = m[1].replace(/-/g, '');
+        }
     }
 
     // ================= 配置区 =================
@@ -2363,6 +2369,24 @@
                         <em>（Access Token 过期后脚本会自动尝试用 Refresh Token 刷新）</em>
                     </div>
                 </div>
+
+                <div class="imt-settings-group" id="notion-settings-group" style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(216, 200, 171, .6);">
+                    <div class="imt-settings-switch-copy" style="margin-bottom: 4px;">
+                        <label>📓 Notion 生词本同步 (可选)</label>
+                        <div class="imt-settings-hint">配置后将在网页中自动高亮生词本中的生词，并可一键星标收藏。</div>
+                    </div>
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="imt-notion-token">Notion Token</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="imt-notion-token" placeholder="ntn_... 或 secret_..." value="${escapeHtml(CONFIG.notionToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="imt-notion-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+                    <div class="imt-settings-group">
+                        <label for="imt-notion-db">Notion 数据库 ID</label>
+                        <input type="text" class="form-input" id="imt-notion-db" placeholder="32 位数据库 ID" value="${escapeHtml(CONFIG.notionDatabaseId || '')}" />
+                    </div>
+                </div>
             </div>
         `;
 
@@ -2446,6 +2470,28 @@
             CONFIG.llmProviders.kimi_free.accessToken = val;
             GM_setValue('lexipro_kimi_access_token', val);
         });
+
+        const notionTokenInput = settingsBox.querySelector('#imt-notion-token');
+        const notionDbInput = settingsBox.querySelector('#imt-notion-db');
+
+        function onNotionConfigChange() {
+            const rawToken = notionTokenInput?.value.trim() || '';
+            let rawDb = notionDbInput?.value.trim() || '';
+            const m = rawDb.match(/([a-f0-9]{32})/i) || rawDb.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+            if (m) rawDb = m[1].replace(/-/g, '');
+
+            CONFIG.notionToken = rawToken;
+            CONFIG.notionDatabaseId = rawDb;
+            GM_setValue('lexipro_notion_token', rawToken);
+            GM_setValue('lexipro_notion_database_id', rawDb);
+
+            if (rawToken && rawDb) {
+                syncVocabData();
+            }
+        }
+
+        notionTokenInput?.addEventListener('change', onNotionConfigChange);
+        notionDbInput?.addEventListener('change', onNotionConfigChange);
 
         settingsBox.querySelectorAll('.imt-token-toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -5436,6 +5482,19 @@ CRITICAL RULES:
                     siteUITheme = value;
                     const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
                     if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
+                } else if (key === 'lexipro_notion_token') {
+                    CONFIG.notionToken = value || '';
+                    if (CONFIG.notionToken && CONFIG.notionDatabaseId) {
+                        syncVocabData();
+                    }
+                } else if (key === 'lexipro_notion_database_id') {
+                    let cleanDb = value || '';
+                    const m = cleanDb.match(/([a-f0-9]{32})/i) || cleanDb.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+                    if (m) cleanDb = m[1].replace(/-/g, '');
+                    CONFIG.notionDatabaseId = cleanDb;
+                    if (CONFIG.notionToken && CONFIG.notionDatabaseId) {
+                        syncVocabData();
+                    }
                 }
             };
         }

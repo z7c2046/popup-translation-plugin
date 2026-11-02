@@ -27,10 +27,24 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
+  const btnToggleNotionToken = document.getElementById('btn-toggle-notion-token');
+  const btnTestNotion = document.getElementById('btn-test-notion');
+  const testNotionResult = document.getElementById('test-notion-result');
   const btnSave = document.getElementById('btn-save');
   const btnReset = document.getElementById('btn-reset');
   const saveMsg = document.getElementById('save-msg');
   const previewBox = document.getElementById('preview-box');
+
+  // 规范化提取 32 位 Notion Database ID (去横杠与 URL 前后缀)
+  function cleanDatabaseId(raw) {
+    if (!raw) return '';
+    const trimmed = String(raw).trim();
+    const match = trimmed.match(/([a-f0-9]{32})/i) || trimmed.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+    if (match) {
+      return match[1].replace(/-/g, '');
+    }
+    return trimmed;
+  }
 
   // 读取配置
   const stored = await chrome.storage.local.get(DEFAULT_CONFIG);
@@ -141,15 +155,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Notion Token 密码显示/隐藏切换
+  btnToggleNotionToken?.addEventListener('click', () => {
+    if (notionTokenInput.type === 'password') {
+      notionTokenInput.type = 'text';
+      btnToggleNotionToken.innerText = '🔒';
+    } else {
+      notionTokenInput.type = 'password';
+      btnToggleNotionToken.innerText = '👁️';
+    }
+  });
+
+  // 测试 Notion 知识库 API 连通性
+  btnTestNotion?.addEventListener('click', async () => {
+    const rawToken = notionTokenInput.value.trim();
+    const rawDb = cleanDatabaseId(notionDbInput.value);
+    notionDbInput.value = rawDb;
+
+    if (!rawToken || !rawDb) {
+      testNotionResult.innerText = '⚠️ 请先填写完整的 Notion Token 与 Database ID';
+      testNotionResult.className = 'test-result text-error';
+      return;
+    }
+
+    testNotionResult.innerText = '正在测试连接 Notion API...';
+    testNotionResult.className = 'test-result';
+
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'GM_XHR',
+        details: {
+          url: `https://api.notion.com/v1/databases/${rawDb}`,
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${rawToken}`,
+            'Notion-Version': '2022-06-28',
+            'Content-Type': 'application/json'
+          }
+        }
+      });
+
+      if (res && res.success && res.response?.status >= 200 && res.response?.status < 300) {
+        let dbTitle = '未命名数据库';
+        try {
+          const json = JSON.parse(res.response.responseText);
+          const titleArr = json.title || [];
+          dbTitle = titleArr.map(t => t.plain_text).join('') || '未命名生词库';
+        } catch (e) {}
+        testNotionResult.innerText = `✅ 连接成功！已连通知识库: 「${dbTitle}」`;
+        testNotionResult.className = 'test-result text-success';
+      } else {
+        const status = res?.response?.status;
+        let errMsg = `连接失败 (HTTP ${status || 'Error'})`;
+        if (status === 401) {
+          errMsg = 'Token 无效或已失效 (HTTP 401 Unauthorized)';
+        } else if (status === 404) {
+          errMsg = '未找到该数据库 (HTTP 404)。请确保在 Notion 页面右上角将此数据库 Connect/Share 给了您创建的 Integration！';
+        }
+        throw new Error(errMsg);
+      }
+    } catch (err) {
+      testNotionResult.innerText = `❌ ${err.message || err}`;
+      testNotionResult.className = 'test-result text-error';
+    }
+  });
+
   // 保存配置（遵循蓝图 P1-13：真实保存，清空即清空，不暗中回填内置 Key）
   btnSave.addEventListener('click', async () => {
+    const cleanedDbId = cleanDatabaseId(notionDbInput.value);
+    notionDbInput.value = cleanedDbId;
+
     const toSave = {
       lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim(),
       lexipro_disable_thinking: thinkingCheck.checked,
       lexipro_notion_token: notionTokenInput.value.trim(),
-      lexipro_notion_database_id: notionDbInput.value.trim(),
+      lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
       lexipro_site_auto_translate: siteAutoTranslateCheck.checked
     };

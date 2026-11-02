@@ -128,12 +128,22 @@
 
         <div class="form-group">
           <label for="notion-token-input">Notion Integration Token</label>
-          <input type="password" id="notion-token-input" class="form-control" placeholder="ntn_... 或 secret_...">
+          <div class="input-with-button">
+            <input type="password" id="notion-token-input" class="form-control" placeholder="ntn_... 或 secret_...">
+            <button type="button" id="btn-toggle-notion-token" class="btn-toggle-eye" title="显示/隐藏 Token">👁️</button>
+          </div>
+          <span class="tip">在 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" style="color:var(--lp-primary);text-decoration:none;">Notion 开发者平台</a> 创建 Internal Integration 即可获取。</span>
         </div>
 
         <div class="form-group">
           <label for="notion-db-input">Notion Database ID (数据库 ID)</label>
-          <input type="text" id="notion-db-input" class="form-control" placeholder="32 位数据库 ID">
+          <input type="text" id="notion-db-input" class="form-control" placeholder="32 位数据库 ID (支持直接粘贴 Notion 数据库完整 URL)">
+          <span class="tip">如 https://notion.so/workspace/11112222333344445555666677778888?v=... 中的 32 位字符。保存或测试时会自动提取。</span>
+        </div>
+
+        <div class="button-group">
+          <button type="button" id="btn-test-notion" class="btn btn-secondary">⚡ 测试 Notion 知识库连通性</button>
+          <span id="test-notion-result" class="test-result"></span>
         </div>
       </section>
 
