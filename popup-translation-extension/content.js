@@ -4371,8 +4371,9 @@ CRITICAL RULES:
             [data-theme="light"] .lexipro-trans-underline,
             [data-color-mode="light"] .lexipro-trans-underline,
             body.theme-light .lexipro-trans-underline {
-                color: #334155 !important;
-                border-bottom-color: #2563eb !important;
+                color: inherit !important;
+                font-weight: inherit !important;
+                border-bottom-color: rgba(37, 99, 235, 0.6) !important;
             }
             [data-theme="light"] .lexipro-trans-card,
             [data-color-mode="light"] .lexipro-trans-card,
@@ -4609,17 +4610,18 @@ CRITICAL RULES:
                 opacity: 0.85;
             }
 
-            /* 样式 2: 虚线下划线双语对照 */
+            /* 样式 2: 虚线下划线双语对照（颜色、字重、大小严格继承原文，保持视觉一致） */
             .lexipro-trans-underline {
-                margin-top: 4px;
-                padding-bottom: 2px;
-                border-bottom: 1.5px dashed #548afa;
-                color: #aeb7c0;
+                margin-top: 6px;
+                padding-bottom: 3px;
+                border-bottom: 1.5px dashed rgba(84, 138, 250, 0.75);
+                color: inherit !important;
                 font-family: inherit;
                 font-size: inherit;
                 line-height: inherit;
+                font-weight: inherit !important;
                 display: block;
-                opacity: 0.95;
+                opacity: 1 !important;
             }
 
             /* 样式 3: 独立轻量卡片 */
@@ -4913,6 +4915,12 @@ CRITICAL RULES:
 
                 const under = document.createElement('div');
                 under.className = 'lexipro-trans-underline';
+                under.style.color = 'inherit';
+                under.style.fontWeight = 'inherit';
+                under.style.fontSize = 'inherit';
+                under.style.lineHeight = 'inherit';
+                under.style.fontFamily = 'inherit';
+                under.style.opacity = '1';
                 under.innerText = item.translatedText;
                 item.element.appendChild(under);
                 item.injectedNode = under;

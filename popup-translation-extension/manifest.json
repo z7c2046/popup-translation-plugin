@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Popup Translation - AI 划词翻译与生词高亮 (含 Reddit & 路透社一键翻译)",
-  "version": "4.8.0",
+  "version": "4.8.1",
   "description": "全网页 AI 划词翻译、动森 UI 字典弹窗、Notion 生词库增量同步与页面生词高亮。专属适配 Reddit 与路透社 (Reuters) 一键双语全文翻译。",
   "icons": {
     "16": "icons/icon16.png",

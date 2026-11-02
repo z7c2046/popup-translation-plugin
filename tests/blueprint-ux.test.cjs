@@ -116,6 +116,11 @@ function section(source, start, end) {
     assert.ok(code.includes('retryFailedOnly'), `${name} must support retrying failed items only`);
     assert.ok(code.includes('siteGeneration'), `${name} must track SPA siteGeneration to discard obsolete callbacks`);
     assert.ok(!code.includes('@media (prefers-color-scheme: light), [data-theme="light"]'), `${name} must not mix DOM selectors inside @media query`);
+    
+    // 7. 验证双语对照下划线样式继承（字体颜色与字重继承原文，避免过浅）
+    assert.ok(code.includes('.lexipro-trans-underline {\n                margin-top: 6px;') || code.includes('.lexipro-trans-underline {\r\n                margin-top: 6px;'), `${name} must include updated underline styles`);
+    assert.ok(code.includes("under.style.color = 'inherit'"), `${name} must set inline color inherit on underline translation element`);
+    assert.ok(code.includes("under.style.fontWeight = 'inherit'"), `${name} must set inline font-weight inherit on underline translation element`);
   }
 
   console.log('All GEMINI_TRANSLATION_UX_BLUEPRINT compliance and regression tests passed successfully! 🚀');

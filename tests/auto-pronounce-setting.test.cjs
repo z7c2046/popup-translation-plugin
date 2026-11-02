@@ -62,3 +62,4 @@ test('Auto Pronounce Logic: content.js & userscript guard auto-play with CONFIG.
         assert.match(code, /key === 'lexipro_auto_pronounce'/, `${fileLabel} 必须监听 lexipro_auto_pronounce 热更新`);
     });
 });
+
