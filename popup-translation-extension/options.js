@@ -8,6 +8,7 @@ const DEFAULT_CONFIG = {
   lexipro_sf_model: 'Qwen/Qwen2.5-7B-Instruct',
   lexipro_sf_api_key: '',
   lexipro_disable_thinking: true,
+  lexipro_auto_pronounce: false,
   lexipro_notion_token: '',
   lexipro_notion_database_id: '',
   lexipro_site_translation_style: 'replace',
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const keyInput = document.getElementById('sf-key-input');
   const btnToggleKey = document.getElementById('btn-toggle-sf-key');
   const thinkingCheck = document.getElementById('disable-thinking-check');
+  const autoPronounceCheck = document.getElementById('auto-pronounce-check');
   const notionTokenInput = document.getElementById('notion-token-input');
   const notionDbInput = document.getElementById('notion-db-input');
   const siteStyleSelect = document.getElementById('site-style-select');
@@ -230,6 +232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim(),
       lexipro_disable_thinking: thinkingCheck.checked,
+      lexipro_auto_pronounce: autoPronounceCheck ? autoPronounceCheck.checked : false,
       lexipro_notion_token: notionTokenInput.value.trim(),
       lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
@@ -259,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     modelSelect.value = cfg.lexipro_sf_model || DEFAULT_CONFIG.lexipro_sf_model;
     keyInput.value = cfg.lexipro_sf_api_key || '';
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;
+    if (autoPronounceCheck) autoPronounceCheck.checked = Boolean(cfg.lexipro_auto_pronounce);
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';

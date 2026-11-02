@@ -137,6 +137,10 @@
         initialDisableThinking = Boolean(initialDisableThinking);
     }
 
+    // 初始化查词自动发音设置（默认关闭自动发音，改为点击发音）
+    let initialAutoPronounce = GM_getValue('lexipro_auto_pronounce', false);
+    initialAutoPronounce = Boolean(initialAutoPronounce);
+
     // 读取 Notion 配置与安全清理（仅清理已失效的旧版测试用硬编码 Token，绝不破坏用户填写的合法配置）
     let initialNotionToken = GM_getValue('lexipro_notion_token', '') || '';
     if (initialNotionToken === 'REDACTED_LEGACY_NOTION_TOKEN') {
@@ -159,6 +163,7 @@
     const CONFIG = {
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
         disableThinking: initialDisableThinking, // 是否关闭深度思考（默认关闭，极速秒出）
+        autoPronounce: initialAutoPronounce, // 查词时是否自动播放读音（默认关闭，点击发音）
         llmProviders: {
             siliconflow: {
                 name: '硅基流动',
@@ -2114,7 +2119,9 @@
         quickTooltip.style.left = `${Math.max(8, x)}px`;
         quickTooltip.style.top = `${Math.max(8, y)}px`;
 
-        playHighlightedWordAudio(word);
+        if (CONFIG.autoPronounce) {
+            playHighlightedWordAudio(word);
+        }
         requestAnimationFrame(() => quickTooltip.style.opacity = '1');
     }
 
@@ -2423,6 +2430,32 @@
                     </div>
                 </div>
 
+                <div class="imt-settings-group" id="imt-pronounce-group">
+                    <div class="imt-settings-switch-row">
+                        <div class="imt-settings-switch-copy">
+                            <label for="imt-pronounce-switch">
+                                查词自动朗读发音
+                                <span class="imt-switch-status-badge ${Boolean(CONFIG.autoPronounce) ? 'imt-status-on' : 'imt-status-off'}" id="imt-pronounce-status-text">
+                                    ${Boolean(CONFIG.autoPronounce) ? '已开启（自动发音）' : '点击小喇叭发音（默认）'}
+                                </span>
+                            </label>
+                            <div class="imt-settings-hint" id="imt-pronounce-hint">
+                                ${Boolean(CONFIG.autoPronounce) ? '划词或查词时将自动朗读英文发音' : '查词时保持静音，需要时点击音标旁的小喇叭 🔊 即可发音'}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked="${Boolean(CONFIG.autoPronounce)}"
+                            class="imt-animal-switch ${Boolean(CONFIG.autoPronounce) ? 'imt-animal-switch-checked' : ''}"
+                            id="imt-pronounce-switch"
+                            title="${Boolean(CONFIG.autoPronounce) ? '当前已开启自动发音（点击改为点击发音）' : '当前为点击发音（点击开启自动发音）'}"
+                        >
+                            <span class="imt-animal-switch-handle" aria-hidden="true"></span>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
                     <div class="imt-settings-group" style="margin-bottom: 6px;">
                         <label for="kimi-refresh-token">Kimi Refresh Token *</label>
@@ -2516,6 +2549,42 @@
         thinkingLabel?.addEventListener('click', (e) => {
             e.preventDefault();
             thinkingSwitch?.click();
+        });
+
+        const pronounceSwitch = settingsBox.querySelector('#imt-pronounce-switch');
+        const pronounceStatusBadge = settingsBox.querySelector('#imt-pronounce-status-text');
+        const pronounceHint = settingsBox.querySelector('#imt-pronounce-hint');
+        const pronounceLabel = settingsBox.querySelector('label[for="imt-pronounce-switch"]');
+
+        function updatePronounceSwitchUI(enabled) {
+            if (!pronounceSwitch) return;
+            pronounceSwitch.classList.toggle('imt-animal-switch-checked', enabled);
+            pronounceSwitch.setAttribute('aria-checked', String(enabled));
+            pronounceSwitch.title = enabled
+                ? '当前已开启自动发音（点击改为点击发音）'
+                : '当前为点击发音（点击开启自动发音）';
+            if (pronounceStatusBadge) {
+                pronounceStatusBadge.textContent = enabled ? '已开启（自动发音）' : '点击小喇叭发音（默认）';
+                pronounceStatusBadge.className = `imt-switch-status-badge ${enabled ? 'imt-status-on' : 'imt-status-off'}`;
+            }
+            if (pronounceHint) {
+                pronounceHint.textContent = enabled
+                    ? '划词或查词时将自动朗读英文发音'
+                    : '查词时保持静音，需要时点击音标旁的小喇叭 🔊 即可发音';
+            }
+        }
+
+        function togglePronounceSetting() {
+            const nextValue = !Boolean(CONFIG.autoPronounce);
+            CONFIG.autoPronounce = nextValue;
+            GM_setValue('lexipro_auto_pronounce', nextValue);
+            updatePronounceSwitchUI(nextValue);
+        }
+
+        pronounceSwitch?.addEventListener('click', togglePronounceSetting);
+        pronounceLabel?.addEventListener('click', (e) => {
+            e.preventDefault();
+            pronounceSwitch?.click();
         });
 
         providerSelect.addEventListener('change', () => {
@@ -3452,7 +3521,7 @@ Formatting requirements: Output valid JSON only.`;
             const data = translationCache.get(text);
             contentBox.innerHTML = renderTranslation(data, text, { format });
             typewriterReveal(contentBox);
-            if (data.mode === "en_word") playAudio(data.word || text);
+            if (CONFIG.autoPronounce && data.mode === "en_word") playAudio(data.word || text);
             return;
         }
 
@@ -3471,7 +3540,7 @@ Formatting requirements: Output valid JSON only.`;
             typewriterReveal(quickContentBox);
             quickTooltip.dataset.word = normalizeWord(data.word || text);
             updateHighlightPopupStarUI(quickTooltip.dataset.word);
-            if (data.mode === "en_word") playAudio(data.word || text);
+            if (CONFIG.autoPronounce && data.mode === "en_word") playAudio(data.word || text);
             return;
         }
 
@@ -3919,8 +3988,8 @@ Formatting requirements: Output valid JSON only.`;
                     updateHighlightPopupStarUI(quickTooltip.dataset.word);
                 }
 
-                // 单词模式下默认自动发音
-                if (resultData.mode === "en_word") playAudio(resultData.word || text);
+                // 单词模式下仅在开启自动发音设置时自动朗读
+                if (CONFIG.autoPronounce && resultData.mode === "en_word") playAudio(resultData.word || text);
             } catch (e) {
                 targetBox.innerHTML = `<div style="color:#ef746f;font-weight:normal;">解析失败: ${escapeHtml(e.message)}</div>`;
             }
@@ -5561,6 +5630,8 @@ CRITICAL RULES:
                     siteUITheme = value;
                     const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
                     if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
+                } else if (key === 'lexipro_auto_pronounce') {
+                    CONFIG.autoPronounce = Boolean(value);
                 } else if (key === 'lexipro_notion_token') {
                     CONFIG.notionToken = value || '';
                     if (CONFIG.notionToken && CONFIG.notionDatabaseId) {
