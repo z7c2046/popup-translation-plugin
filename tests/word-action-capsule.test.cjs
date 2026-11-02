@@ -33,8 +33,10 @@ function section(source, start, end) {
     assert.ok(code.includes('clearActiveWordHighlight'), `${name} must include clearActiveWordHighlight function`);
     assert.ok(code.includes('showWordActionCapsule'), `${name} must include showWordActionCapsule function`);
     assert.ok(code.includes('isClickInsideCapsule'), `${name} must include isClickInsideCapsule function`);
+    assert.ok(code.includes('isGlobalImmersionTranslationPage'), `${name} must include isGlobalImmersionTranslationPage function`);
     assert.ok(code.includes('executeCapsuleExplain'), `${name} must include executeCapsuleExplain function`);
     assert.ok(code.includes('capsuleAiBtn.dataset.word'), `${name} must persist word to dataset`);
+    assert.ok(code.includes('!isGlobalImmersionTranslationPage()'), `${name} must restrict word click to immersion translation pages`);
   }
 
   // 2. 提取 extractWordFromTextOffset 函数并在 vm 中进行全场景单词识别断言
@@ -75,6 +77,34 @@ function section(source, start, end) {
   assert.ok(contentSrc.includes('clearTimeout(highlightPopupHideTimeout)'), 'Must close highlight hover popup on word click');
   assert.ok(contentSrc.includes('closeHighlightPopup()'), 'Must call closeHighlightPopup on word click');
   assert.ok(contentSrc.includes('Math.hypot(e.clientX - lastMouseDownCoords.x'), 'Must measure mouse movement to separate drag selection from single click');
+
+  // 4. 验证 isGlobalImmersionTranslationPage 站点及状态限制逻辑
+  const immersionFnCode = section(contentSrc, 'function isGlobalImmersionTranslationPage()', 'function extractWordFromTextOffset(');
+  function testImmersion(hostname, isShowing = false, isTranslating = false, hasElement = false) {
+    const ctx = vm.createContext({
+      location: { hostname },
+      window: {
+        __lexipro_site_showing_translation: isShowing,
+        __lexipro_site_translating: isTranslating
+      },
+      document: {
+        querySelector: (sel) => {
+          if (sel === '[data-lexipro-site-id]' && hasElement) return {};
+          if (sel === '#lexipro-site-fab-root' && hasElement) return {};
+          return null;
+        }
+      }
+    });
+    vm.runInContext(immersionFnCode, ctx);
+    return ctx.isGlobalImmersionTranslationPage();
+  }
+
+  assert.equal(testImmersion('reddit.com'), true, 'Reddit should be recognized as immersion page');
+  assert.equal(testImmersion('www.reuters.com'), true, 'Reuters should be recognized as immersion page');
+  assert.equal(testImmersion('github.com'), false, 'GitHub should NOT be recognized as immersion page');
+  assert.equal(testImmersion('google.com'), false, 'Google should NOT be recognized as immersion page');
+  assert.equal(testImmersion('baidu.com'), false, 'Baidu should NOT be recognized as immersion page');
+  assert.equal(testImmersion('any-site.com', true), true, 'Any site with active immersion translation should be recognized');
 
   console.log('All word action capsule unit, extraction, and conflict-prevention tests passed successfully! 🎯');
 })().catch(err => {

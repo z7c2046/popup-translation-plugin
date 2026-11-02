@@ -233,5 +233,8 @@ This repository does not store API credentials. Configure them in Tampermonkey s
   - **双向数据持久绑定 (`dataset.word`)**：在展示胶囊时同步将目标单词存入 `wordActionCapsule.dataset.word` 与 `capsuleAiBtn.dataset.word`，即使外部全局变量发生抖动，按钮亦能 100% 稳定读取当前锁定的英文单词。
   - **双重查词入口支持**：不仅支持点击 `[✨ AI 解释]` 呼出词典弹窗，同时将胶囊内的单词文本本身升级为可点击状态（`cursor: pointer`），点击单词名称或 AI 解释按钮均可直接调用 `triggerFetch(word)` 弹出动森 UI 词典。
   - **胶囊事件阻断传播**：为 `wordActionCapsule` 增加 `click` 与 `mousedown` 的 `e.stopPropagation()`，彻底杜绝胶囊内点击向宿主页面外溢。
+- **单字点击查词（下标操作胶囊）作用域精准限定**：
+  - 依据设计规范，宿主网页正文单词点击交互（高亮背景、虚线下划线及下标悬浮胶囊）**严格限定在全局沉浸式翻译页面出现**（如 Reddit、路透社 Reuters 等专属沉浸式增强站点，以及处于沉浸式翻译状态下的页面）以及标准词典弹窗的双语例句中；
+  - 在全网其他日常普通网页（如 Google、GitHub、Baidu 等）中保持纯净无干扰体验，日常单击不弹出下标胶囊，继续保留经典的拖拽长句/短语划选触发小圆点翻译机制。
 - **油猴脚本与 Chrome 扩展双端 100% 严格同步修复**。
 - 自动化测试用例全面强化并保持 9/9 持续全绿。

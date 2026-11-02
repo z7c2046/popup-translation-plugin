@@ -2745,6 +2745,27 @@
         }
     }
 
+    function isGlobalImmersionTranslationPage() {
+        try {
+            const hostname = location.hostname.toLowerCase();
+            const isImmersionSite = hostname === 'reddit.com' || hostname.endsWith('.reddit.com') ||
+                                    hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
+            if (isImmersionSite) return true;
+
+            if (
+                Boolean(window.__lexipro_site_showing_translation) ||
+                Boolean(window.__lexipro_site_translating) ||
+                Boolean(document.querySelector('[data-lexipro-site-id]')) ||
+                Boolean(document.querySelector('#lexipro-site-fab-root'))
+            ) {
+                return true;
+            }
+        } catch (e) {
+            return false;
+        }
+        return false;
+    }
+
     function extractWordFromTextOffset(text, offset) {
         if (!text || offset < 0) return null;
         let charIndex = offset;
@@ -2969,6 +2990,12 @@
                 clearActiveWordHighlight();
                 return;
             }
+        }
+
+        // 关键限制：宿主页面单字点击查词（高亮下划线与悬浮胶囊）仅在全局沉浸式翻译页面出现
+        if (!path.includes(host) && !isGlobalImmersionTranslationPage()) {
+            clearActiveWordHighlight();
+            return;
         }
 
         const extracted = extractWordFromTextOffset(textNode.textContent, offset);
