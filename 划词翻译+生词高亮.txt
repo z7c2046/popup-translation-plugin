@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
 // @namespace    http://tampermonkey.net/
-// @version      4.6.3
+// @version      4.7.0
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
 // @author       Gemini
 // @match        *://*/*
@@ -207,6 +207,17 @@
             cursor: help;
             box-shadow: 0 2px 0 rgba(189, 174, 160, .85);
             transition: background-color .2s, transform .2s, box-shadow .2s;
+        }
+        /* 全局单词点击激活样式（浅青高亮背景 + 虚线下划线） */
+        .imt-word-click-active {
+            background: #e6f7f8 !important;
+            border-bottom: 1.5px dashed #2563eb !important;
+            border-radius: 4px !important;
+            box-shadow: 0 0 0 2px #e6f7f8 !important;
+            color: inherit !important;
+            display: inline !important;
+            cursor: pointer !important;
+            transition: background-color 0.15s ease !important;
         }
         .${CONFIG.highlightClass}:hover {
             background:
@@ -1204,7 +1215,117 @@
             background: rgba(180, 160, 130, 0.22);
             color: #7d6b55;
         }
-    `;
+    
+        /* 单词点击专属悬浮操作胶囊 (Word Action Capsule) */
+        .imt-word-action-capsule {
+            position: absolute;
+            z-index: 2147483647;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            background: #20252b;
+            color: #ffffff;
+            padding: 4px 6px 4px 10px;
+            border-radius: 9999px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28), 0 1px 3px rgba(0, 0, 0, 0.15);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.2;
+            pointer-events: auto;
+            user-select: none;
+            opacity: 0;
+            transform: translateY(4px) scale(0.96);
+            transition: opacity 0.16s ease, transform 0.16s ease;
+            box-sizing: border-box;
+            white-space: nowrap;
+        }
+
+        .imt-word-action-capsule.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* 顶部小箭头指示（指向单词） */
+        .imt-word-action-capsule .imt-capsule-arrow {
+            position: absolute;
+            top: -5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 5px solid #20252b;
+        }
+
+        /* 底部小箭头（当胶囊翻转到单词上方时使用） */
+        .imt-word-action-capsule.imt-flip-up .imt-capsule-arrow {
+            top: auto;
+            bottom: -5px;
+            border-bottom: none;
+            border-top: 5px solid #20252b;
+        }
+
+        .imt-word-action-capsule .imt-capsule-word {
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: -0.2px;
+            margin-right: 2px;
+            max-width: 140px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            border-radius: 9999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn:active {
+            transform: scale(0.95);
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn-audio {
+            background: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn-audio:hover {
+            background: rgba(255, 255, 255, 0.26);
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn-ai {
+            background: #14b8a6;
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .imt-word-action-capsule .imt-capsule-btn-ai:hover {
+            background: #0d9488;
+            box-shadow: 0 0 8px rgba(20, 184, 166, 0.4);
+        }
+
+        .imt-word-action-capsule .imt-capsule-icon {
+            font-size: 12px;
+            line-height: 1;
+        }
+`;
     shadow.appendChild(style);
 
     const dot = document.createElement('div');
@@ -1271,6 +1392,28 @@
         <span class="imt-island-arrow" aria-hidden="true"></span>
     `;
     shadow.appendChild(quickTooltip);
+
+    // ================= 构建单词点击专属悬浮操作胶囊 (Word Action Capsule) =================
+    const wordActionCapsule = document.createElement('div');
+    wordActionCapsule.id = 'imt-word-action-capsule';
+    wordActionCapsule.className = 'imt-word-action-capsule';
+    wordActionCapsule.innerHTML = `
+        <span class="imt-capsule-arrow"></span>
+        <span class="imt-capsule-word" id="imt-capsule-word"></span>
+        <button type="button" class="imt-capsule-btn imt-capsule-btn-audio" id="imt-capsule-btn-audio">
+            <span class="imt-capsule-icon">🔊</span>
+            <span>读音</span>
+        </button>
+        <button type="button" class="imt-capsule-btn imt-capsule-btn-ai" id="imt-capsule-btn-ai">
+            <span class="imt-capsule-icon">✨</span>
+            <span>AI 解释</span>
+        </button>
+    `;
+    shadow.appendChild(wordActionCapsule);
+
+    const capsuleWordEl = wordActionCapsule.querySelector('#imt-capsule-word');
+    const capsuleAudioBtn = wordActionCapsule.querySelector('#imt-capsule-btn-audio');
+    const capsuleAiBtn = wordActionCapsule.querySelector('#imt-capsule-btn-ai');
 
     // 获取内部元素的引用
     const header = tooltip.querySelector('#imt-header');
@@ -2486,6 +2629,260 @@
         // 6. 触发 AI 详细解析并渲染至标准弹窗
         triggerFetch(word);
     });
+
+    // ================= 全局网页/例句单词点击：高亮下划线 + 读音/AI解释操作胶囊 =================
+    let activeWordSpan = null;
+    let activeWordText = '';
+
+    function clearActiveWordHighlight() {
+        if (activeWordSpan && activeWordSpan.parentNode) {
+            const parent = activeWordSpan.parentNode;
+            while (activeWordSpan.firstChild) {
+                parent.insertBefore(activeWordSpan.firstChild, activeWordSpan);
+            }
+            activeWordSpan.remove();
+            try { parent.normalize(); } catch (e) {}
+        }
+        activeWordSpan = null;
+        activeWordText = '';
+        if (wordActionCapsule) {
+            wordActionCapsule.classList.remove('show');
+            wordActionCapsule.style.display = 'none';
+        }
+    }
+
+    function extractWordFromTextOffset(text, offset) {
+        if (!text || offset < 0) return null;
+        let charIndex = offset;
+        if (charIndex >= text.length) charIndex = text.length - 1;
+        if (charIndex < 0) charIndex = 0;
+
+        // 字符容差：若当前位置非英文字母，尝试左右移动 1 字符命中
+        if (!/[a-zA-Z]/.test(text[charIndex])) {
+            if (charIndex > 0 && /[a-zA-Z]/.test(text[charIndex - 1])) {
+                charIndex--;
+            } else if (charIndex + 1 < text.length && /[a-zA-Z]/.test(text[charIndex + 1])) {
+                charIndex++;
+            } else {
+                return null;
+            }
+        }
+
+        let start = charIndex;
+        let end = charIndex;
+        while (start > 0 && /[a-zA-Z0-9'-]/.test(text[start - 1])) {
+            start--;
+        }
+        while (end < text.length && /[a-zA-Z0-9'-]/.test(text[end])) {
+            end++;
+        }
+
+        let rawWord = text.slice(start, end).replace(/^[^a-zA-Z]+|[^a-zA-Z]+$/g, '');
+        if (!rawWord || rawWord.length < 2 || !/^[a-zA-Z]+(?:[-'][a-zA-Z]+)*$/.test(rawWord)) {
+            return null;
+        }
+
+        const realStart = text.indexOf(rawWord, start);
+        if (realStart === -1) return null;
+        const realEnd = realStart + rawWord.length;
+
+        return {
+            word: rawWord,
+            start: realStart,
+            end: realEnd
+        };
+    }
+
+    function showWordActionCapsule(targetSpan, word) {
+        if (!wordActionCapsule || !targetSpan) return;
+
+        if (capsuleWordEl) {
+            capsuleWordEl.innerText = word;
+            capsuleWordEl.title = word;
+        }
+
+        wordActionCapsule.style.display = 'flex';
+        wordActionCapsule.style.visibility = 'hidden';
+        wordActionCapsule.classList.remove('show', 'imt-flip-up');
+
+        const rect = targetSpan.getBoundingClientRect();
+        const capsuleRect = wordActionCapsule.getBoundingClientRect();
+        const capsuleWidth = capsuleRect.width || 190;
+        const capsuleHeight = capsuleRect.height || 36;
+
+        let left = rect.left + window.scrollX + (rect.width / 2) - (capsuleWidth / 2);
+        let top = rect.bottom + window.scrollY + 8;
+        let isFlipUp = false;
+
+        if (rect.bottom + capsuleHeight + 16 > window.innerHeight) {
+            top = rect.top + window.scrollY - capsuleHeight - 8;
+            isFlipUp = true;
+        }
+
+        const minLeft = window.scrollX + 10;
+        const maxLeft = window.scrollX + window.innerWidth - capsuleWidth - 10;
+        left = Math.max(minLeft, Math.min(maxLeft, left));
+
+        wordActionCapsule.style.left = `${Math.round(left)}px`;
+        wordActionCapsule.style.top = `${Math.round(top)}px`;
+        if (isFlipUp) {
+            wordActionCapsule.classList.add('imt-flip-up');
+        }
+
+        wordActionCapsule.style.visibility = 'visible';
+        requestAnimationFrame(() => {
+            wordActionCapsule.classList.add('show');
+        });
+    }
+
+    // 胶囊内“读音”按钮点击
+    capsuleAudioBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (activeWordText) {
+            playAudio(activeWordText);
+        }
+    });
+
+    // 胶囊内“AI 解释”按钮点击：直接调用全局 AI 查词解释函数
+    capsuleAiBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const word = activeWordText;
+        if (!word) return;
+
+        let left = 0, top = 0;
+        if (activeWordSpan) {
+            const rect = activeWordSpan.getBoundingClientRect();
+            left = rect.left + window.scrollX;
+            top = rect.bottom + window.scrollY + 8;
+        } else {
+            const rect = wordActionCapsule.getBoundingClientRect();
+            left = rect.left + window.scrollX;
+            top = rect.bottom + window.scrollY + 4;
+        }
+
+        const maxLeft = window.innerWidth + window.scrollX - 425;
+        if (left > maxLeft) {
+            left = Math.max(8, maxLeft);
+        }
+
+        clearActiveWordHighlight();
+
+        currentText = word;
+        currentSelectionFormat = null;
+
+        if (!isPinned) {
+            tooltip.style.left = `${Math.max(8, left)}px`;
+            tooltip.style.top = `${Math.max(8, top)}px`;
+        }
+
+        tooltip.style.display = 'flex';
+        tooltip.classList.remove('quick-mode');
+        requestAnimationFrame(() => tooltip.style.opacity = '1');
+
+        triggerFetch(word);
+    });
+
+    // 监听全局点击：支持网页正文与弹窗例句点击单词触发高亮下划线与操作胶囊
+    let lastMouseDownCoords = { x: 0, y: 0, time: 0 };
+    document.addEventListener('mousedown', (e) => {
+        lastMouseDownCoords = { x: e.clientX, y: e.clientY, time: Date.now() };
+    }, true);
+
+    document.addEventListener('click', (e) => {
+        const path = e.composedPath ? e.composedPath() : [];
+        if (path.includes(wordActionCapsule)) return;
+
+        // 若鼠标移动位移大于 5px（正在进行拖拽划选），不触发单击查词
+        const dist = Math.hypot(e.clientX - lastMouseDownCoords.x, e.clientY - lastMouseDownCoords.y);
+        if (dist > 5) return;
+
+        const target = e.target;
+        if (!target) return;
+
+        // 避免在输入框或交互按钮上误触发
+        if (target.closest('input, textarea, select, [contenteditable="true"], button, a')) {
+            clearActiveWordHighlight();
+            return;
+        }
+        if (target.closest('#lexipro-site-fab-root')) return;
+
+        // 如果点击的是已经激活的同一个单词，保持
+        if (activeWordSpan && (target === activeWordSpan || activeWordSpan.contains(target))) {
+            return;
+        }
+
+        // 尝试从点击位置提取英文单词
+        let range = null;
+        if (document.caretRangeFromPoint) {
+            range = document.caretRangeFromPoint(e.clientX, e.clientY);
+        } else if (document.caretPositionFromPoint) {
+            const pos = document.caretPositionFromPoint(e.clientX, e.clientY);
+            if (pos) {
+                range = document.createRange();
+                range.setStart(pos.offsetNode, pos.offset);
+                range.collapse(true);
+            }
+        }
+
+        let textNode = null;
+        let offset = 0;
+
+        if (range && range.startContainer.nodeType === Node.TEXT_NODE) {
+            textNode = range.startContainer;
+            offset = range.startOffset;
+        } else if (target.childNodes.length === 1 && target.firstChild.nodeType === Node.TEXT_NODE) {
+            textNode = target.firstChild;
+            offset = 0;
+        }
+
+        if (!textNode || !textNode.textContent) {
+            clearActiveWordHighlight();
+            return;
+        }
+
+        // 过滤弹窗自身控件（但允许在词典例句 .imt-ex-src 中点击单词）
+        if (path.includes(host)) {
+            const isInsideExample = path.some(el => el.classList && (el.classList.contains('imt-ex-src') || el.classList.contains('imt-example')));
+            if (!isInsideExample) {
+                clearActiveWordHighlight();
+                return;
+            }
+        }
+
+        const extracted = extractWordFromTextOffset(textNode.textContent, offset);
+        if (!extracted) {
+            clearActiveWordHighlight();
+            return;
+        }
+
+        clearActiveWordHighlight();
+
+        // 避免与生词悬停冲突：若悬停速查气泡正在显示或等待显示，关闭它
+        clearTimeout(hoverTimeout);
+        clearTimeout(highlightPopupHideTimeout);
+        closeHighlightPopup();
+
+        // 隐藏常规划选小圆点
+        if (dot) dot.style.display = 'none';
+
+        try {
+            const wordRange = document.createRange();
+            wordRange.setStart(textNode, extracted.start);
+            wordRange.setEnd(textNode, extracted.end);
+
+            const span = document.createElement('span');
+            span.className = 'imt-word-click-active';
+            wordRange.surroundContents(span);
+
+            activeWordSpan = span;
+            activeWordText = extracted.word;
+
+            showWordActionCapsule(span, extracted.word);
+        } catch (err) {
+            console.warn('[LexiPro] 包裹高亮单词失败:', err);
+            clearActiveWordHighlight();
+        }
+    }, true);
 
     // ================= 选词、拖拽与全局事件 =================
     header.addEventListener('mousedown', (e) => {
