@@ -224,3 +224,14 @@ This repository does not store API credentials. Configure them in Tampermonkey s
   - **无损 DOM 还原机制**：点击空白处、滚动屏幕或按下 Escape 键时，胶囊优雅淡出，临时包裹的高亮节点自动通过 `unwrap` 恢复为原始纯文本节点（`parent.normalize()`），不残留任何垃圾 DOM，对 React/Vue/SPA 网页框架 100% 零污染。
 - **油猴脚本与 Chrome 扩展双端 100% 严格同步更新**。
 - 新增 `tests/word-action-capsule.test.cjs` 自动化单元测试保障，全部 9 项测试套件持续全绿。
+
+### 4.7.1 单字悬浮胶囊 [AI 解释 | 读音] 事件穿透与 Closed Shadow DOM 坐标判定修复
+
+- **修复点击胶囊 [✨ AI 解释] 按钮无弹窗响应的阻断性缺陷**：
+  - **根本原因排查**：宿主 Shadow DOM 使用了 `mode: 'closed'`，在外部全局 `document.addEventListener('click', ..., true)` 捕获阶段，事件的 `e.composedPath()` 无法透传 Shadow DOM 内部闭包节点，导致 `path.includes(wordActionCapsule)` 恒判为 `false`；文档点击监听器误判点击发生在胶囊外部，在事件冒泡到按钮前提前清空了 `activeWordText` 并重新在点击坐标提取下层网页文本，导致胶囊重新初始化而词典弹窗无法弹出。
+  - **精准坐标判定防御 (`isClickInsideCapsule`)**：新增基于视口物理坐标的边界判定函数 `isClickInsideCapsule(e)`，在捕获阶段首行拦截点击事件。只要点击落在胶囊物理视口边界（`getBoundingClientRect()`）内，直接放行，杜绝任何提前清空或重复查词。
+  - **双向数据持久绑定 (`dataset.word`)**：在展示胶囊时同步将目标单词存入 `wordActionCapsule.dataset.word` 与 `capsuleAiBtn.dataset.word`，即使外部全局变量发生抖动，按钮亦能 100% 稳定读取当前锁定的英文单词。
+  - **双重查词入口支持**：不仅支持点击 `[✨ AI 解释]` 呼出词典弹窗，同时将胶囊内的单词文本本身升级为可点击状态（`cursor: pointer`），点击单词名称或 AI 解释按钮均可直接调用 `triggerFetch(word)` 弹出动森 UI 词典。
+  - **胶囊事件阻断传播**：为 `wordActionCapsule` 增加 `click` 与 `mousedown` 的 `e.stopPropagation()`，彻底杜绝胶囊内点击向宿主页面外溢。
+- **油猴脚本与 Chrome 扩展双端 100% 严格同步修复**。
+- 自动化测试用例全面强化并保持 9/9 持续全绿。

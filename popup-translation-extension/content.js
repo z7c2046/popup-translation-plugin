@@ -2730,6 +2730,21 @@
         }
     }
 
+    function isClickInsideCapsule(e) {
+        if (!wordActionCapsule || wordActionCapsule.style.display === 'none') return false;
+        try {
+            const rect = wordActionCapsule.getBoundingClientRect();
+            return (
+                e.clientX >= rect.left &&
+                e.clientX <= rect.right &&
+                e.clientY >= rect.top &&
+                e.clientY <= rect.bottom
+            );
+        } catch (err) {
+            return false;
+        }
+    }
+
     function extractWordFromTextOffset(text, offset) {
         if (!text || offset < 0) return null;
         let charIndex = offset;
@@ -2775,9 +2790,18 @@
     function showWordActionCapsule(targetSpan, word) {
         if (!wordActionCapsule || !targetSpan) return;
 
+        wordActionCapsule.dataset.word = word;
         if (capsuleWordEl) {
             capsuleWordEl.innerText = word;
             capsuleWordEl.title = word;
+            capsuleWordEl.dataset.word = word;
+            capsuleWordEl.style.cursor = 'pointer';
+        }
+        if (capsuleAiBtn) {
+            capsuleAiBtn.dataset.word = word;
+        }
+        if (capsuleAudioBtn) {
+            capsuleAudioBtn.dataset.word = word;
         }
 
         wordActionCapsule.style.display = 'flex';
@@ -2814,18 +2838,12 @@
         });
     }
 
-    // 胶囊内“读音”按钮点击
-    capsuleAudioBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (activeWordText) {
-            playAudio(activeWordText);
+    function executeCapsuleExplain(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
         }
-    });
-
-    // 胶囊内“AI 解释”按钮点击：直接调用全局 AI 查词解释函数
-    capsuleAiBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const word = activeWordText;
+        const word = (capsuleAiBtn && capsuleAiBtn.dataset.word) || (capsuleWordEl ? capsuleWordEl.innerText : '') || activeWordText;
         if (!word) return;
 
         let left = 0, top = 0;
@@ -2833,7 +2851,7 @@
             const rect = activeWordSpan.getBoundingClientRect();
             left = rect.left + window.scrollX;
             top = rect.bottom + window.scrollY + 8;
-        } else {
+        } else if (wordActionCapsule) {
             const rect = wordActionCapsule.getBoundingClientRect();
             left = rect.left + window.scrollX;
             top = rect.bottom + window.scrollY + 4;
@@ -2859,6 +2877,28 @@
         requestAnimationFrame(() => tooltip.style.opacity = '1');
 
         triggerFetch(word);
+    }
+
+    // 胶囊内“读音”按钮点击
+    capsuleAudioBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const word = (capsuleAudioBtn && capsuleAudioBtn.dataset.word) || activeWordText;
+        if (word) {
+            playAudio(word);
+        }
+    });
+
+    // 胶囊内“AI 解释”按钮及单词文本点击：直接调用全局 AI 查词解释函数
+    capsuleAiBtn.addEventListener('click', executeCapsuleExplain);
+    if (capsuleWordEl) {
+        capsuleWordEl.addEventListener('click', executeCapsuleExplain);
+    }
+    wordActionCapsule.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    wordActionCapsule.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
     });
 
     // 监听全局点击：支持网页正文与弹窗例句点击单词触发高亮下划线与操作胶囊
@@ -2868,6 +2908,9 @@
     }, true);
 
     document.addEventListener('click', (e) => {
+        // 关键防护 1：若点击落在单词操作胶囊区域内，直接放行，绝不阻断胶囊按钮响应与清空状态
+        if (isClickInsideCapsule(e)) return;
+
         const path = e.composedPath ? e.composedPath() : [];
         if (path.includes(wordActionCapsule)) return;
 

@@ -32,6 +32,9 @@ function section(source, start, end) {
     assert.ok(code.includes('extractWordFromTextOffset'), `${name} must include extractWordFromTextOffset function`);
     assert.ok(code.includes('clearActiveWordHighlight'), `${name} must include clearActiveWordHighlight function`);
     assert.ok(code.includes('showWordActionCapsule'), `${name} must include showWordActionCapsule function`);
+    assert.ok(code.includes('isClickInsideCapsule'), `${name} must include isClickInsideCapsule function`);
+    assert.ok(code.includes('executeCapsuleExplain'), `${name} must include executeCapsuleExplain function`);
+    assert.ok(code.includes('capsuleAiBtn.dataset.word'), `${name} must persist word to dataset`);
   }
 
   // 2. 提取 extractWordFromTextOffset 函数并在 vm 中进行全场景单词识别断言
