@@ -16,12 +16,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   const quickStyleSelect = document.getElementById('quick-style-select');
   const quickAutoCheck = document.getElementById('quick-auto-check');
   const quickAutoLabel = document.getElementById('quick-auto-label');
+  const quickExcludeCheck = document.getElementById('quick-exclude-check');
+  const quickExcludeLabel = document.getElementById('quick-exclude-label');
+
+  // 辅助：域名匹配判断
+  function matchesPattern(host, pat) {
+    if (!host || !pat) return false;
+    let cleanPat = String(pat).toLowerCase().trim();
+    cleanPat = cleanPat.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0].trim();
+    if (!cleanPat) return false;
+    if (cleanPat.startsWith('*.')) {
+      const root = cleanPat.slice(2);
+      return host === root || host.endsWith('.' + root);
+    }
+    return host === cleanPat || host.endsWith('.' + cleanPat);
+  }
 
   // 读取并初始化当前配置
   const storedConfig = await chrome.storage.local.get({
     lexipro_ui_theme: 'market_desk',
     lexipro_site_translation_style: 'replace',
-    lexipro_site_auto_translate: false
+    lexipro_site_auto_translate: false,
+    lexipro_excluded_sites: []
   });
 
   if (quickThemeSelect) {
@@ -87,7 +103,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // 排除网站名单处理
+  let currentExcludedSites = Array.isArray(storedConfig.lexipro_excluded_sites) ? storedConfig.lexipro_excluded_sites : [];
+  let isCurrentExcluded = Boolean(hostname && currentExcludedSites.some(pat => matchesPattern(hostname, pat)));
+
+  if (quickExcludeCheck) {
+    quickExcludeCheck.checked = isCurrentExcluded;
+    if (quickExcludeLabel) {
+      quickExcludeLabel.innerText = isCurrentExcluded ? '已排除' : '未排除';
+      quickExcludeLabel.style.color = isCurrentExcluded ? '#B33E45' : '#475569';
+    }
+    quickExcludeCheck.addEventListener('change', async (e) => {
+      if (!hostname) return;
+      const isChecked = e.target.checked;
+      isCurrentExcluded = isChecked;
+
+      if (isChecked) {
+        if (!currentExcludedSites.some(p => matchesPattern(hostname, p))) {
+          currentExcludedSites.push(hostname);
+        }
+      } else {
+        currentExcludedSites = currentExcludedSites.filter(p => !matchesPattern(hostname, p));
+      }
+
+      await chrome.storage.local.set({ lexipro_excluded_sites: currentExcludedSites });
+      if (quickExcludeLabel) {
+        quickExcludeLabel.innerText = isChecked ? '已排除' : '未排除';
+        quickExcludeLabel.style.color = isChecked ? '#B33E45' : '#475569';
+      }
+      renderPageState();
+    });
+  }
+
   function renderPageState() {
+    if (isCurrentExcluded) {
+      envBadge.innerText = '已排除此网站';
+      envBadge.className = 'badge badge-gray';
+      envHint.innerText = '当前网站在排除黑名单中，生词高亮与沉浸式翻译均已停用。';
+      specialBox.style.display = 'none';
+      if (connStatusMsg) connStatusMsg.style.display = 'none';
+      return;
+    }
+
     if (isReddit) {
       envBadge.innerText = 'Reddit (专属增强)';
       envBadge.className = 'badge badge-orange';

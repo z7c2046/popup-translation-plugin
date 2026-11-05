@@ -9,6 +9,7 @@ const DEFAULT_CONFIG = {
   lexipro_sf_api_key: '',
   lexipro_disable_thinking: true,
   lexipro_auto_pronounce: false,
+  lexipro_excluded_sites: [],
   lexipro_notion_token: '',
   lexipro_notion_database_id: '',
   lexipro_site_translation_style: 'replace',
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnToggleKey = document.getElementById('btn-toggle-sf-key');
   const thinkingCheck = document.getElementById('disable-thinking-check');
   const autoPronounceCheck = document.getElementById('auto-pronounce-check');
+  const excludedSitesInput = document.getElementById('excluded-sites-input');
   const notionTokenInput = document.getElementById('notion-token-input');
   const notionDbInput = document.getElementById('notion-db-input');
   const siteStyleSelect = document.getElementById('site-style-select');
@@ -46,6 +48,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       return match[1].replace(/-/g, '');
     }
     return trimmed;
+  }
+
+  // 解析并清洗排除网站域名列表
+  function parseExcludedSites(rawText) {
+    if (!rawText) return [];
+    const lines = String(rawText).split(/[\n,;]+/);
+    const result = [];
+    for (const line of lines) {
+      let clean = line.trim().toLowerCase();
+      clean = clean.replace(/^[a-zA-Z]+:\/\//, '').split('/')[0].split(':')[0].trim();
+      if (clean && !result.includes(clean)) {
+        result.push(clean);
+      }
+    }
+    return result;
   }
 
   // 读取配置
@@ -227,12 +244,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     const cleanedDbId = cleanDatabaseId(notionDbInput.value);
     notionDbInput.value = cleanedDbId;
 
+    const excludedSites = parseExcludedSites(excludedSitesInput ? excludedSitesInput.value : '');
+    if (excludedSitesInput) {
+      excludedSitesInput.value = excludedSites.join('\n');
+    }
+
     const toSave = {
       lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim(),
       lexipro_disable_thinking: thinkingCheck.checked,
       lexipro_auto_pronounce: autoPronounceCheck ? autoPronounceCheck.checked : false,
+      lexipro_excluded_sites: excludedSites,
       lexipro_notion_token: notionTokenInput.value.trim(),
       lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
@@ -263,6 +286,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     keyInput.value = cfg.lexipro_sf_api_key || '';
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;
     if (autoPronounceCheck) autoPronounceCheck.checked = Boolean(cfg.lexipro_auto_pronounce);
+    if (excludedSitesInput) {
+      const list = Array.isArray(cfg.lexipro_excluded_sites) ? cfg.lexipro_excluded_sites : [];
+      excludedSitesInput.value = list.join('\n');
+    }
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';

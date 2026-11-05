@@ -28,6 +28,17 @@
       </div>
       <div class="status-hint" id="env-hint">全网划词翻译与生词高亮已就绪，鼠标划词即刻触发</div>
       <div id="conn-status-msg" style="display: none; margin-top: 6px; font-size: 11.5px; color: #b33e45; line-height: 1.4;"></div>
+      
+      <div class="status-row" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #E2E8F0;">
+        <span class="label" style="display: flex; align-items: center; gap: 4px; font-size: 12px;">
+          <span>🚫</span>
+          <span>排除此网站 (停用增强)</span>
+        </span>
+        <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+          <input type="checkbox" id="quick-exclude-check">
+          <span id="quick-exclude-label" style="font-size: 11.5px; font-weight: 600; color: #475569;">未排除</span>
+        </label>
+      </div>
     </div>
 
     <!-- 站点专属增强操作区 (Reddit / 路透社) -->

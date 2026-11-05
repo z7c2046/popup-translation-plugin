@@ -91,7 +91,19 @@
         </div>
       </section>
 
-      <!-- 3. 大模型翻译服务与 API -->
+      <!-- 3. 网站排除黑名单 (Excluded Sites) -->
+      <section class="card">
+        <h2 class="card-title">🚫 网站排除名单 (黑名单)</h2>
+        <p class="card-desc">配置不希望打扰的网站列表。处于排除名单中的网站将<strong>完全禁用页面生词高亮与沉浸式全文翻译</strong>。</p>
+
+        <div class="form-group">
+          <label for="excluded-sites-input">排除的网站域名 (每行一个域名)</label>
+          <textarea id="excluded-sites-input" class="form-control" rows="4" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;reddit.com&#10;reuters.com&#10;github.com"></textarea>
+          <span class="tip">提示：支持输入主域名（如 <code>reddit.com</code> 自动匹配所有子域名）或完整链接（自动提取主机名）。留空表示在所有网站正常启用。</span>
+        </div>
+      </section>
+
+      <!-- 4. 大模型翻译服务与 API -->
       <section class="card">
         <h2 class="card-title">🤖 硅基流动 (SiliconFlow) 大语言模型配置</h2>
         <p class="card-desc">全网划词翻译、Reddit 与路透社翻译的核心驱动引擎。</p>
@@ -134,7 +146,7 @@
         </div>
       </section>
 
-      <!-- 4. 生词本与 Notion 增量同步 -->
+      <!-- 5. 生词本与 Notion 增量同步 -->
       <section class="card">
         <h2 class="card-title">📓 Notion 生词本同步 (可选)</h2>
         <p class="card-desc">配置您的 Notion 知识库，在浏览网页时自动高亮生词本中的单词。此项为可选增强，未配置不影响页面翻译与划词。</p>
