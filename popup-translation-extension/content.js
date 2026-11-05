@@ -4423,18 +4423,14 @@ CRITICAL RULES:
         const hostname = location.hostname.toLowerCase();
         const isReddit = hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
         const isReuters = hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
-        if (!isReddit && !isReuters) return;
 
-        const siteConfig = isReddit ? {
-            name: 'Reddit',
-            isReddit: true,
-            isReuters: false,
-            desc: 'Reddit 帖子与评论专属双语/沉浸式增强'
-        } : {
-            name: '路透社',
-            isReddit: false,
-            isReuters: true,
-            desc: '路透社 (Reuters) 新闻专属双语/沉浸式增强'
+        // 沉浸式翻译开源设计：全网通用语义块识别配置（保留专有站点精细规则 + 通用网页全覆盖）
+        const siteConfig = {
+            name: isReddit ? 'Reddit' : (isReuters ? '路透社' : '网页正文'),
+            isReddit,
+            isReuters,
+            isGeneral: !isReddit && !isReuters,
+            desc: isReddit ? 'Reddit 帖子与评论专属双语/沉浸式增强' : (isReuters ? '路透社新闻专属双语/沉浸式增强' : '通用网页沉浸式双语翻译增强')
         };
 
         // 页面任务生命周期与代数（SPA 路由切换与隔离管理）
@@ -4865,7 +4861,64 @@ CRITICAL RULES:
             }
         `);
 
-        // DOM 元素收集（针对 Reddit 与路透社，精准防御父子互斥，防止正文消失）
+        // ================= 借鉴开源沉浸式翻译 (Immersive Translate) 核心算法与设计 =================
+        // 沉浸式翻译开源规范：块级语义元素标签白名单
+        const IMMERSIVE_BLOCK_TAGS = new Set([
+            'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+            'LI', 'BLOCKQUOTE', 'ARTICLE', 'SECTION',
+            'DD', 'DT', 'FIGCAPTION'
+        ]);
+
+        // 沉浸式翻译开源规范：排除不可翻译或干扰排版的标签黑名单
+        const IMMERSIVE_EXCLUDE_TAGS = new Set([
+            'SCRIPT', 'STYLE', 'CODE', 'PRE', 'SVG', 'MATH',
+            'NOSCRIPT', 'IFRAME', 'CANVAS', 'VIDEO', 'AUDIO',
+            'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'BUTTON'
+        ]);
+
+        // 判定元素是否为有效待翻译块级节点（启发式可见性与语义层级检查）
+        function isTranslatableBlock(el) {
+            if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+            const tag = el.tagName;
+            if (IMMERSIVE_EXCLUDE_TAGS.has(tag)) return false;
+            if (el.isContentEditable) return false;
+            if (el.getAttribute('translate') === 'no' || el.classList.contains('notranslate')) return false;
+            if (el.closest('.lexipro-site-fab-container') || el.closest('.immersive-translate-target-translation') || el.closest('#imt-shadow-host')) return false;
+
+            // 检查元素可见性（避免翻译隐藏元素）
+            if (el.offsetParent === null && el.offsetWidth === 0 && el.offsetHeight === 0) return false;
+
+            if (IMMERSIVE_BLOCK_TAGS.has(tag)) {
+                return true;
+            }
+
+            // 对普通 div 或 role="article"/"paragraph"，仅当其不包含块级子节点且具有足够文本量时作为段落
+            if (tag === 'DIV' || el.getAttribute('role') === 'article' || el.getAttribute('role') === 'paragraph') {
+                const hasBlockChild = el.querySelector('p, h1, h2, h3, h4, h5, h6, article, section, blockquote, li');
+                if (!hasBlockChild) {
+                    const text = (el.innerText || '').trim();
+                    if (text.length >= 20 && /[a-zA-Z]{3,}/.test(text)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        // 沉浸式翻译开源规范：有效可翻译文本启发式校验（排除纯数字、代码标识、纯链接或中文主体文本）
+        function isValidTranslatableText(text) {
+            if (!text) return false;
+            const trimmed = text.trim();
+            if (trimmed.length < 3) return false;
+            if (/^https?:\/\/\S+$/i.test(trimmed)) return false;
+            if (/^[\d\s.,;:'"\/\\()\[\]{}#@!%&*+=_-]+$/.test(trimmed)) return false;
+            if (!/[a-zA-Z]{2,}/.test(trimmed)) return false;
+            const chineseChars = trimmed.match(/[\u4e00-\u9fa5]/g) || [];
+            if (chineseChars.length > trimmed.length * 0.6) return false;
+            return true;
+        }
+
+        // DOM 元素收集（针对专有站点深度定制 + 通用网页全自动语义提取）
         function collectSiteElements() {
             const newlyCollected = [];
 
@@ -4904,6 +4957,20 @@ CRITICAL RULES:
                     addSiteItem(el, 'paragraph', newlyCollected);
                 });
             }
+
+            // 沉浸式翻译开源设计：通用块级语义段落抓取（适配任意通用网页以及专有站点的补充正文）
+            const generalBlocks = document.querySelectorAll(`
+                p, h1, h2, h3, h4, h5, h6,
+                blockquote, article p, section p, main p,
+                div[role="article"] p, div[role="paragraph"],
+                li, dt, dd, figcaption
+            `);
+            generalBlocks.forEach(el => {
+                if (!isTranslatableBlock(el)) return;
+                const text = (el.innerText || '').trim();
+                if (!isValidTranslatableText(text)) return;
+                addSiteItem(el, 'general_block', newlyCollected);
+            });
 
             return newlyCollected;
         }
@@ -5027,8 +5094,9 @@ CRITICAL RULES:
             if (siteTranslationStyle === 'replace') {
                 // 模式 1: 沉浸式中文阅读（原节点保留隐藏，展示中文与切换胶囊）
                 if (!transContainer) {
-                    transContainer = document.createElement('span');
-                    transContainer.className = 'lexipro-trans-container';
+                    transContainer = document.createElement('font');
+                    transContainer.className = 'immersive-translate-target-translation lexipro-trans-container';
+                    transContainer.setAttribute('data-immersive-translate-translation-element-mark', '_');
                     item.element.appendChild(transContainer);
                     item.transContainer = transContainer;
                 }
@@ -5092,7 +5160,8 @@ CRITICAL RULES:
                 if (transContainer) transContainer.style.display = 'none';
 
                 const under = document.createElement('div');
-                under.className = 'lexipro-trans-underline';
+                under.className = 'immersive-translate-target-translation lexipro-trans-underline';
+                under.setAttribute('data-immersive-translate-translation-element-mark', '_');
                 under.style.color = 'inherit';
                 under.style.fontWeight = 'inherit';
                 under.style.fontSize = 'inherit';
@@ -5108,7 +5177,8 @@ CRITICAL RULES:
                 if (transContainer) transContainer.style.display = 'none';
 
                 const card = document.createElement('div');
-                card.className = 'lexipro-trans-card';
+                card.className = 'immersive-translate-target-translation lexipro-trans-card';
+                card.setAttribute('data-immersive-translate-translation-element-mark', '_');
                 card.innerHTML = `
                     <div class="lexipro-trans-card-header">
                         <span class="lexipro-trans-card-badge">中文译文</span>
@@ -5469,7 +5539,7 @@ CRITICAL RULES:
                             <span class="lexipro-site-spinner" style="display:none;">⏳</span>
                             <span class="lexipro-site-logo-icon">MD</span>
                         </div>
-                        <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">翻译${siteConfig.name}</div>
+                        <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">${siteConfig.isGeneral ? '沉浸式翻译' : ('翻译' + siteConfig.name)}</div>
                     </div>
                     <button class="lexipro-site-fab-more" id="lexipro-site-fab-more" title="翻译选项与设置">⚙️</button>
                     <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;">0</div>

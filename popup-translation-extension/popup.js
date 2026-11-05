@@ -196,11 +196,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       }
     } else {
-      envBadge.innerText = '通用网页 (全功能)';
+      envBadge.innerText = '通用网页 (沉浸式翻译就绪)';
       envBadge.className = 'badge badge-green';
-      envHint.innerText = '划词翻译与生词高亮均已生效，鼠标在网页中划选任意英文即可弹出动森字典。';
-      specialBox.style.display = 'none';
-      connStatusMsg.style.display = 'none';
+      specialBox.style.display = 'block';
+      specialTitle.innerText = '⚡ 通用网页沉浸式双语翻译';
+
+      if (!pageState) {
+        envHint.innerText = '沉浸式双语翻译与动森划词查词均已就绪。';
+        connStatusMsg.style.display = 'none';
+        btnSiteTranslateText.innerText = '一键沉浸式翻译本页';
+      } else {
+        connStatusMsg.style.display = 'none';
+        envHint.innerText = '已就绪通用沉浸式翻译，右下角已加载沉浸式悬浮胶囊。';
+
+        if (pageState.jobState === 'running') {
+          btnSiteTranslateText.innerText = `⏳ 正在翻译中 (${pageState.translatedCount}/${pageState.totalCount})...`;
+        } else if (pageState.failedCount > 0) {
+          btnSiteTranslateText.innerText = `⚠️ 重试未完成段落 (${pageState.failedCount}条)`;
+        } else if (pageState.jobState === 'completed') {
+          btnSiteTranslateText.innerText = pageState.isShowingOriginal ? '返回中文译文' : '查看英文原文';
+        } else {
+          btnSiteTranslateText.innerText = '一键沉浸式翻译本页';
+        }
+      }
     }
   }
 
