@@ -1788,12 +1788,22 @@
     }
 
     function playYoudaoTTS(text) {
-        const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
-        currentAudio = new Audio(url);
-        currentAudio.play().catch(err => {
-            console.error("有道 TTS 播放失败:", err);
+        try {
+            const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
+            currentAudio = new Audio(url);
+            const playPromise = currentAudio.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(err => {
+                    // 若受浏览器用户交互限制 (NotAllowedError) 或用户快速切换中断 (AbortError)，优雅退出且绝不在控制台打 console.error
+                    if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+                        return;
+                    }
+                    fallbackSpeechSynthesis(text);
+                });
+            }
+        } catch (e) {
             fallbackSpeechSynthesis(text);
-        });
+        }
     }
 
     function playEdgeJennyTTS(text) {
@@ -2274,21 +2284,7 @@
         setTimeout(() => { if (!isPinned) tooltip.style.display = 'none'; }, 150);
     }
 
-    // 弹窗内部的发音喇叭悬停事件：移出不打断，直到自然播放完毕
-    contentBox.addEventListener('mouseover', (e) => {
-        const speaker = e.target.closest('.imt-speaker');
-        if (speaker) {
-            playAudio(speaker.getAttribute('data-text'));
-        }
-    });
-    quickContentBox.addEventListener('mouseover', (e) => {
-        const speaker = e.target.closest('.imt-speaker');
-        if (speaker) {
-            playAudio(speaker.getAttribute('data-text'));
-        }
-    });
-
-    // 弹窗内部的发音喇叭点击事件：支持在悬停后直接多次点击重复朗读
+    // 弹窗内部的发音喇叭点击事件：严格遵循用户点击发音手势，多次点击可重复朗读
     contentBox.addEventListener('click', (e) => {
         const speaker = e.target.closest('.imt-speaker');
         if (speaker) {
