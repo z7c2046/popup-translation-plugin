@@ -8,110 +8,112 @@
 </head>
 <body>
   <div class="popup-box">
-    <!-- 头部 -->
+    <!-- 头部：品牌与当前域名 -->
     <header class="header">
       <div class="brand">
         <span class="brand-icon">译</span>
-        <div>
-          <h1 class="brand-name">Popup Translation</h1>
-          <p class="brand-sub">AI 划词 · 生词高亮 · 站点翻译增强</p>
+        <div class="brand-text">
+          <div class="brand-top">
+            <h1 class="brand-name">LexiPro</h1>
+            <span class="badge" id="env-badge">检测中...</span>
+          </div>
+          <span class="brand-domain" id="site-hostname">当前网站</span>
         </div>
       </div>
-      <button id="btn-open-options" class="btn-icon" title="打开高级设置">⚙️</button>
+      <button id="btn-open-options" class="btn-icon" title="选项与配置中心">⚙️</button>
     </header>
 
-    <!-- 状态卡片 -->
-    <div class="status-card">
-      <div class="status-row">
-        <span class="label">当前网站环境</span>
-        <span class="badge" id="env-badge">检测中...</span>
+    <!-- 主操作与当前网站卡片 -->
+    <section class="card site-card">
+      <div class="site-desc" id="env-hint">划词翻译与生词高亮已就绪，划选英文即可查词。</div>
+      <div id="conn-status-msg" class="conn-alert" style="display: none;"></div>
+
+      <!-- 通用网页沉浸式翻译开启入口 (默认未开启，不侵入股市图表与排版) -->
+      <div id="general-immersion-box" class="action-wrap" style="display: none;">
+        <button class="primary-btn secondary-style" id="btn-enable-immersion">
+          <span>🌐</span>
+          <span>开启此网站沉浸式双语翻译</span>
+        </button>
       </div>
-      <div class="status-hint" id="env-hint">全网划词翻译与生词高亮已就绪，鼠标划词即刻触发</div>
-      <div id="conn-status-msg" style="display: none; margin-top: 6px; font-size: 11.5px; color: #b33e45; line-height: 1.4;"></div>
-      
-      <div class="status-row" style="margin-top: 10px; padding-top: 8px; border-top: 1px dashed #E2E8F0;">
-        <span class="label" style="display: flex; align-items: center; gap: 4px; font-size: 12px;">
-          <span>🚫</span>
-          <span>排除此网站生词高亮</span>
-        </span>
-        <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+
+      <!-- 专属/已激活站点：沉浸式翻译操作区 -->
+      <div id="special-action-box" class="action-wrap" style="display: none;">
+        <div class="special-title" id="special-title" style="display: none;">⚡ 沉浸式双语翻译</div>
+        <button class="primary-btn" id="btn-site-translate">
+          <span>🌐</span>
+          <span id="btn-site-translate-text">一键翻译全页内容</span>
+        </button>
+        <div class="sub-row">
+          <button id="btn-disable-immersion" class="text-link-btn">退出此网站沉浸式</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 偏好控制卡片 (极简 List 风格) -->
+    <section class="card settings-card">
+      <!-- 排除生词高亮 -->
+      <div class="setting-row">
+        <div class="setting-left">
+          <span class="setting-icon">🚫</span>
+          <div class="setting-meta">
+            <span class="setting-title">排除此网站生词高亮</span>
+            <span class="setting-sub" id="quick-exclude-label">未排除</span>
+          </div>
+        </div>
+        <label class="switch">
           <input type="checkbox" id="quick-exclude-check">
-          <span id="quick-exclude-label" style="font-size: 11.5px; font-weight: 600; color: #475569;">未排除</span>
+          <span class="slider"></span>
         </label>
       </div>
-    </div>
 
-    <!-- 通用网页沉浸式双语翻译按需激活卡片 (非默认站点默认关闭，绝不侵入股市行情等页面) -->
-    <div class="general-immersion-box" id="general-immersion-box" style="display: none; margin-top: 10px; padding: 10px 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
-      <div style="font-size: 12px; font-weight: 600; color: #1E293B; margin-bottom: 4px;">🌐 沉浸式双语翻译 (按需开启)</div>
-      <div style="font-size: 11.5px; color: #64748B; line-height: 1.4; margin-bottom: 8px;">当前网页默认处于轻量查词模式，未挂载悬浮胶囊与单词点击拦截，保持原生排版。</div>
-      <button class="primary-btn" id="btn-enable-immersion" style="width: 100%; padding: 6px 10px; font-size: 12px;">为此网站开启沉浸式翻译</button>
-    </div>
-
-    <!-- 站点专属增强操作区 (Reddit / 路透社 / 用户主动开启的站点) -->
-    <div class="special-action-box" id="special-action-box" style="display: none;">
-      <div class="special-title" id="special-title">✨ 沉浸式双语翻译已就绪</div>
-      <button class="primary-btn" id="btn-site-translate">
-        <span>🌐</span>
-        <span id="btn-site-translate-text">一键翻译全页内容</span>
-      </button>
-      <div class="theme-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-        <span style="color: #64748B;">视觉皮肤:</span>
-        <select id="quick-theme-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11.5px; background: #FFF; outline: none;">
-          <option value="market_desk">Market Desk (金融终端)</option>
-          <option value="animal_island">动森经典 (温馨纸质)</option>
-        </select>
+      <!-- 进站自动翻译 (仅对当前网站生效) -->
+      <div class="setting-row">
+        <div class="setting-left">
+          <span class="setting-icon">⚡</span>
+          <div class="setting-meta">
+            <span class="setting-title">进站自动翻译</span>
+            <span class="setting-sub" id="quick-auto-label">当前网站已关闭</span>
+          </div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="quick-auto-check">
+          <span class="slider"></span>
+        </label>
       </div>
-      <div class="style-select-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-        <span style="color: #64748B;">呈现模式:</span>
-        <select id="quick-style-select" style="padding: 3px 6px; border-radius: 6px; border: 1px solid #CBD5E1; font-size: 11.5px; background: #FFF; outline: none;">
+
+      <!-- 双语呈现模式 -->
+      <div class="setting-row">
+        <div class="setting-left">
+          <span class="setting-icon">📖</span>
+          <div class="setting-meta">
+            <span class="setting-title">译文呈现样式</span>
+          </div>
+        </div>
+        <select id="quick-style-select" class="select-input">
           <option value="replace">中文阅读 (原生排版)</option>
           <option value="underline">双语对照 (段落对应)</option>
           <option value="card">译文卡片 (独立卡片)</option>
         </select>
       </div>
-      <div class="auto-toggle-row" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 12px;">
-        <span style="color: #64748B;">对此网站进站自动翻译:</span>
-        <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-          <input type="checkbox" id="quick-auto-check">
-          <span id="quick-auto-label" style="font-weight: 600; color: #475569;">已关闭</span>
-        </label>
-      </div>
-      <div style="margin-top: 8px; text-align: right;">
-        <button id="btn-disable-immersion" style="background: none; border: none; color: #94A3B8; font-size: 11px; cursor: pointer; text-decoration: underline;">关闭此网站的沉浸式翻译</button>
-      </div>
-    </div>
 
-    <!-- 功能快捷开关 -->
-    <div class="feature-list">
-      <div class="feature-item">
-        <div class="feature-info">
-          <div class="feature-title">划词翻译浮动圆点</div>
-          <div class="feature-desc">划选英文时在选区右上角展示动森小圆点</div>
+      <!-- 视觉皮肤 -->
+      <div class="setting-row">
+        <div class="setting-left">
+          <span class="setting-icon">🎨</span>
+          <div class="setting-meta">
+            <span class="setting-title">界面视觉皮肤</span>
+          </div>
         </div>
-        <span class="tag tag-active">全局启用</span>
+        <select id="quick-theme-select" class="select-input">
+          <option value="market_desk">Market Desk (金融终端)</option>
+          <option value="animal_island">动森经典 (温馨治愈)</option>
+        </select>
       </div>
+    </section>
 
-      <div class="feature-item">
-        <div class="feature-info">
-          <div class="feature-title">Reddit 帖子与评论翻译</div>
-          <div class="feature-desc">在 Reddit 页面右下角显示专属翻译悬浮胶囊</div>
-        </div>
-        <span class="tag tag-active">自动适配</span>
-      </div>
-
-      <div class="feature-item">
-        <div class="feature-info">
-          <div class="feature-title">路透社 (Reuters) 新闻翻译</div>
-          <div class="feature-desc">在路透社新闻页面右下角显示专属翻译悬浮胶囊</div>
-        </div>
-        <span class="tag tag-active">自动适配</span>
-      </div>
-    </div>
-
-    <!-- 底部状态 -->
+    <!-- 底部极简呼吸提示 -->
     <footer class="footer">
-      <span>已同步最新 SiliconFlow 与 Notion 算法 · v4.7.1</span>
+      <span>✨ 划选英文随时唤起动森速查气泡</span>
     </footer>
   </div>
 

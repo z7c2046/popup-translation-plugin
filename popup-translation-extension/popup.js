@@ -6,6 +6,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const envBadge = document.getElementById('env-badge');
   const envHint = document.getElementById('env-hint');
+  const siteHostname = document.getElementById('site-hostname');
   const connStatusMsg = document.getElementById('conn-status-msg');
   const specialBox = document.getElementById('special-action-box');
   const specialTitle = document.getElementById('special-title');
@@ -79,6 +80,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     hostname = new URL(rawUrl).hostname.toLowerCase();
   } catch (e) {}
+
+  if (siteHostname) {
+    siteHostname.innerText = hostname || '本地/扩展页面';
+    siteHostname.title = rawUrl;
+  }
 
   const isReddit = hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
   const isReuters = hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
