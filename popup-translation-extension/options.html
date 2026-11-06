@@ -78,28 +78,21 @@
         </div>
 
         <div class="form-group">
-          <div class="switch-row">
-            <div>
-              <div class="switch-title">打开此网站时自动翻译</div>
-              <div class="switch-desc">进入 Reddit 帖子或路透社新闻页面时，无需手动点击胶囊，自动开始全页翻译。</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="site-auto-translate-check">
-              <span class="slider"></span>
-            </label>
-          </div>
+          <label for="auto-translate-sites-input">⚡ 进站自动翻译的网站名单 (白名单)</label>
+          <textarea id="auto-translate-sites-input" class="form-control" rows="2" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;reuters.com&#10;reddit.com"></textarea>
+          <span class="tip">重要：只有在此名单中的特定网站，打开网页时才会自动开始全文翻译；不在名单中的网站（如 TradingView 股市看盘等）默认绝对不自动翻译，需手动点击开启。</span>
         </div>
       </section>
 
-      <!-- 3. 网站排除黑名单 (Excluded Sites) -->
+      <!-- 3. 生词高亮排除黑名单 (Excluded Sites) -->
       <section class="card">
-        <h2 class="card-title">🚫 网站排除名单 (黑名单)</h2>
-        <p class="card-desc">配置不希望打扰的网站列表。处于排除名单中的网站将<strong>完全禁用页面生词高亮与沉浸式全文翻译</strong>。</p>
+        <h2 class="card-title">🚫 生词高亮排除名单 (黑名单)</h2>
+        <p class="card-desc">配置不希望高亮生词的网站列表。处于排除名单中的网站将<strong>完全禁用 Notion 页面生词高亮与动态扫描</strong>，适合 TradingView 股市行情、图表看盘、代码编辑器等需要保持页面干净的原生网页。</p>
 
         <div class="form-group">
-          <label for="excluded-sites-input">排除的网站域名 (每行一个域名)</label>
-          <textarea id="excluded-sites-input" class="form-control" rows="4" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;reddit.com&#10;reuters.com&#10;github.com"></textarea>
-          <span class="tip">提示：支持输入主域名（如 <code>reddit.com</code> 自动匹配所有子域名）或完整链接（自动提取主机名）。留空表示在所有网站正常启用。</span>
+          <label for="excluded-sites-input">排除生词高亮的域名 (每行一个域名)</label>
+          <textarea id="excluded-sites-input" class="form-control" rows="3" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;tradingview.com&#10;github.com"></textarea>
+          <span class="tip">提示：支持输入主域名（如 <code>tradingview.com</code> 自动匹配所有子域名）或完整链接（自动提取主机名）。留空表示在所有网站正常高亮。</span>
         </div>
       </section>
 

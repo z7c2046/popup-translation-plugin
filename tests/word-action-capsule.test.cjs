@@ -79,14 +79,21 @@ function section(source, start, end) {
   assert.ok(contentSrc.includes('Math.hypot(e.clientX - lastMouseDownCoords.x'), 'Must measure mouse movement to separate drag selection from single click');
 
   // 4. 验证 isGlobalImmersionTranslationPage 站点及状态限制逻辑
+  const immersionCheckCode = section(contentSrc, 'function isCurrentSiteImmersionEnabled()', 'function isCurrentSiteAutoTranslate()');
   const immersionFnCode = section(contentSrc, 'function isGlobalImmersionTranslationPage()', 'function extractWordFromTextOffset(');
   function testImmersion(hostname, isShowing = false, isTranslating = false, hasElement = false) {
     const ctx = vm.createContext({
       location: { hostname },
       window: {
+        location: { hostname },
         __lexipro_site_showing_translation: isShowing,
         __lexipro_site_translating: isTranslating
       },
+      CONFIG: {
+        immersionSites: [],
+        isSessionImmersionEnabled: false
+      },
+      matchesDomainPattern: (host, pat) => host === pat || host.endsWith('.' + pat),
       document: {
         querySelector: (sel) => {
           if (sel === '[data-lexipro-site-id]' && hasElement) return {};
@@ -95,7 +102,7 @@ function section(source, start, end) {
         }
       }
     });
-    vm.runInContext(immersionFnCode, ctx);
+    vm.runInContext(immersionCheckCode + '\n' + immersionFnCode, ctx);
     return ctx.isGlobalImmersionTranslationPage();
   }
 

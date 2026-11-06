@@ -90,10 +90,11 @@ test('Immersive Translate Design: content.js & userscript implement open-source 
     }
 });
 
-test('Immersive Translate Design: popup.js connects general web pages to immersive dual translation', () => {
+test('Immersive Translate Design: popup.js connects general web pages to on-demand immersive dual translation', () => {
     const popupJs = fs.readFileSync(path.resolve(__dirname, '../popup-translation-extension/popup.js'), 'utf8');
 
-    assert.match(popupJs, /通用网页 \(沉浸式翻译就绪\)/, 'popup.js must support general web immersive translation');
-    assert.match(popupJs, /一键沉浸式翻译本页/, 'popup.js must provide one-click immersive translation for general web pages');
+    assert.match(popupJs, /通用网页 \(轻量查词模式\)/, 'popup.js must set general web pages to lightweight lookup mode by default');
+    assert.match(popupJs, /btnEnableImmersion/, 'popup.js must support on-demand enable immersion button');
+    assert.match(popupJs, /lexipro_auto_translate_sites/, 'popup.js must support site-specific auto translation whitelist');
 });
 

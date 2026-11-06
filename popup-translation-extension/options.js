@@ -13,7 +13,9 @@ const DEFAULT_CONFIG = {
   lexipro_notion_token: '',
   lexipro_notion_database_id: '',
   lexipro_site_translation_style: 'replace',
-  lexipro_site_auto_translate: false
+  lexipro_site_auto_translate: false,
+  lexipro_auto_translate_sites: [],
+  lexipro_immersion_sites: []
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -24,10 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const thinkingCheck = document.getElementById('disable-thinking-check');
   const autoPronounceCheck = document.getElementById('auto-pronounce-check');
   const excludedSitesInput = document.getElementById('excluded-sites-input');
+  const autoTranslateSitesInput = document.getElementById('auto-translate-sites-input');
   const notionTokenInput = document.getElementById('notion-token-input');
   const notionDbInput = document.getElementById('notion-db-input');
   const siteStyleSelect = document.getElementById('site-style-select');
-  const siteAutoTranslateCheck = document.getElementById('site-auto-translate-check');
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
@@ -249,6 +251,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       excludedSitesInput.value = excludedSites.join('\n');
     }
 
+    const autoTranslateSites = parseExcludedSites(autoTranslateSitesInput ? autoTranslateSitesInput.value : '');
+    if (autoTranslateSitesInput) {
+      autoTranslateSitesInput.value = autoTranslateSites.join('\n');
+    }
+
     const toSave = {
       lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
       lexipro_sf_model: modelSelect.value,
@@ -256,10 +263,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_disable_thinking: thinkingCheck.checked,
       lexipro_auto_pronounce: autoPronounceCheck ? autoPronounceCheck.checked : false,
       lexipro_excluded_sites: excludedSites,
+      lexipro_auto_translate_sites: autoTranslateSites,
       lexipro_notion_token: notionTokenInput.value.trim(),
       lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
-      lexipro_site_auto_translate: siteAutoTranslateCheck.checked
+      lexipro_site_auto_translate: false
     };
 
     await chrome.storage.local.set(toSave);
@@ -290,9 +298,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const list = Array.isArray(cfg.lexipro_excluded_sites) ? cfg.lexipro_excluded_sites : [];
       excludedSitesInput.value = list.join('\n');
     }
+    if (autoTranslateSitesInput) {
+      const autoList = Array.isArray(cfg.lexipro_auto_translate_sites) ? cfg.lexipro_auto_translate_sites : [];
+      autoTranslateSitesInput.value = autoList.join('\n');
+    }
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';
-    siteAutoTranslateCheck.checked = Boolean(cfg.lexipro_site_auto_translate);
   }
 });

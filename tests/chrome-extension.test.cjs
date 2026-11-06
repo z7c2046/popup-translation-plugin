@@ -40,9 +40,9 @@ assert.ok(userscript.includes("siteTranslationStyle === 'underline'"), 'Userscri
 assert.ok(userscript.includes('lexipro-trans-card'), 'Userscript must support card box style');
 assert.ok(userscript.includes('siteAutoTranslate'), 'Userscript must support auto translate feature');
 
-// 验证 options.html 中包含自动翻译开关控件
+// 验证 options.html 中包含按网站白名单自动翻译控件（默认不自动翻译，由用户配置白名单）
 const optionsHtml = fs.readFileSync(path.join(extDir, 'options.html'), 'utf8');
-assert.ok(optionsHtml.includes('id="site-auto-translate-check"'), 'options.html must have auto translate checkbox');
+assert.ok(optionsHtml.includes('id="auto-translate-sites-input"'), 'options.html must have auto translate sites whitelist input');
 
 // 验证前 10 条优先出屏、多模型轮询竞速、沉浸式原文切换按钮与悬浮胶囊增高
 for (const [name, code] of [['content.js', contentJs], ['userscript', userscript]]) {

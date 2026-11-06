@@ -76,7 +76,7 @@ test('Excluded Sites: options.html & options.js config definitions and persisten
 
     // UI 存在黑名单卡片与输入框
     assert.match(optionsHtml, /id="excluded-sites-input"/);
-    assert.match(optionsHtml, /网站排除名单/);
+    assert.match(optionsHtml, /生词高亮排除名单/);
 
     // options.js 存在默认配置与保存读取
     assert.match(optionsJs, /lexipro_excluded_sites:\s*\[\]/);
@@ -91,13 +91,13 @@ test('Excluded Sites: popup.html & popup.js quick toggle integration', () => {
 
     // popup.html 存在快捷排除开关
     assert.match(popupHtml, /id="quick-exclude-check"/);
-    assert.match(popupHtml, /排除此网站/);
+    assert.match(popupHtml, /排除此网站生词高亮/);
 
     // popup.js 存在域名提取、排除判定与状态切换
     assert.match(popupJs, /lexipro_excluded_sites:\s*\[\]/);
     assert.match(popupJs, /matchesPattern\(hostname,\s*pat\)/);
     assert.match(popupJs, /chrome\.storage\.local\.set\(\{\s*lexipro_excluded_sites/);
-    assert.match(popupJs, /已排除此网站/);
+    assert.match(popupJs, /已排除高亮/);
 });
 
 test('Excluded Sites: content.js & userscript guard highlights and immersion translation completely', () => {
@@ -115,9 +115,10 @@ test('Excluded Sites: content.js & userscript guard highlights and immersion tra
         assert.match(code, /async function syncVocabData\(\) \{\s+if \(isCurrentSiteExcluded\(\)\) \{\s+clearPageHighlights\(\);/, `${name} syncVocabData must guard when site excluded`);
         assert.match(code, /function scanPage\(regex,\s*root\s*=\s*document\.body\)\s*\{\s+if \(isCurrentSiteExcluded\(\)\) return;/, `${name} scanPage must guard when site excluded`);
         assert.match(code, /function observeDynamicContent\(regex\)\s*\{\s+if \(isCurrentSiteExcluded\(\)\) return;/, `${name} observeDynamicContent must guard when site excluded`);
-        // 4. 沉浸式翻译入口阻断
-        assert.match(code, /function isGlobalImmersionTranslationPage\(\)\s*\{\s+try\s*\{\s+if \(typeof isCurrentSiteExcluded === 'function' && isCurrentSiteExcluded\(\)\) return false;/, `${name} isGlobalImmersionTranslationPage must guard when site excluded`);
-        assert.match(code, /function initSiteSpecificTranslator\(\)\s*\{\s+if \(isCurrentSiteExcluded\(\)\) return;/, `${name} initSiteSpecificTranslator must guard when site excluded`);
+        // 4. 沉浸式翻译按需门控
+        assert.match(code, /function isCurrentSiteImmersionEnabled/, `${name} must include isCurrentSiteImmersionEnabled`);
+        assert.match(code, /if\s*\(typeof isCurrentSiteImmersionEnabled === 'function'\s*&&\s*!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return false;\s*\}/, `${name} isGlobalImmersionTranslationPage must guard when immersion not enabled`);
+        assert.match(code, /if\s*\(!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return;\s*\}/, `${name} initSiteSpecificTranslator must guard when immersion not enabled`);
         // 5. 动森设置面板内提供排除当前网站开关
         assert.match(code, /id="imt-exclude-switch"/, `${name} must include exclude switch in settings UI`);
         assert.match(code, /toggleExcludeSetting/, `${name} must include toggleExcludeSetting`);
@@ -127,10 +128,10 @@ test('Excluded Sites: content.js & userscript guard highlights and immersion tra
     }
 });
 
-test('Version Consistency: manifest.json and userscript upgraded to v4.10.1', () => {
+test('Version Consistency: manifest.json and userscript upgraded to v4.11.0', () => {
     const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../popup-translation-extension/manifest.json'), 'utf8'));
     const userscript = fs.readFileSync(path.resolve(__dirname, '../划词翻译+生词高亮.txt'), 'utf8');
 
-    assert.equal(manifest.version, '4.10.1', 'manifest.json version must be 4.10.1');
-    assert.match(userscript, /\/\/ @version\s+4\.10\.1/, 'userscript version must be 4.10.1');
+    assert.equal(manifest.version, '4.11.0', 'manifest.json version must be 4.11.0');
+    assert.match(userscript, /\/\/ @version\s+4\.11\.0/, 'userscript version must be 4.11.0');
 });

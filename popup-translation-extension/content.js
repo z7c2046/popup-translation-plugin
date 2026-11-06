@@ -141,7 +141,7 @@
     let initialAutoPronounce = GM_getValue('lexipro_auto_pronounce', false);
     initialAutoPronounce = Boolean(initialAutoPronounce);
 
-    // 初始化排除网站名单配置（黑名单列表）
+    // 初始化生词高亮排除名单配置（黑名单列表：处于名单中的网站不标注生词高亮）
     let initialExcludedSites = GM_getValue('lexipro_excluded_sites', []);
     if (typeof initialExcludedSites === 'string') {
         try {
@@ -152,6 +152,32 @@
     }
     if (!Array.isArray(initialExcludedSites)) {
         initialExcludedSites = [];
+    }
+
+    // 初始化进站自动翻译名单配置（白名单列表：仅在此名单中的域名进站时自动开始全页翻译，默认绝不自动翻译）
+    let initialAutoTranslateSites = GM_getValue('lexipro_auto_translate_sites', []);
+    if (typeof initialAutoTranslateSites === 'string') {
+        try {
+            initialAutoTranslateSites = JSON.parse(initialAutoTranslateSites);
+        } catch (e) {
+            initialAutoTranslateSites = initialAutoTranslateSites.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+        }
+    }
+    if (!Array.isArray(initialAutoTranslateSites)) {
+        initialAutoTranslateSites = [];
+    }
+
+    // 初始化用户按需开启沉浸式翻译名单配置（白名单列表：除 Reddit 和路透社外，通用网页需按需启用沉浸式与单字点击）
+    let initialImmersionSites = GM_getValue('lexipro_immersion_sites', []);
+    if (typeof initialImmersionSites === 'string') {
+        try {
+            initialImmersionSites = JSON.parse(initialImmersionSites);
+        } catch (e) {
+            initialImmersionSites = initialImmersionSites.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+        }
+    }
+    if (!Array.isArray(initialImmersionSites)) {
+        initialImmersionSites = [];
     }
 
     // 读取 Notion 配置与安全清理（仅清理已失效的旧版测试用硬编码 Token，绝不破坏用户填写的合法配置）
@@ -177,7 +203,10 @@
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
         disableThinking: initialDisableThinking, // 是否关闭深度思考（默认关闭，极速秒出）
         autoPronounce: initialAutoPronounce, // 查词时是否自动播放读音（默认关闭，点击发音）
-        excludedSites: initialExcludedSites, // 排除网站黑名单（不显示生词高亮与沉浸式翻译）
+        excludedSites: initialExcludedSites, // 生词高亮排除黑名单（不显示生词高亮）
+        autoTranslateSites: initialAutoTranslateSites, // 进站自动翻译白名单（默认空数组，全网绝不默认自动翻译）
+        immersionSites: initialImmersionSites, // 按需开启沉浸式翻译白名单
+        isSessionImmersionEnabled: false, // 当前网页会话是否由用户在 Popup 中临时激活沉浸式
         llmProviders: {
             siliconflow: {
                 name: '硅基流动',
@@ -240,12 +269,46 @@
         return cleanHost === cleanPat || cleanHost.endsWith('.' + cleanPat);
     }
 
-    // 判定当前网页是否处于排除名单中
+    // 判定当前网页是否处于生词高亮排除名单中（黑名单：在此名单中的域名不进行生词扫描与高亮标注）
     function isCurrentSiteExcluded() {
         try {
             const host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
             if (!host) return false;
             const list = Array.isArray(CONFIG.excludedSites) ? CONFIG.excludedSites : [];
+            return list.some(pat => matchesDomainPattern(host, pat));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 判定当前网页是否应该启用沉浸式双语翻译与单字点击查词（仅限 Reddit、路透社、用户白名单、会话中主动开启或正在呈现译文）
+    function isCurrentSiteImmersionEnabled() {
+        try {
+            if (
+                (typeof window !== 'undefined' && (window.__lexipro_site_showing_translation || window.__lexipro_site_translating)) ||
+                (typeof document !== 'undefined' && (document.querySelector('[data-lexipro-site-id]') || document.querySelector('#lexipro-site-fab-root')))
+            ) {
+                return true;
+            }
+            const host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
+            if (!host) return false;
+            if (host === 'reddit.com' || host.endsWith('.reddit.com') || host === 'reuters.com' || host.endsWith('.reuters.com')) {
+                return true;
+            }
+            if (typeof CONFIG !== 'undefined' && CONFIG.isSessionImmersionEnabled) return true;
+            const list = (typeof CONFIG !== 'undefined' && Array.isArray(CONFIG.immersionSites)) ? CONFIG.immersionSites : [];
+            return list.some(pat => matchesDomainPattern(host, pat));
+        } catch (e) {
+            return false;
+        }
+    }
+
+    // 判定当前网页是否处于进站自动翻译白名单中（默认绝对不自动翻译，只有用户显式添加到白名单才生效）
+    function isCurrentSiteAutoTranslate() {
+        try {
+            const host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
+            if (!host) return false;
+            const list = Array.isArray(CONFIG.autoTranslateSites) ? CONFIG.autoTranslateSites : [];
             return list.some(pat => matchesDomainPattern(host, pat));
         } catch (e) {
             return false;
@@ -271,32 +334,17 @@
         });
     }
 
-    // 处理排除名单变更（支持热更新）
+    // 处理排除名单变更（支持热更新：专职负责生词高亮的开启与排除）
     function handleExcludedSitesChange(newExcludedSites) {
         CONFIG.excludedSites = Array.isArray(newExcludedSites) ? newExcludedSites : [];
         const isExcluded = isCurrentSiteExcluded();
         if (isExcluded) {
-            // 1. 清除页面生词高亮与动态监听
+            // 清除页面生词高亮与动态监听
             clearPageHighlights();
-            // 2. 清除沉浸式单字点击高亮与胶囊
-            if (typeof clearActiveWordHighlight === 'function') {
-                clearActiveWordHighlight();
-            }
-            // 3. 移除沉浸式悬浮胶囊 FAB
-            const fab = document.getElementById('lexipro-site-fab-root');
-            if (fab) {
-                fab.remove();
-            }
-            // 4. 断开站点翻译 Observer（如果有的话）
-            if (typeof window !== 'undefined' && typeof window.__lexipro_site_disconnect_observer === 'function') {
-                window.__lexipro_site_disconnect_observer();
-            }
         } else {
-            // 恢复正常运行：重新拉取高亮
-            syncVocabData();
-            // 若为 Reddit 或路透社页面，重新拉起沉浸式 FAB
-            if (typeof initSiteSpecificTranslator === 'function') {
-                initSiteSpecificTranslator();
+            // 恢复正常生词高亮
+            if (CONFIG.notionToken && CONFIG.notionDatabaseId) {
+                syncVocabData();
             }
         }
     }
@@ -3034,11 +3082,20 @@
 
     function isGlobalImmersionTranslationPage() {
         try {
-            if (typeof isCurrentSiteExcluded === 'function' && isCurrentSiteExcluded()) return false;
+            // 严格门控：仅在当前页面已启用沉浸式翻译时允许单字点击查词，通用网页（如 TradingView）默认绝不拦截单字点击
+            if (typeof isCurrentSiteImmersionEnabled === 'function' && !isCurrentSiteImmersionEnabled()) {
+                return false;
+            }
+
             const hostname = location.hostname.toLowerCase();
             const isImmersionSite = hostname === 'reddit.com' || hostname.endsWith('.reddit.com') ||
                                     hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
             if (isImmersionSite) return true;
+
+            if (CONFIG.isSessionImmersionEnabled) return true;
+
+            const list = Array.isArray(CONFIG.immersionSites) ? CONFIG.immersionSites : [];
+            if (list.some(pat => matchesDomainPattern(hostname, pat))) return true;
 
             if (
                 Boolean(window.__lexipro_site_showing_translation) ||
@@ -4413,9 +4470,16 @@ CRITICAL RULES:
         syncVocabData();
     }
 
-    // ================= Reddit & 路透社 (Reuters) 全文/帖子翻译增强模块 =================
+    // ================= 全文/帖子/段落双语沉浸式翻译增强模块 =================
     function initSiteSpecificTranslator() {
-        if (isCurrentSiteExcluded()) return;
+        // 未开启沉浸式翻译的通用网页（如股市看盘 TradingView 等），默认绝不挂载悬浮胶囊，绝不监听 DOM
+        if (!isCurrentSiteImmersionEnabled()) {
+            return;
+        }
+        if (document.getElementById('lexipro-site-fab-root') || window.__lexipro_site_initialized) {
+            return;
+        }
+
         const hostname = location.hostname.toLowerCase();
         const isReddit = hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
         const isReuters = hostname === 'reuters.com' || hostname.endsWith('.reuters.com');
@@ -4441,7 +4505,7 @@ CRITICAL RULES:
 
         // 3 种呈现模式：replace（中文阅读，默认）、underline（双语对照）、card（独立卡片）
         let siteTranslationStyle = GM_getValue('lexipro_site_translation_style', 'replace');
-        let siteAutoTranslate = Boolean(GM_getValue('lexipro_site_auto_translate', false));
+        let siteAutoTranslate = isCurrentSiteAutoTranslate();
         let siteUITheme = GM_getValue('lexipro_ui_theme', 'market_desk');
 
         // 多模型备用轮询与竞速池（SiliconFlow 高质模型梯队）
@@ -5526,7 +5590,7 @@ CRITICAL RULES:
                     </button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-auto-toggle">
                         <span>⚡ 进站自动翻译:</span>
-                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${siteAutoTranslate ? '#31c39a' : '#8b949f'};">${siteAutoTranslate ? '开启' : '关闭'}</span>
+                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${isCurrentSiteAutoTranslate() ? '#31c39a' : '#8b949f'};">${isCurrentSiteAutoTranslate() ? '当前网站开启' : '已关闭'}</span>
                     </button>
                 </div>
                 <div class="lexipro-site-fab-toolbar">
@@ -5614,12 +5678,28 @@ CRITICAL RULES:
 
             const btnAutoToggle = fabWrapper.querySelector('#lps-btn-auto-toggle');
             const autoStatusText = fabWrapper.querySelector('#lps-auto-status');
+            function updateAutoStatusUI() {
+                const isAuto = isCurrentSiteAutoTranslate();
+                if (autoStatusText) {
+                    autoStatusText.innerText = isAuto ? '当前网站开启' : '已关闭';
+                    autoStatusText.style.color = isAuto ? '#31c39a' : '#8b949f';
+                }
+            }
+
             btnAutoToggle.addEventListener('click', () => {
-                siteAutoTranslate = !siteAutoTranslate;
-                GM_setValue('lexipro_site_auto_translate', siteAutoTranslate);
-                autoStatusText.innerText = siteAutoTranslate ? '开启' : '关闭';
-                autoStatusText.style.color = siteAutoTranslate ? '#31c39a' : '#8b949f';
-                showSiteToast('进入页面自动翻译: ' + (siteAutoTranslate ? '已开启' : '已关闭'));
+                const host = (location && location.hostname ? location.hostname : '').toLowerCase();
+                if (!host) return;
+                let list = Array.isArray(CONFIG.autoTranslateSites) ? [...CONFIG.autoTranslateSites] : [];
+                const exists = list.some(pat => matchesDomainPattern(host, pat));
+                if (exists) {
+                    list = list.filter(pat => !matchesDomainPattern(host, pat));
+                } else {
+                    list.push(host);
+                }
+                CONFIG.autoTranslateSites = list;
+                GM_setValue('lexipro_auto_translate_sites', list);
+                updateAutoStatusUI();
+                showSiteToast('对此网站进站自动翻译: ' + (isCurrentSiteAutoTranslate() ? '已开启' : '已关闭'));
             });
 
             fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
@@ -5806,100 +5886,97 @@ CRITICAL RULES:
         }, 800);
         window.addEventListener('popstate', onSiteUrlChange);
 
-        // 扩展环境与 Popup 的消息交互支持
-        if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-            chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-                if (msg.type === 'GET_PAGE_STATE') {
-                    sendResponse({
-                        supported: true,
-                        connected: true,
-                        siteName: siteConfig.name,
-                        jobState: isSiteTranslating ? 'running' : (isSiteShowingTranslation ? 'completed' : 'idle'),
-                        totalCount: siteItemsMap.size,
-                        translatedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length,
-                        failedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'failed' || x.status === 'error').length,
-                        pendingCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'pending').length,
-                        isShowingOriginal: Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal),
-                        displayMode: siteTranslationStyle,
-                        autoTranslate: siteAutoTranslate,
-                        theme: siteUITheme
-                    });
-                    return true;
-                }
-                if (msg.type === 'START_PAGE_TRANSLATION') {
-                    runSiteTranslation();
-                    sendResponse({ success: true });
-                    return true;
-                }
-                if (msg.type === 'RETRY_FAILED') {
-                    runSiteTranslation({ retryFailedOnly: true });
-                    sendResponse({ success: true });
-                    return true;
-                }
-                if (msg.type === 'TOGGLE_ORIGINAL') {
-                    const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
-                    siteItemsMap.forEach(it => {
-                        it.isShowingOriginal = !isShowingOrig;
-                        applyItemStyle(it);
-                    });
-                    updateSiteFabState();
-                    sendResponse({ success: true, isShowingOriginal: !isShowingOrig });
-                    return true;
-                }
-                if (msg.type === 'SET_DISPLAY_MODE') {
-                    setTranslationStyle(msg.mode);
-                    sendResponse({ success: true });
-                    return true;
-                }
-                if (msg.type === 'SET_THEME') {
-                    siteUITheme = msg.theme;
-                    GM_setValue('lexipro_ui_theme', msg.theme);
-                    const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
-                    if (themeStatusText) themeStatusText.innerText = msg.theme === 'animal_island' ? '动森经典' : 'Market Desk';
-                    sendResponse({ success: true });
-                    return true;
-                }
-            });
+        function destroySiteSpecificTranslator() {
+            restoreSiteOriginal();
+            if (siteObserver) {
+                try { siteObserver.disconnect(); } catch (e) {}
+            }
+            if (fabWrapper && fabWrapper.parentNode) {
+                fabWrapper.remove();
+                fabWrapper = null;
+            }
+            siteItemsMap.clear();
+            siteGeneration++;
+            isSiteTranslating = false;
+            isSiteShowingTranslation = false;
+            window.__lexipro_site_initialized = false;
+            if (typeof clearActiveWordHighlight === 'function') {
+                clearActiveWordHighlight();
+            }
         }
 
-        // 站点翻译专属热更新监听器与卸载钩子
-        if (typeof window !== 'undefined') {
-            window.__lexipro_site_disconnect_observer = () => {
-                if (siteObserver) {
-                    try { siteObserver.disconnect(); } catch (e) {}
+        // 注册给外层消息和生命周期调用的钩子
+        window.__lexipro_site_initialized = true;
+        window.__lexipro_destroy_site_translator = destroySiteSpecificTranslator;
+        window.__lexipro_get_page_state = () => ({
+            supported: true,
+            connected: true,
+            immersionActive: true,
+            siteName: siteConfig.name,
+            jobState: isSiteTranslating ? 'running' : (isSiteShowingTranslation ? 'completed' : 'idle'),
+            totalCount: siteItemsMap.size,
+            translatedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length,
+            failedCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'failed' || x.status === 'error').length,
+            pendingCount: Array.from(siteItemsMap.values()).filter(x => x.status === 'pending').length,
+            isShowingOriginal: Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal),
+            displayMode: siteTranslationStyle,
+            autoTranslate: isCurrentSiteAutoTranslate(),
+            theme: siteUITheme
+        });
+        window.__lexipro_run_site_translation = (opts) => runSiteTranslation(opts);
+        window.__lexipro_retry_failed = () => runSiteTranslation({ retryFailedOnly: true });
+        window.__lexipro_toggle_original = () => {
+            const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
+            siteItemsMap.forEach(it => {
+                it.isShowingOriginal = !isShowingOrig;
+                applyItemStyle(it);
+            });
+            updateSiteFabState();
+            return !isShowingOrig;
+        };
+        window.__lexipro_set_display_mode = (mode) => setTranslationStyle(mode);
+        window.__lexipro_set_theme = (theme) => {
+            siteUITheme = theme;
+            GM_setValue('lexipro_ui_theme', theme);
+            const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
+            if (themeStatusText) themeStatusText.innerText = theme === 'animal_island' ? '动森经典' : 'Market Desk';
+        };
+        window.__lexipro_update_auto_status = () => {
+            if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
+        };
+
+        window.__lexipro_site_disconnect_observer = () => {
+            if (siteObserver) {
+                try { siteObserver.disconnect(); } catch (e) {}
+            }
+        };
+
+        window.__lexipro_site_storage_listener = (key, value) => {
+            if (key === 'lexipro_site_translation_style' && value) {
+                siteTranslationStyle = value;
+                updateStyleMenuUI();
+                if (isSiteShowingTranslation) {
+                    siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
                 }
-            };
-            window.__lexipro_site_storage_listener = (key, value) => {
-                if (key === 'lexipro_site_translation_style' && value) {
-                    siteTranslationStyle = value;
-                    updateStyleMenuUI();
-                    if (isSiteShowingTranslation) {
-                        siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
-                    }
-                } else if (key === 'lexipro_site_auto_translate') {
-                    siteAutoTranslate = Boolean(value);
-                    const autoStatusText = fabWrapper?.querySelector('#lps-auto-status');
-                    if (autoStatusText) {
-                        autoStatusText.innerText = siteAutoTranslate ? '开启' : '关闭';
-                        autoStatusText.style.color = siteAutoTranslate ? '#31c39a' : '#8b949f';
-                    }
-                } else if (key === 'lexipro_ui_theme' && value) {
-                    siteUITheme = value;
-                    const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
-                    if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
-                }
-            };
-        }
+            } else if (key === 'lexipro_auto_translate_sites') {
+                if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
+            } else if (key === 'lexipro_ui_theme' && value) {
+                siteUITheme = value;
+                const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
+                if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
+            }
+        };
 
         function startSiteEngine() {
+            window.__lexipro_site_initialized = true;
             buildSiteFab();
             collectSiteElements();
             if (document.body) {
                 siteObserver.observe(document.body, { childList: true, subtree: true });
             }
 
-            // 进站自动翻译特性支持
-            if (siteAutoTranslate) {
+            // 进站自动翻译特性支持：严格限制在白名单中，默认绝不自动翻译！
+            if (isCurrentSiteAutoTranslate()) {
                 setTimeout(() => {
                     runSiteTranslation();
                 }, 1500);
@@ -5913,11 +5990,115 @@ CRITICAL RULES:
         }
     }
 
+    // 扩展环境与 Popup 的全局消息交互支持
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+            if (msg.type === 'GET_PAGE_STATE') {
+                if (window.__lexipro_site_initialized && typeof window.__lexipro_get_page_state === 'function') {
+                    sendResponse(window.__lexipro_get_page_state());
+                } else {
+                    sendResponse({
+                        supported: true,
+                        connected: true,
+                        immersionActive: false,
+                        siteName: '通用网页',
+                        jobState: 'idle',
+                        totalCount: 0,
+                        translatedCount: 0,
+                        failedCount: 0,
+                        pendingCount: 0,
+                        isShowingOriginal: false,
+                        displayMode: GM_getValue('lexipro_site_translation_style', 'replace'),
+                        autoTranslate: isCurrentSiteAutoTranslate(),
+                        theme: GM_getValue('lexipro_ui_theme', 'market_desk')
+                    });
+                }
+                return true;
+            }
+            if (msg.type === 'ENABLE_IMMERSION_FOR_SITE') {
+                CONFIG.isSessionImmersionEnabled = true;
+                if (!window.__lexipro_site_initialized) {
+                    initSiteSpecificTranslator();
+                }
+                sendResponse({ success: true, enabled: true });
+                return true;
+            }
+            if (msg.type === 'DISABLE_IMMERSION_FOR_SITE') {
+                CONFIG.isSessionImmersionEnabled = false;
+                if (typeof window.__lexipro_destroy_site_translator === 'function') {
+                    window.__lexipro_destroy_site_translator();
+                }
+                sendResponse({ success: true, disabled: true });
+                return true;
+            }
+            if (msg.type === 'START_PAGE_TRANSLATION') {
+                CONFIG.isSessionImmersionEnabled = true;
+                if (!window.__lexipro_site_initialized) {
+                    initSiteSpecificTranslator();
+                }
+                if (typeof window.__lexipro_run_site_translation === 'function') {
+                    window.__lexipro_run_site_translation();
+                }
+                sendResponse({ success: true });
+                return true;
+            }
+            if (msg.type === 'RETRY_FAILED') {
+                if (typeof window.__lexipro_retry_failed === 'function') {
+                    window.__lexipro_retry_failed();
+                }
+                sendResponse({ success: true });
+                return true;
+            }
+            if (msg.type === 'TOGGLE_ORIGINAL') {
+                if (typeof window.__lexipro_toggle_original === 'function') {
+                    const isOrig = window.__lexipro_toggle_original();
+                    sendResponse({ success: true, isShowingOriginal: isOrig });
+                } else {
+                    sendResponse({ success: false });
+                }
+                return true;
+            }
+            if (msg.type === 'SET_DISPLAY_MODE') {
+                if (typeof window.__lexipro_set_display_mode === 'function') {
+                    window.__lexipro_set_display_mode(msg.mode);
+                } else {
+                    GM_setValue('lexipro_site_translation_style', msg.mode);
+                }
+                sendResponse({ success: true });
+                return true;
+            }
+            if (msg.type === 'SET_THEME') {
+                if (typeof window.__lexipro_set_theme === 'function') {
+                    window.__lexipro_set_theme(msg.theme);
+                } else {
+                    GM_setValue('lexipro_ui_theme', msg.theme);
+                }
+                sendResponse({ success: true });
+                return true;
+            }
+        });
+    }
+
     // 全局配置热更新监听（由 storage 监听回调派发）
     if (typeof window !== 'undefined') {
         window.__lexipro_onStorageChange = (key, value) => {
             if (key === 'lexipro_excluded_sites') {
                 handleExcludedSitesChange(value);
+            } else if (key === 'lexipro_auto_translate_sites') {
+                CONFIG.autoTranslateSites = Array.isArray(value) ? value : [];
+                if (typeof window.__lexipro_update_auto_status === 'function') {
+                    window.__lexipro_update_auto_status();
+                }
+            } else if (key === 'lexipro_immersion_sites') {
+                CONFIG.immersionSites = Array.isArray(value) ? value : [];
+                const shouldEnable = isCurrentSiteImmersionEnabled();
+                if (shouldEnable && !window.__lexipro_site_initialized) {
+                    initSiteSpecificTranslator();
+                } else if (!shouldEnable && window.__lexipro_site_initialized) {
+                    if (typeof window.__lexipro_destroy_site_translator === 'function') {
+                        window.__lexipro_destroy_site_translator();
+                    }
+                }
             } else if (key === 'lexipro_auto_pronounce') {
                 CONFIG.autoPronounce = Boolean(value);
             } else if (key === 'lexipro_disable_thinking') {
