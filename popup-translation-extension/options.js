@@ -16,7 +16,7 @@ const DEFAULT_CONFIG = {
   lexipro_site_auto_translate: false,
   lexipro_auto_translate_sites: [],
   lexipro_immersion_sites: [],
-  lexipro_tts_engine: 'youdao',
+  lexipro_tts_engine: 'local_service',
   lexipro_kokoro_voice: 'af_heart',
   lexipro_local_tts_url: 'http://127.0.0.1:18080'
 };
@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const localServiceStatusBadge = document.getElementById('local-service-status-badge');
   const btnCheckLocalService = document.getElementById('btn-check-local-service');
   const btnTestLocalService = document.getElementById('btn-test-local-service');
+  const btnTestLocalMelo = document.getElementById('btn-test-local-melo');
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
@@ -177,7 +178,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
-        localServiceStatusBadge.innerText = `✅ 服务已就绪 (${data.engine || 'sherpa-onnx'} · 零内存占用)`;
+        const hasKokoro = data.features?.kokoro?.ready;
+        const hasMelo = data.features?.melo?.ready;
+        let featText = '已就绪';
+        if (hasKokoro && hasMelo) featText = 'Kokoro英文 + MeloTTS中文双引擎就绪';
+        else if (hasKokoro) featText = 'Kokoro英文就绪';
+        else if (hasMelo) featText = 'MeloTTS中文就绪';
+
+        localServiceStatusBadge.innerText = `✅ 服务在线 (${featText} · 零浏览器内存)`;
         localServiceStatusBadge.style.background = '#ECFDF5';
         localServiceStatusBadge.style.color = '#059669';
         return true;
@@ -186,11 +194,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (e) {
       clearTimeout(timer);
-      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行 start-local-tts.bat)';
+      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行一键后台静默启动.vbs)';
       localServiceStatusBadge.style.background = '#FEF2F2';
       localServiceStatusBadge.style.color = '#DC2626';
       if (isManual) {
-        alert('未检测到本地原生发音伴侣服务。\n\n请在项目目录双击运行 start-local-tts.bat 即可一键启动服务！');
+        alert('未检测到本地原生伴侣发音服务。\n\n请在项目根目录双击「一键后台静默启动.vbs」即可隐形启动，或双击「开机自动静默启动.bat」设置开机常驻！');
       }
       return false;
     }
@@ -203,7 +211,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnTestLocalService?.addEventListener('click', async () => {
     const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
     const voice = kokoroVoiceSelect?.value || 'af_heart';
-    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('Welcome to LexiPro. Experience native neural speech with Sherpa ONNX.')}&voice=${encodeURIComponent(voice)}&speed=1.0`;
+    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('Welcome to LexiPro. Experience native neural speech with Kokoro.')}&voice=${encodeURIComponent(voice)}&speed=1.0`;
+
+    try {
+      const audio = new Audio(testUrl);
+      await audio.play();
+    } catch (e) {
+      checkLocalServiceStatus(true);
+    }
+  });
+
+  btnTestLocalMelo?.addEventListener('click', async () => {
+    const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
+    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('你好，欢迎使用本地原生发音伴侣，这是MeloTTS中文发音。')}&speed=1.0`;
 
     try {
       const audio = new Audio(testUrl);
