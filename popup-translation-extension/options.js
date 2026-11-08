@@ -15,7 +15,9 @@ const DEFAULT_CONFIG = {
   lexipro_site_translation_style: 'replace',
   lexipro_site_auto_translate: false,
   lexipro_auto_translate_sites: [],
-  lexipro_immersion_sites: []
+  lexipro_immersion_sites: [],
+  lexipro_tts_engine: 'youdao',
+  lexipro_kokoro_voice: 'af_heart'
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -30,6 +32,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notionTokenInput = document.getElementById('notion-token-input');
   const notionDbInput = document.getElementById('notion-db-input');
   const siteStyleSelect = document.getElementById('site-style-select');
+  const ttsEngineSelect = document.getElementById('tts-engine-select');
+  const kokoroOptionsGroup = document.getElementById('kokoro-options-group');
+  const kokoroVoiceSelect = document.getElementById('kokoro-voice-select');
+  const kokoroStatusBadge = document.getElementById('kokoro-status-badge');
+  const btnPreloadKokoro = document.getElementById('btn-preload-kokoro');
+  const btnTestKokoro = document.getElementById('btn-test-kokoro');
+  const kokoroMsg = document.getElementById('kokoro-msg');
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
@@ -128,6 +137,104 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   siteStyleSelect.addEventListener('change', updatePreview);
   themeSelect.addEventListener('change', updatePreview);
+
+  // 语音引擎与 Kokoro 状态联动
+  function updateTtsUI() {
+    if (!ttsEngineSelect || !kokoroOptionsGroup) return;
+    const isKokoro = ttsEngineSelect.value === 'kokoro';
+    kokoroOptionsGroup.style.display = isKokoro ? 'block' : 'none';
+    if (isKokoro) {
+      queryKokoroStatus();
+    }
+  }
+
+  function queryKokoroStatus() {
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return;
+    chrome.runtime.sendMessage({ type: 'KOKORO_TTS_GET_STATUS' })
+      .then(res => {
+        if (res && res.success && kokoroStatusBadge) {
+          if (res.state === 'ready') {
+            kokoroStatusBadge.innerText = '✅ 离线模型已就绪';
+            kokoroStatusBadge.style.background = '#ECFDF5';
+            kokoroStatusBadge.style.color = '#059669';
+          } else if (res.state === 'loading') {
+            kokoroStatusBadge.innerText = `⏳ 正在下载模型 (${res.progress || 0}%)...`;
+            kokoroStatusBadge.style.background = '#EFF6FF';
+            kokoroStatusBadge.style.color = '#2563EB';
+          } else if (res.state === 'error') {
+            kokoroStatusBadge.innerText = '⚠️ 加载失败，点击重试';
+            kokoroStatusBadge.style.background = '#FEF2F2';
+            kokoroStatusBadge.style.color = '#DC2626';
+          } else {
+            kokoroStatusBadge.innerText = '未下载 (首次使用自动下载 ~80MB)';
+            kokoroStatusBadge.style.background = '#F1F5F9';
+            kokoroStatusBadge.style.color = '#64748B';
+          }
+        }
+      })
+      .catch(() => {});
+  }
+
+  ttsEngineSelect?.addEventListener('change', updateTtsUI);
+
+  // 监听来自 Offscreen 的下载进度更新
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.type === 'KOKORO_STATUS_UPDATE' && kokoroStatusBadge) {
+        if (msg.state === 'ready') {
+          kokoroStatusBadge.innerText = '✅ 离线模型已就绪';
+          kokoroStatusBadge.style.background = '#ECFDF5';
+          kokoroStatusBadge.style.color = '#059669';
+          if (kokoroMsg) kokoroMsg.innerText = '离线语音包已准备就绪！';
+        } else if (msg.state === 'loading') {
+          kokoroStatusBadge.innerText = `⏳ 正在下载模型 (${msg.progress || 0}%)...`;
+          kokoroStatusBadge.style.background = '#EFF6FF';
+          kokoroStatusBadge.style.color = '#2563EB';
+          if (kokoroMsg) kokoroMsg.innerText = `下载进度: ${msg.progress || 0}%`;
+        } else if (msg.state === 'error') {
+          kokoroStatusBadge.innerText = '⚠️ 模型下载失败';
+          kokoroStatusBadge.style.background = '#FEF2F2';
+          kokoroStatusBadge.style.color = '#DC2626';
+          if (kokoroMsg) kokoroMsg.innerText = msg.error || '下载失败，请检查网络';
+        }
+      }
+    });
+  }
+
+  // 预热/预下载按钮
+  btnPreloadKokoro?.addEventListener('click', async () => {
+    if (kokoroMsg) kokoroMsg.innerText = '正在启动后台下载，请稍候...';
+    try {
+      const res = await chrome.runtime.sendMessage({ type: 'KOKORO_TTS_PRELOAD' });
+      if (res && res.success) {
+        if (kokoroMsg) kokoroMsg.innerText = '✅ Kokoro 离线模型已成功预热！';
+      } else {
+        if (kokoroMsg) kokoroMsg.innerText = '❌ 预热失败: ' + (res?.error || '未知错误');
+      }
+    } catch (e) {
+      if (kokoroMsg) kokoroMsg.innerText = '❌ 预热失败: ' + e.message;
+    }
+  });
+
+  // 试听发音
+  btnTestKokoro?.addEventListener('click', async () => {
+    const voice = kokoroVoiceSelect?.value || 'af_heart';
+    if (kokoroMsg) kokoroMsg.innerText = '正在合成试听语音...';
+    try {
+      const res = await chrome.runtime.sendMessage({
+        type: 'KOKORO_TTS_PLAY',
+        text: 'Welcome to LexiPro. Experience natural neural speech with Kokoro.',
+        voice: voice
+      });
+      if (res && res.success) {
+        if (kokoroMsg) kokoroMsg.innerText = '🔊 正在播放试听发音...';
+      } else {
+        if (kokoroMsg) kokoroMsg.innerText = '❌ 发音失败: ' + (res?.error || '未知错误');
+      }
+    } catch (e) {
+      if (kokoroMsg) kokoroMsg.innerText = '❌ 发音失败: ' + e.message;
+    }
+  });
 
   // 测试 API 连通性
   btnTestSf.addEventListener('click', async () => {
@@ -267,7 +374,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_notion_token: notionTokenInput.value.trim(),
       lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
-      lexipro_site_auto_translate: false
+      lexipro_site_auto_translate: false,
+      lexipro_tts_engine: ttsEngineSelect ? ttsEngineSelect.value : 'youdao',
+      lexipro_kokoro_voice: kokoroVoiceSelect ? kokoroVoiceSelect.value : 'af_heart'
     };
 
     await chrome.storage.local.set(toSave);
@@ -305,5 +414,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';
+    if (ttsEngineSelect) ttsEngineSelect.value = cfg.lexipro_tts_engine || 'youdao';
+    if (kokoroVoiceSelect) kokoroVoiceSelect.value = cfg.lexipro_kokoro_voice || 'af_heart';
+    updateTtsUI();
   }
 });

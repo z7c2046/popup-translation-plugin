@@ -47,6 +47,36 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label for="tts-engine-select">🎙️ 语音发音引擎配置</label>
+          <select id="tts-engine-select" class="form-control">
+            <option value="youdao">有道词典在线发音 (轻量极速 · 零下载 · 默认)</option>
+            <option value="kokoro">Kokoro-82M 本地离线神经网络语音 (近人类级超高音质 · 推荐)</option>
+            <option value="edge">Edge 浏览器内置自然发音 (需 Edge 环境)</option>
+          </select>
+          <span class="tip">Kokoro 首次发音时会在后台自动下载量化模型并持久化在本地浏览器（约 80MB），之后永久离线发音，自然度媲美真人。</span>
+        </div>
+
+        <div class="form-group" id="kokoro-options-group" style="display: none; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label for="kokoro-voice-select" style="margin-bottom: 0; font-weight: 600; font-size: 13px;">Kokoro 默认语音音色</label>
+            <span id="kokoro-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #E2E8F0; color: #475569;">离线就绪</span>
+          </div>
+          <select id="kokoro-voice-select" class="form-control" style="margin-bottom: 8px;">
+            <option value="af_heart">Heart (美音女声 · 极其自然温暖 · 官方推荐)</option>
+            <option value="am_adam">Adam (美音男声 · 磁性沉稳)</option>
+            <option value="bf_alice">Alice (英音女声 · 优雅清晰)</option>
+            <option value="bm_george">George (英音男声 · 沉着温和)</option>
+            <option value="af_bella">Bella (美音女声 · 活泼灵动)</option>
+            <option value="am_michael">Michael (美音男声 · 商务播音)</option>
+          </select>
+          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <button type="button" id="btn-preload-kokoro" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">⚡ 立即预下载/预热模型</button>
+            <button type="button" id="btn-test-kokoro" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">🔊 试听发音</button>
+            <span id="kokoro-msg" style="font-size: 11.5px; color: #2563EB;"></span>
+          </div>
+        </div>
+
         <!-- 本地静态效果预览区 (零网络请求，不消耗 API Token) -->
         <div class="form-group">
           <label>👀 排版效果即时预览 (本地模拟)</label>

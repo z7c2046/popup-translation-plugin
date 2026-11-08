@@ -7,6 +7,28 @@
 // 活跃中的 HTTP 请求映射 (requestId -> AbortController)
 const activeHttpRequests = new Map();
 
+// Offscreen 离线宿主页单例管理 Promise
+let creatingOffscreenPromise = null;
+
+async function ensureOffscreenDocument() {
+  if (typeof chrome !== 'undefined' && chrome.offscreen) {
+    if (await chrome.offscreen.hasDocument()) {
+      return;
+    }
+    if (creatingOffscreenPromise) {
+      await creatingOffscreenPromise;
+      return;
+    }
+    creatingOffscreenPromise = chrome.offscreen.createDocument({
+      url: 'offscreen.html',
+      reasons: ['AUDIO_PLAYBACK', 'WORKERS'],
+      justification: 'Synthesize speech via Kokoro-82M neural TTS locally'
+    });
+    await creatingOffscreenPromise;
+    creatingOffscreenPromise = null;
+  }
+}
+
 // 扩展安装或更新时的初始化
 chrome.runtime.onInstalled.addListener(async () => {
   console.log('[LexiPro] Background Service Worker 已就绪。');
@@ -47,6 +69,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'STORAGE_SET') {
     chrome.storage.local.set(message.data).then(() => sendResponse({ success: true }));
     return true;
+  }
+
+  // 3. Kokoro 离线神经网络 TTS 发音转发代理
+  if (typeof message.type === 'string' && message.type.startsWith('KOKORO_TTS_')) {
+    const offscreenType = message.type.replace('KOKORO_TTS_', 'KOKORO_');
+    ensureOffscreenDocument()
+      .then(() => chrome.runtime.sendMessage({ ...message, type: offscreenType, target: 'offscreen' }))
+      .then(res => sendResponse(res || { success: true }))
+      .catch(err => {
+        console.warn('[LexiPro TTS] 转发离线 TTS 指令失败:', err);
+        sendResponse({ success: false, error: err?.message || String(err) });
+      });
+    return true; // 异步响应
   }
 });
 

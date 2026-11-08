@@ -141,6 +141,13 @@
     let initialAutoPronounce = GM_getValue('lexipro_auto_pronounce', false);
     initialAutoPronounce = Boolean(initialAutoPronounce);
 
+    // 初始化语音发音引擎配置（默认有道轻量极速，可选 kokoro 离线神经模型、edge 自然语音）
+    let initialTtsEngine = GM_getValue('lexipro_tts_engine', 'youdao');
+    if (!['youdao', 'kokoro', 'edge'].includes(initialTtsEngine)) {
+        initialTtsEngine = 'youdao';
+    }
+    let initialKokoroVoice = GM_getValue('lexipro_kokoro_voice', 'af_heart');
+
     // 初始化生词高亮排除名单配置（黑名单列表：处于名单中的网站不标注生词高亮）
     let initialExcludedSites = GM_getValue('lexipro_excluded_sites', []);
     if (typeof initialExcludedSites === 'string') {
@@ -203,6 +210,8 @@
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
         disableThinking: initialDisableThinking, // 是否关闭深度思考（默认关闭，极速秒出）
         autoPronounce: initialAutoPronounce, // 查词时是否自动播放读音（默认关闭，点击发音）
+        ttsEngine: initialTtsEngine, // 发音引擎：'youdao' | 'kokoro' | 'edge'
+        kokoroVoice: initialKokoroVoice, // Kokoro-82M 默认音色，如 'af_heart'
         excludedSites: initialExcludedSites, // 生词高亮排除黑名单（不显示生词高亮）
         autoTranslateSites: initialAutoTranslateSites, // 进站自动翻译白名单（默认空数组，全网绝不默认自动翻译）
         immersionSites: initialImmersionSites, // 按需开启沉浸式翻译白名单
@@ -1821,17 +1830,62 @@
             currentAudio.src = "";
             currentAudio = null;
         }
+        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+            try {
+                chrome.runtime.sendMessage({ type: 'KOKORO_TTS_STOP' }).catch(() => {});
+            } catch (e) {}
+        }
     }
 
     function playAudio(text) {
         if (!text) return;
         stopCurrentAudio();
-        // 优先使用 Edge 浏览器的自然语音
-        if (isEdgeBrowser() && window.speechSynthesis) {
-            playEdgeJennyTTS(text);
+
+        const engine = CONFIG.ttsEngine || 'youdao';
+
+        // 1. 如果配置为 Kokoro 神经网络引擎
+        if (engine === 'kokoro') {
+            playKokoroTTS(text);
             return;
         }
-        // 回退到有道词典的在线发音接口
+
+        // 2. 如果配置为 Edge 自然发音（或在 edge 选项下）
+        if (engine === 'edge') {
+            if (isEdgeBrowser() && window.speechSynthesis) {
+                playEdgeJennyTTS(text);
+                return;
+            }
+            // 非 Edge 环境下自动回退到有道
+            playYoudaoTTS(text);
+            return;
+        }
+
+        // 3. 默认有道发音
+        playYoudaoTTS(text);
+    }
+
+    function playKokoroTTS(text) {
+        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+            try {
+                chrome.runtime.sendMessage({
+                    type: 'KOKORO_TTS_PLAY',
+                    text: text,
+                    voice: CONFIG.kokoroVoice || 'af_heart',
+                    speed: 1.0
+                }, (response) => {
+                    if (chrome.runtime.lastError || !response || response.success === false) {
+                        console.warn('[LexiPro TTS] Kokoro 播放失败，平滑降级至有道/系统语音:', chrome.runtime.lastError?.message || response?.error);
+                        playYoudaoTTS(text);
+                    }
+                });
+                return;
+            } catch (e) {
+                console.warn('[LexiPro TTS] 发送 Kokoro 指令异常，回退有道:', e);
+                playYoudaoTTS(text);
+                return;
+            }
+        }
+        // 油猴脚本或无扩展宿主环境：回退到有道词典
         playYoudaoTTS(text);
     }
 
@@ -6101,6 +6155,10 @@ CRITICAL RULES:
                 }
             } else if (key === 'lexipro_auto_pronounce') {
                 CONFIG.autoPronounce = Boolean(value);
+            } else if (key === 'lexipro_tts_engine') {
+                CONFIG.ttsEngine = value || 'youdao';
+            } else if (key === 'lexipro_kokoro_voice') {
+                CONFIG.kokoroVoice = value || 'af_heart';
             } else if (key === 'lexipro_disable_thinking') {
                 CONFIG.disableThinking = Boolean(value);
                 if (CONFIG.llmProviders?.siliconflow) CONFIG.llmProviders.siliconflow.disableThinking = CONFIG.disableThinking;

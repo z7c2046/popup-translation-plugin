@@ -128,10 +128,10 @@ test('Excluded Sites: content.js & userscript guard highlights and immersion tra
     }
 });
 
-test('Version Consistency: manifest.json and userscript upgraded to v4.11.0', () => {
+test('Version Consistency: manifest.json and userscript upgraded to v4.12.0', () => {
     const manifest = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../popup-translation-extension/manifest.json'), 'utf8'));
     const userscript = fs.readFileSync(path.resolve(__dirname, '../划词翻译+生词高亮.txt'), 'utf8');
 
-    assert.equal(manifest.version, '4.11.0', 'manifest.json version must be 4.11.0');
-    assert.match(userscript, /\/\/ @version\s+4\.11\.0/, 'userscript version must be 4.11.0');
+    assert.equal(manifest.version, '4.12.0', 'manifest.json version must be 4.12.0');
+    assert.match(userscript, /\/\/ @version\s+4\.12\.0/, 'userscript version must be 4.12.0');
 });
