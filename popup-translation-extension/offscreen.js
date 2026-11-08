@@ -4,7 +4,16 @@
  * 采用按需懒加载与 IndexedDB 离线持久化机制，零侵入宿主网页内存
  */
 
-import { KokoroTTS } from './lib/kokoro.web.js';
+import { KokoroTTS, env } from './lib/kokoro.web.js';
+
+// 锁定 ONNX Runtime Web 本地扩展资源路径，绝对不向外网 jsdelivr 发起动态模块请求
+if (env && typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+  try {
+    env.wasmPaths = chrome.runtime.getURL('lib/');
+  } catch (e) {
+    console.warn('[LexiPro TTS] 设置 env.wasmPaths 失败:', e);
+  }
+}
 
 // 当前运行状态
 let ttsInstance = null;
@@ -64,25 +73,47 @@ async function ensureTTS() {
 
   ttsInitPromise = (async () => {
     try {
-      const device = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
-      console.log(`[LexiPro TTS] 正在初始化 Kokoro-82M 离线神经网络模型 (设备: ${device})...`);
+      if (env && typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        try {
+          env.wasmPaths = chrome.runtime.getURL('lib/');
+        } catch (e) {}
+      }
 
-      const tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-        dtype: 'q8',
-        device: device,
-        progress_callback: (p) => {
-          if (p && typeof p.progress === 'number') {
-            loadProgress = Math.min(100, Math.max(0, Math.round(p.progress)));
-            broadcastStatus({
-              state: 'loading',
-              progress: loadProgress,
-              file: p.file || '',
-              loaded: p.loaded || 0,
-              total: p.total || 0
-            });
-          }
+      const primaryDevice = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
+      console.log(`[LexiPro TTS] 正在初始化 Kokoro-82M 离线模型 (首选设备: ${primaryDevice})...`);
+
+      const handleProgress = (p) => {
+        if (p && typeof p.progress === 'number') {
+          loadProgress = Math.min(100, Math.max(0, Math.round(p.progress)));
+          broadcastStatus({
+            state: 'loading',
+            progress: loadProgress,
+            file: p.file || '',
+            loaded: p.loaded || 0,
+            total: p.total || 0
+          });
         }
-      });
+      };
+
+      let tts;
+      try {
+        tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+          dtype: 'q8',
+          device: primaryDevice,
+          progress_callback: handleProgress
+        });
+      } catch (devErr) {
+        if (primaryDevice !== 'wasm') {
+          console.warn('[LexiPro TTS] WebGPU 初始化异常，自动降级至 wasm (CPU):', devErr);
+          tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+            dtype: 'q8',
+            device: 'wasm',
+            progress_callback: handleProgress
+          });
+        } else {
+          throw devErr;
+        }
+      }
 
       ttsInstance = tts;
       modelState = 'ready';
@@ -192,3 +223,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
+

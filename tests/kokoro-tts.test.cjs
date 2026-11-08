@@ -24,6 +24,10 @@ test('Kokoro TTS: Manifest V3 permissions and CSP configuration', () => {
     assert.ok(manifest.content_security_policy, 'content_security_policy must exist');
     const extPagesCsp = manifest.content_security_policy.extension_pages || '';
     assert.match(extPagesCsp, /wasm-unsafe-eval/, 'extension_pages CSP must allow wasm-unsafe-eval for ONNX inference');
+
+    assert.ok(Array.isArray(manifest.web_accessible_resources), 'web_accessible_resources must exist');
+    const hasLibResources = manifest.web_accessible_resources.some(r => r.resources && r.resources.includes('lib/*'));
+    assert.ok(hasLibResources, 'web_accessible_resources must expose lib/* for WASM and worker binaries');
 });
 
 test('Kokoro TTS: Offscreen Document files & Neural Engine implementation', () => {
@@ -33,7 +37,8 @@ test('Kokoro TTS: Offscreen Document files & Neural Engine implementation', () =
 
     assert.ok(fs.existsSync(offscreenJsPath), 'offscreen.js must exist');
     const jsContent = fs.readFileSync(offscreenJsPath, 'utf8');
-    assert.match(jsContent, /import\s+\{\s*KokoroTTS\s*\}\s+from\s+['"]\.\/lib\/kokoro\.web\.js['"]/, 'offscreen.js must import KokoroTTS from standalone web bundle');
+    assert.match(jsContent, /import\s+\{[^}]*KokoroTTS[^}]*\}\s+from\s+['"]\.\/lib\/kokoro\.web\.js['"]/, 'offscreen.js must import KokoroTTS from standalone web bundle');
+    assert.match(jsContent, /env\.wasmPaths/, 'offscreen.js must configure local wasmPaths to eliminate jsdelivr downloads');
     assert.match(jsContent, /onnx-community\/Kokoro-82M-v1\.0-ONNX/, 'offscreen.js must specify Kokoro-82M model repo');
     assert.match(jsContent, /dtype:\s*['"]q8['"]/, 'offscreen.js must use q8 quantized model for lightweight ~80MB footprint');
 
@@ -46,6 +51,12 @@ test('Kokoro TTS: Offscreen Document files & Neural Engine implementation', () =
     assert.ok(fs.existsSync(kokoroBundlePath), 'lib/kokoro.web.js bundle must exist');
     const stats = fs.statSync(kokoroBundlePath);
     assert.ok(stats.size > 1000000, 'kokoro.web.js must be a valid non-empty standalone bundle (>1MB)');
+
+    // Verify local WASM and JSEP modules exist so no jsdelivr network requests are attempted
+    const jsepMjsPath = path.resolve(__dirname, '../popup-translation-extension/lib/ort-wasm-simd-threaded.jsep.mjs');
+    const jsepWasmPath = path.resolve(__dirname, '../popup-translation-extension/lib/ort-wasm-simd-threaded.jsep.wasm');
+    assert.ok(fs.existsSync(jsepMjsPath), 'ort-wasm-simd-threaded.jsep.mjs must exist in lib/');
+    assert.ok(fs.existsSync(jsepWasmPath), 'ort-wasm-simd-threaded.jsep.wasm must exist in lib/');
 });
 
 test('Kokoro TTS: Background service worker offscreen lifecycle & proxy routing', () => {
@@ -108,3 +119,4 @@ test('Kokoro TTS: Content script and userscript audio routing and graceful fallb
         assert.match(code, /key === 'lexipro_kokoro_voice'/, `${name} must support hot update for kokoro voice`);
     }
 });
+
