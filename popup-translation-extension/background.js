@@ -7,10 +7,28 @@
 // 活跃中的 HTTP 请求映射 (requestId -> AbortController)
 const activeHttpRequests = new Map();
 
-// Offscreen 离线宿主页单例管理 Promise
+// Offscreen 离线宿主页单例管理 Promise 与闲置回收定时器
 let creatingOffscreenPromise = null;
+let offscreenIdleTimer = null;
+
+function resetOffscreenIdleTimer() {
+  if (offscreenIdleTimer) {
+    clearTimeout(offscreenIdleTimer);
+    offscreenIdleTimer = null;
+  }
+  // 30 秒无任何发音交互，自动销毁 Offscreen 页面，彻底释放数百兆浏览器内存
+  offscreenIdleTimer = setTimeout(async () => {
+    if (typeof chrome !== 'undefined' && chrome.offscreen && await chrome.offscreen.hasDocument()) {
+      try {
+        await chrome.offscreen.closeDocument();
+        console.log('[LexiPro TTS] 离线发音文档已自动销毁，内存已全额归还操作系统。');
+      } catch (e) {}
+    }
+  }, 30000);
+}
 
 async function ensureOffscreenDocument() {
+  resetOffscreenIdleTimer();
   if (typeof chrome !== 'undefined' && chrome.offscreen) {
     if (await chrome.offscreen.hasDocument()) {
       return;
@@ -76,9 +94,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const offscreenType = message.type.replace('KOKORO_TTS_', 'KOKORO_');
     ensureOffscreenDocument()
       .then(() => chrome.runtime.sendMessage({ ...message, type: offscreenType, target: 'offscreen' }))
-      .then(res => sendResponse(res || { success: true }))
+      .then(res => {
+        resetOffscreenIdleTimer();
+        sendResponse(res || { success: true });
+      })
       .catch(err => {
         console.warn('[LexiPro TTS] 转发离线 TTS 指令失败:', err);
+        resetOffscreenIdleTimer();
         sendResponse({ success: false, error: err?.message || String(err) });
       });
     return true; // 异步响应

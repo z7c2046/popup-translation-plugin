@@ -68,6 +68,8 @@ test('Kokoro TTS: Background service worker offscreen lifecycle & proxy routing'
     assert.match(bgContent, /AUDIO_PLAYBACK/, 'offscreen creation must specify AUDIO_PLAYBACK reason');
     assert.match(bgContent, /WORKERS/, 'offscreen creation must specify WORKERS reason');
     assert.match(bgContent, /KOKORO_TTS_/, 'background.js must intercept KOKORO_TTS_* messages and forward to offscreen');
+    assert.match(bgContent, /resetOffscreenIdleTimer/, 'background.js must implement idle timer to reclaim memory');
+    assert.match(bgContent, /chrome\.offscreen\.closeDocument/, 'background.js must close offscreen document when idle to free memory');
 });
 
 test('Kokoro TTS: Options page engine selector, voice configuration, and persistence', () => {
@@ -75,9 +77,13 @@ test('Kokoro TTS: Options page engine selector, voice configuration, and persist
     const optHtml = fs.readFileSync(optionsHtmlPath, 'utf8');
 
     assert.match(optHtml, /id=["']tts-engine-select["']/, 'options.html must contain tts-engine-select');
+    assert.match(optHtml, /value=["']local_service["']/, 'options.html must support local_service engine');
     assert.match(optHtml, /value=["']youdao["']/, 'options.html must support youdao engine');
     assert.match(optHtml, /value=["']kokoro["']/, 'options.html must support kokoro engine');
     assert.match(optHtml, /value=["']edge["']/, 'options.html must support edge engine');
+    assert.match(optHtml, /id=["']local-service-group["']/, 'options.html must have local service options group');
+    assert.match(optHtml, /id=["']btn-check-local-service["']/, 'options.html must have check local service button');
+    assert.match(optHtml, /id=["']btn-test-local-service["']/, 'options.html must have test local service button');
     assert.match(optHtml, /id=["']kokoro-options-group["']/, 'options.html must have kokoro options group');
     assert.match(optHtml, /id=["']kokoro-voice-select["']/, 'options.html must have kokoro voice select');
     assert.match(optHtml, /id=["']btn-preload-kokoro["']/, 'options.html must have preload button');
@@ -88,6 +94,8 @@ test('Kokoro TTS: Options page engine selector, voice configuration, and persist
     const optJs = fs.readFileSync(optionsJsPath, 'utf8');
     assert.match(optJs, /lexipro_tts_engine:\s*['"]youdao['"]/, 'DEFAULT_CONFIG must define lexipro_tts_engine default');
     assert.match(optJs, /lexipro_kokoro_voice:\s*['"]af_heart['"]/, 'DEFAULT_CONFIG must define lexipro_kokoro_voice default');
+    assert.match(optJs, /lexipro_local_tts_url:\s*['"]http:\/\/127\.0\.0\.1:18080['"]/, 'DEFAULT_CONFIG must define lexipro_local_tts_url default');
+    assert.match(optJs, /checkLocalServiceStatus/, 'options.js must implement checkLocalServiceStatus');
     assert.match(optJs, /KOKORO_TTS_GET_STATUS/, 'options.js must query Kokoro status');
     assert.match(optJs, /KOKORO_TTS_PRELOAD/, 'options.js must send preload message');
     assert.match(optJs, /KOKORO_TTS_PLAY/, 'options.js must send test play message');
@@ -102,14 +110,18 @@ test('Kokoro TTS: Content script and userscript audio routing and graceful fallb
     for (const { name, code } of targets) {
         assert.match(code, /lexipro_tts_engine/, `${name} must read lexipro_tts_engine config`);
         assert.match(code, /lexipro_kokoro_voice/, `${name} must read lexipro_kokoro_voice config`);
+        assert.match(code, /lexipro_local_tts_url/, `${name} must read lexipro_local_tts_url config`);
         assert.match(code, /ttsEngine:\s*initialTtsEngine/, `${name} CONFIG must expose ttsEngine`);
         assert.match(code, /kokoroVoice:\s*initialKokoroVoice/, `${name} CONFIG must expose kokoroVoice`);
+        assert.match(code, /localTtsUrl:\s*initialLocalTtsUrl/, `${name} CONFIG must expose localTtsUrl`);
 
+        assert.match(code, /function playLocalServiceTTS/, `${name} must implement playLocalServiceTTS`);
         assert.match(code, /function playKokoroTTS/, `${name} must implement playKokoroTTS`);
         assert.match(code, /function playYoudaoTTS/, `${name} must implement playYoudaoTTS`);
         assert.match(code, /function stopCurrentAudio/, `${name} must implement stopCurrentAudio`);
 
         // playAudio routing logic
+        assert.match(code, /engine === 'local_service'/, `${name} playAudio must check local_service engine`);
         assert.match(code, /engine === 'kokoro'/, `${name} playAudio must check kokoro engine`);
         assert.match(code, /engine === 'edge'/, `${name} playAudio must check edge engine`);
         assert.match(code, /playYoudaoTTS\(text\)/, `${name} playAudio must fallback to youdao`);
@@ -117,6 +129,7 @@ test('Kokoro TTS: Content script and userscript audio routing and graceful fallb
         // storage live listener
         assert.match(code, /key === 'lexipro_tts_engine'/, `${name} must support hot update for tts engine`);
         assert.match(code, /key === 'lexipro_kokoro_voice'/, `${name} must support hot update for kokoro voice`);
+        assert.match(code, /key === 'lexipro_local_tts_url'/, `${name} must support hot update for local tts url`);
 
         // example sentence pronunciation button and hanging indent alignment
         assert.match(code, /imt-example-item/, `${name} must structure examples with imt-example-item for alignment`);

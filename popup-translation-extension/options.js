@@ -17,7 +17,8 @@ const DEFAULT_CONFIG = {
   lexipro_auto_translate_sites: [],
   lexipro_immersion_sites: [],
   lexipro_tts_engine: 'youdao',
-  lexipro_kokoro_voice: 'af_heart'
+  lexipro_kokoro_voice: 'af_heart',
+  lexipro_local_tts_url: 'http://127.0.0.1:18080'
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -39,6 +40,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPreloadKokoro = document.getElementById('btn-preload-kokoro');
   const btnTestKokoro = document.getElementById('btn-test-kokoro');
   const kokoroMsg = document.getElementById('kokoro-msg');
+
+  const localServiceGroup = document.getElementById('local-service-group');
+  const localServiceUrlInput = document.getElementById('local-service-url');
+  const localServiceStatusBadge = document.getElementById('local-service-status-badge');
+  const btnCheckLocalService = document.getElementById('btn-check-local-service');
+  const btnTestLocalService = document.getElementById('btn-test-local-service');
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
@@ -138,15 +145,73 @@ document.addEventListener('DOMContentLoaded', async () => {
   siteStyleSelect.addEventListener('change', updatePreview);
   themeSelect.addEventListener('change', updatePreview);
 
-  // 语音引擎与 Kokoro 状态联动
+  // 语音引擎与伴侣服务状态联动
   function updateTtsUI() {
-    if (!ttsEngineSelect || !kokoroOptionsGroup) return;
+    if (!ttsEngineSelect) return;
     const isKokoro = ttsEngineSelect.value === 'kokoro';
-    kokoroOptionsGroup.style.display = isKokoro ? 'block' : 'none';
+    const isLocalService = ttsEngineSelect.value === 'local_service';
+
+    if (kokoroOptionsGroup) kokoroOptionsGroup.style.display = isKokoro ? 'block' : 'none';
+    if (localServiceGroup) localServiceGroup.style.display = isLocalService ? 'block' : 'none';
+
     if (isKokoro) {
       queryKokoroStatus();
+    } else if (isLocalService) {
+      checkLocalServiceStatus(false);
     }
   }
+
+  // 探测本地原生 Sherpa-ONNX 伴侣服务运行状态
+  async function checkLocalServiceStatus(isManual = false) {
+    if (!localServiceStatusBadge) return;
+    const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
+    localServiceStatusBadge.innerText = '⏳ 正在检测连接...';
+    localServiceStatusBadge.style.background = '#EFF6FF';
+    localServiceStatusBadge.style.color = '#2563EB';
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+
+    try {
+      const res = await fetch(`${baseUrl}/health`, { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        localServiceStatusBadge.innerText = `✅ 服务已就绪 (${data.engine || 'sherpa-onnx'} · 零内存占用)`;
+        localServiceStatusBadge.style.background = '#ECFDF5';
+        localServiceStatusBadge.style.color = '#059669';
+        return true;
+      } else {
+        throw new Error(`HTTP ${res.status}`);
+      }
+    } catch (e) {
+      clearTimeout(timer);
+      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行 start-local-tts.bat)';
+      localServiceStatusBadge.style.background = '#FEF2F2';
+      localServiceStatusBadge.style.color = '#DC2626';
+      if (isManual) {
+        alert('未检测到本地原生发音伴侣服务。\n\n请在项目目录双击运行 start-local-tts.bat 即可一键启动服务！');
+      }
+      return false;
+    }
+  }
+
+  btnCheckLocalService?.addEventListener('click', () => {
+    checkLocalServiceStatus(true);
+  });
+
+  btnTestLocalService?.addEventListener('click', async () => {
+    const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
+    const voice = kokoroVoiceSelect?.value || 'af_heart';
+    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('Welcome to LexiPro. Experience native neural speech with Sherpa ONNX.')}&voice=${encodeURIComponent(voice)}&speed=1.0`;
+
+    try {
+      const audio = new Audio(testUrl);
+      await audio.play();
+    } catch (e) {
+      checkLocalServiceStatus(true);
+    }
+  });
 
   function queryKokoroStatus() {
     if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) return;
@@ -376,7 +441,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_site_translation_style: siteStyleSelect.value,
       lexipro_site_auto_translate: false,
       lexipro_tts_engine: ttsEngineSelect ? ttsEngineSelect.value : 'youdao',
-      lexipro_kokoro_voice: kokoroVoiceSelect ? kokoroVoiceSelect.value : 'af_heart'
+      lexipro_kokoro_voice: kokoroVoiceSelect ? kokoroVoiceSelect.value : 'af_heart',
+      lexipro_local_tts_url: (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim()
     };
 
     await chrome.storage.local.set(toSave);
@@ -416,6 +482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';
     if (ttsEngineSelect) ttsEngineSelect.value = cfg.lexipro_tts_engine || 'youdao';
     if (kokoroVoiceSelect) kokoroVoiceSelect.value = cfg.lexipro_kokoro_voice || 'af_heart';
+    if (localServiceUrlInput) localServiceUrlInput.value = cfg.lexipro_local_tts_url || 'http://127.0.0.1:18080';
     updateTtsUI();
   }
 });

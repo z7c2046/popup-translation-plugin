@@ -4,3 +4,9 @@
 1.1
 *.bak
 *.tmp
+node_modules/
+**/node_modules/
+models/
+**/models/
+*.tar.bz2
+*.onnx

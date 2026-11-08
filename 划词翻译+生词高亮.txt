@@ -62,12 +62,13 @@
     let initialAutoPronounce = GM_getValue('lexipro_auto_pronounce', false);
     initialAutoPronounce = Boolean(initialAutoPronounce);
 
-    // 初始化语音发音引擎配置（默认有道轻量极速，可选 kokoro 离线神经模型、edge 自然语音）
+    // 初始化语音发音引擎配置（默认有道轻量极速，可选 local_service 本地原生伴侣服务、kokoro 离线神经模型、edge 自然语音）
     let initialTtsEngine = GM_getValue('lexipro_tts_engine', 'youdao');
-    if (!['youdao', 'kokoro', 'edge'].includes(initialTtsEngine)) {
+    if (!['local_service', 'youdao', 'kokoro', 'edge'].includes(initialTtsEngine)) {
         initialTtsEngine = 'youdao';
     }
     let initialKokoroVoice = GM_getValue('lexipro_kokoro_voice', 'af_heart');
+    let initialLocalTtsUrl = GM_getValue('lexipro_local_tts_url', 'http://127.0.0.1:18080');
 
     // 初始化生词高亮排除名单配置（黑名单列表：处于名单中的网站不标注生词高亮）
     let initialExcludedSites = GM_getValue('lexipro_excluded_sites', []);
@@ -131,8 +132,9 @@
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
         disableThinking: initialDisableThinking, // 是否关闭深度思考（默认关闭，极速秒出）
         autoPronounce: initialAutoPronounce, // 查词时是否自动播放读音（默认关闭，点击发音）
-        ttsEngine: initialTtsEngine, // 发音引擎：'youdao' | 'kokoro' | 'edge'
+        ttsEngine: initialTtsEngine, // 发音引擎：'local_service' | 'youdao' | 'kokoro' | 'edge'
         kokoroVoice: initialKokoroVoice, // Kokoro-82M 默认音色，如 'af_heart'
+        localTtsUrl: initialLocalTtsUrl, // 本地原生伴侣服务地址，如 'http://127.0.0.1:18080'
         excludedSites: initialExcludedSites, // 生词高亮排除黑名单（不显示生词高亮）
         autoTranslateSites: initialAutoTranslateSites, // 进站自动翻译白名单（默认空数组，全网绝不默认自动翻译）
         immersionSites: initialImmersionSites, // 按需开启沉浸式翻译白名单
@@ -1833,7 +1835,13 @@
 
         const engine = CONFIG.ttsEngine || 'youdao';
 
-        // 1. 如果配置为 Kokoro 神经网络引擎
+        // 0. 如果配置为本地原生伴侣服务 (Sherpa-ONNX / Kokoro C++ 极速引擎)
+        if (engine === 'local_service') {
+            playLocalServiceTTS(text);
+            return;
+        }
+
+        // 1. 如果配置为 Kokoro 浏览器离线神经网络引擎
         if (engine === 'kokoro') {
             playKokoroTTS(text);
             return;
@@ -1852,6 +1860,28 @@
 
         // 3. 默认有道发音
         playYoudaoTTS(text);
+    }
+
+    function playLocalServiceTTS(text) {
+        const baseUrl = (CONFIG.localTtsUrl || GM_getValue('lexipro_local_tts_url', 'http://127.0.0.1:18080')).replace(/\/+$/, '');
+        const voice = CONFIG.kokoroVoice || 'af_heart';
+        const url = `${baseUrl}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&speed=1.0`;
+
+        stopCurrentAudio();
+        const audio = new Audio(url);
+        currentAudio = audio;
+
+        const playPromise = audio.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(err => {
+                if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
+                    return;
+                }
+                console.warn('[LexiPro TTS] 本地原生伴侣服务未响应 (请运行 start-local-tts.bat)，平滑降级至在线语音:', err);
+                // 优雅降级至有道发音
+                playYoudaoTTS(text);
+            });
+        }
     }
 
     function playKokoroTTS(text) {
@@ -6097,6 +6127,8 @@ CRITICAL RULES:
                 CONFIG.ttsEngine = value || 'youdao';
             } else if (key === 'lexipro_kokoro_voice') {
                 CONFIG.kokoroVoice = value || 'af_heart';
+            } else if (key === 'lexipro_local_tts_url') {
+                CONFIG.localTtsUrl = value || 'http://127.0.0.1:18080';
             } else if (key === 'lexipro_disable_thinking') {
                 CONFIG.disableThinking = Boolean(value);
                 if (CONFIG.llmProviders?.siliconflow) CONFIG.llmProviders.siliconflow.disableThinking = CONFIG.disableThinking;

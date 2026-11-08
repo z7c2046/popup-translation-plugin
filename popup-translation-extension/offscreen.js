@@ -79,8 +79,9 @@ async function ensureTTS() {
         } catch (e) {}
       }
 
-      const primaryDevice = (typeof navigator !== 'undefined' && navigator.gpu) ? 'webgpu' : 'wasm';
-      console.log(`[LexiPro TTS] 正在初始化 Kokoro-82M 离线模型 (首选设备: ${primaryDevice})...`);
+      // 优先采用纯 CPU WASM 多线程推理，彻底规避 Windows WebGPU 算子不兼容引发的显存-内存频繁拷贝与桌面渲染掉帧
+      const primaryDevice = 'wasm';
+      console.log(`[LexiPro TTS] 正在初始化 Kokoro-82M 离线模型 (采用纯 CPU WASM 稳定低开销模式)...`);
 
       const handleProgress = (p) => {
         if (p && typeof p.progress === 'number') {

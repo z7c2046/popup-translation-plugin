@@ -50,11 +50,26 @@
         <div class="form-group">
           <label for="tts-engine-select">🎙️ 语音发音引擎配置</label>
           <select id="tts-engine-select" class="form-control">
+            <option value="local_service">🚀 本地原生伴侣服务 (Sherpa-ONNX / NextAI 同款 C++ · 毫秒响应 · 零浏览器内存 · 极致流畅 · 推荐)</option>
             <option value="youdao">有道词典在线发音 (轻量极速 · 零下载 · 默认)</option>
-            <option value="kokoro">Kokoro-82M 本地离线神经网络语音 (近人类级超高音质 · 推荐)</option>
+            <option value="kokoro">Kokoro-82M 浏览器内置离线语音 (近人类级超高音质 · 需后台运行)</option>
             <option value="edge">Edge 浏览器内置自然发音 (需 Edge 环境)</option>
           </select>
-          <span class="tip">Kokoro 首次发音时会在后台自动下载量化模型并持久化在本地浏览器（约 80MB），之后永久离线发音，自然度媲美真人。</span>
+          <span class="tip">推荐选择「本地原生伴侣服务」：与 NextAI Translator 一样直接调用本地原生 C++ 推理，浏览器内存占用直接归零，彻底告别掉帧与卡顿。</span>
+        </div>
+
+        <!-- 本地原生伴侣服务配置面板 -->
+        <div class="form-group" id="local-service-group" style="display: none; padding: 12px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label for="local-service-url" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: #166534;">🚀 本地原生伴侣服务配置 (NextAI 同款内核)</label>
+            <span id="local-service-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #E2E8F0; color: #475569;">未检测</span>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+            <input type="text" id="local-service-url" class="form-control" placeholder="http://127.0.0.1:18080" value="http://127.0.0.1:18080" style="flex: 1; font-family: monospace; font-size: 12.5px;">
+            <button type="button" id="btn-check-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔍 检测连接</button>
+            <button type="button" id="btn-test-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听发音</button>
+          </div>
+          <span class="tip" style="color: #15803D;">运行项目根目录的 <code>start-local-tts.bat</code> 即可一键启动本地独立伴侣服务。原生 C++ AVX2 硬件指令集推理，浏览器内存 0 开销，毫秒级响应！</span>
         </div>
 
         <div class="form-group" id="kokoro-options-group" style="display: none; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
