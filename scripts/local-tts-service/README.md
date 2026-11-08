@@ -41,3 +41,4 @@
 * **OpenAI 兼容接口**：
   * `POST http://127.0.0.1:18080/v1/audio/speech`
   * Body: `{"input": "Hello world", "voice": "af_heart"}`
+

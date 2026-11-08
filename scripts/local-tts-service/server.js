@@ -81,7 +81,8 @@ function downloadFile(sourceUrl, destPath) {
       }, (res) => {
         // 重定向处理 (301, 302, 307, 308)
         if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
-          return request(res.headers.location);
+          const redirectUrl = new url.URL(res.headers.location, currentUrl).href;
+          return request(redirectUrl);
         }
 
         if (res.statusCode !== 200) {
@@ -132,8 +133,22 @@ async function ensureModel() {
   const modelOnnxPath = path.join(MODEL_TARGET_DIR, 'model.onnx');
   const voicesBinPath = path.join(MODEL_TARGET_DIR, 'voices.bin');
   const tokensTxtPath = path.join(MODEL_TARGET_DIR, 'tokens.txt');
+  const lexiconPath = path.join(MODEL_TARGET_DIR, 'lexicon-en-us.txt');
 
   if (fs.existsSync(modelOnnxPath) && fs.existsSync(voicesBinPath) && fs.existsSync(tokensTxtPath)) {
+    if (!fs.existsSync(lexiconPath)) {
+      console.log('[Local TTS] 正在下载英文发音词典 (lexicon-en-us.txt 约 6MB)...');
+      const lexiconUrls = [
+        'https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/lexicon-en-us.txt',
+        'https://ghproxy.net/https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/lexicon-en-us.txt'
+      ];
+      for (const u of lexiconUrls) {
+        try {
+          await downloadFile(u, lexiconPath);
+          if (fs.existsSync(lexiconPath) && fs.statSync(lexiconPath).size > 1000000) break;
+        } catch (e) {}
+      }
+    }
     return MODEL_TARGET_DIR;
   }
 
@@ -151,10 +166,26 @@ async function ensureModel() {
   let downloaded = false;
   for (const urlStr of downloadUrls) {
     try {
-      console.log(`[Local TTS] 尝试从地址下载: ${urlStr}`);
+      console.log(`[Local TTS] 正在尝试下载模型: ${urlStr}`);
+      // 优先尝试系统内置 curl.exe 极速流式下载 (原生展示进度百分比)
+      try {
+        const curlCheck = spawnSync('curl.exe', ['--version'], { stdio: 'ignore' });
+        if (curlCheck.status === 0) {
+          console.log('[Local TTS] 调用系统 curl.exe 极速下载...');
+          const curlRes = spawnSync('curl.exe', ['-L', '--fail', '--progress-bar', '-o', archivePath, urlStr], { stdio: 'inherit' });
+          if (curlRes.status === 0 && fs.existsSync(archivePath) && fs.statSync(archivePath).size > 1000000) {
+            downloaded = true;
+            break;
+          }
+        }
+      } catch (curlErr) {}
+
+      // 若无 curl 或 curl 失败，采用 Node.js 原生下载器
       await downloadFile(urlStr, archivePath);
-      downloaded = true;
-      break;
+      if (fs.existsSync(archivePath) && fs.statSync(archivePath).size > 1000000) {
+        downloaded = true;
+        break;
+      }
     } catch (e) {
       console.warn(`[Local TTS] 下载镜像异常 (${e.message})，尝试备用源...`);
     }
@@ -164,18 +195,32 @@ async function ensureModel() {
     throw new Error('下载模型失败，请检查网络连接或手动将 kokoro-en-v0_19 放入 models/ 目录');
   }
 
-  console.log('[Local TTS] 下载完成，正在使用系统内置 tar 解压模型...');
-  try {
-    const tarResult = spawnSync('tar', ['-xf', archivePath, '-C', MODELS_DIR], { stdio: 'inherit' });
-    if (tarResult.status !== 0) {
-      throw new Error(`tar 解压退出码: ${tarResult.status}`);
+  console.log('[Local TTS] 下载完成，正在解压语音模型 (约需 10-20 秒)...');
+  await new Promise((resolve, reject) => {
+    try {
+      const bz2 = require('unbzip2-stream');
+      const nodeTar = require('tar');
+      fs.createReadStream(archivePath)
+        .pipe(bz2())
+        .pipe(nodeTar.x({ C: MODELS_DIR }))
+        .on('finish', () => {
+          console.log('[Local TTS] 解压成功！正在清理临时压缩包...');
+          try { fs.unlinkSync(archivePath); } catch (e) {}
+          resolve();
+        })
+        .on('error', reject);
+    } catch (e) {
+      // 备用：尝试系统 tar
+      try {
+        const tarResult = spawnSync('tar', ['-xf', archivePath, '-C', MODELS_DIR], { stdio: 'inherit' });
+        if (tarResult.status === 0) {
+          try { fs.unlinkSync(archivePath); } catch (e) {}
+          return resolve();
+        }
+      } catch (err) {}
+      reject(e);
     }
-    console.log('[Local TTS] 解压成功！正在清理临时压缩包...');
-    try { fs.unlinkSync(archivePath); } catch (e) {}
-  } catch (unzipErr) {
-    console.error('[Local TTS] 解压异常:', unzipErr.message);
-    throw unzipErr;
-  }
+  });
 
   return MODEL_TARGET_DIR;
 }
@@ -231,7 +276,8 @@ async function startServer() {
         model: path.join(modelDir, 'model.onnx'),
         voices: path.join(modelDir, 'voices.bin'),
         tokens: path.join(modelDir, 'tokens.txt'),
-        dataDir: path.join(modelDir, 'espeak-ng-data')
+        dataDir: path.join(modelDir, 'espeak-ng-data'),
+        lexicon: path.join(modelDir, 'lexicon-en-us.txt')
       },
       numThreads: Math.max(2, Math.min(4, Math.floor(require('os').cpus().length / 2))),
       provider: 'cpu',
@@ -254,7 +300,7 @@ async function startServer() {
       return;
     }
 
-    const parsedUrl = url.parse(req.url, true);
+    const parsedUrl = new URL(req.url, `http://${HOST}:${PORT}`);
     const pathname = parsedUrl.pathname;
 
     // 健康检查接口
@@ -275,9 +321,9 @@ async function startServer() {
 
     // TTS 发音接口：GET /tts?text=...&voice=...&speed=...
     if (pathname === '/tts' && req.method === 'GET') {
-      const text = (parsedUrl.query.text || '').trim();
-      const voice = (parsedUrl.query.voice || 'af_heart').trim().toLowerCase();
-      const speed = parseFloat(parsedUrl.query.speed) || 1.0;
+      const text = (parsedUrl.searchParams.get('text') || '').trim();
+      const voice = (parsedUrl.searchParams.get('voice') || 'af_heart').trim().toLowerCase();
+      const speed = parseFloat(parsedUrl.searchParams.get('speed')) || 1.0;
 
       if (!text) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -376,3 +422,4 @@ startServer().catch((err) => {
   console.error('[Local TTS] 启动服务失败:', err);
   process.exit(1);
 });
+
