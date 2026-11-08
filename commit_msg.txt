@@ -1,0 +1,7 @@
+refactor(ui): 从页面划词弹窗设置中移除冗余的排除当前网站开关，统一收拢至浏览器扩展栏 Popup 控制中心
+
+【优化总结】
+1. 消除重复交互干扰：根据用户反馈，浏览器顶部扩展栏的 Popup 控制中心（点击扩展图标打开的面板）已经提供了当前网站的「🚫 排除此网站生词高亮」直观开关；页面内划词弹窗的设置面板无需再冗余展示该开关，减少视觉干扰，精简弹窗高度。
+2. 保持底层响应完整：页面内依然完整保留 matchesDomainPattern、isCurrentSiteExcluded、clearPageHighlights 以及 handleExcludedSitesChange 等监听逻辑，用户在浏览器扩展栏或选项页中开启/关闭排除时，页面依然能够即时热响应并清除/恢复高亮。
+3. 双端同构同步：同步将 content.js 的精简逻辑更新至油猴脚本（划词翻译+生词高亮.txt）。
+4. 自动化测试全部绿色：更新 tests/excluded-sites.test.cjs 断言，全套 29 项测试全部 100% 通过。

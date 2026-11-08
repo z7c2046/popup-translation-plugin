@@ -119,10 +119,9 @@ test('Excluded Sites: content.js & userscript guard highlights and immersion tra
         assert.match(code, /function isCurrentSiteImmersionEnabled/, `${name} must include isCurrentSiteImmersionEnabled`);
         assert.match(code, /if\s*\(typeof isCurrentSiteImmersionEnabled === 'function'\s*&&\s*!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return false;\s*\}/, `${name} isGlobalImmersionTranslationPage must guard when immersion not enabled`);
         assert.match(code, /if\s*\(!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return;\s*\}/, `${name} initSiteSpecificTranslator must guard when immersion not enabled`);
-        // 5. 动森设置面板内提供排除当前网站开关
-        assert.match(code, /id="imt-exclude-switch"/, `${name} must include exclude switch in settings UI`);
-        assert.match(code, /toggleExcludeSetting/, `${name} must include toggleExcludeSetting`);
-        // 6. 热更新派发
+        // 5. 排除网站统一由浏览器扩展栏 Popup 控制中心收拢，页面查词设置面板内不冗余展示排除开关
+        assert.doesNotMatch(code, /id="imt-exclude-switch"/, `${name} must not redundantly include exclude switch in in-page dictionary settings UI`);
+        // 6. 热更新派发与响应
         assert.match(code, /handleExcludedSitesChange/, `${name} must include handleExcludedSitesChange`);
         assert.match(code, /key === 'lexipro_excluded_sites'/, `${name} must handle excluded sites change in storage`);
     }

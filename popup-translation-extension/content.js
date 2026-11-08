@@ -2656,32 +2656,6 @@
                     </div>
                 </div>
 
-                <div class="imt-settings-group" id="imt-exclude-group">
-                    <div class="imt-settings-switch-row">
-                        <div class="imt-settings-switch-copy">
-                            <label for="imt-exclude-switch">
-                                🚫 排除当前网站
-                                <span class="imt-switch-status-badge ${isCurrentSiteExcluded() ? 'imt-status-off' : 'imt-status-on'}" id="imt-exclude-status-text">
-                                    ${isCurrentSiteExcluded() ? '已排除此网站（停用增强）' : '未排除（正常运行）'}
-                                </span>
-                            </label>
-                            <div class="imt-settings-hint" id="imt-exclude-hint">
-                                ${isCurrentSiteExcluded() ? '当前域名已加入黑名单，不显示生词高亮与沉浸式翻译' : '开启后当前域名将不再显示生词高亮及沉浸式翻译悬浮胶囊'}
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            role="switch"
-                            aria-checked="${Boolean(isCurrentSiteExcluded())}"
-                            class="imt-animal-switch ${isCurrentSiteExcluded() ? 'imt-animal-switch-checked' : ''}"
-                            id="imt-exclude-switch"
-                            title="${isCurrentSiteExcluded() ? '当前已排除（点击恢复正常）' : '当前未排除（点击排除此网站）'}"
-                        >
-                            <span class="imt-animal-switch-handle" aria-hidden="true"></span>
-                        </button>
-                    </div>
-                </div>
-
                 <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
                     <div class="imt-settings-group" style="margin-bottom: 6px;">
                         <label for="kimi-refresh-token">Kimi Refresh Token *</label>
@@ -2811,54 +2785,6 @@
         pronounceLabel?.addEventListener('click', (e) => {
             e.preventDefault();
             pronounceSwitch?.click();
-        });
-
-        const excludeSwitch = settingsBox.querySelector('#imt-exclude-switch');
-        const excludeStatusBadge = settingsBox.querySelector('#imt-exclude-status-text');
-        const excludeHint = settingsBox.querySelector('#imt-exclude-hint');
-        const excludeLabel = settingsBox.querySelector('label[for="imt-exclude-switch"]');
-
-        function updateExcludeSwitchUI(isExcluded) {
-            if (!excludeSwitch) return;
-            excludeSwitch.classList.toggle('imt-animal-switch-checked', isExcluded);
-            excludeSwitch.setAttribute('aria-checked', String(isExcluded));
-            excludeSwitch.title = isExcluded ? '当前已排除（点击恢复正常）' : '当前未排除（点击排除此网站）';
-            if (excludeStatusBadge) {
-                excludeStatusBadge.textContent = isExcluded ? '已排除此网站（停用增强）' : '未排除（正常运行）';
-                excludeStatusBadge.className = `imt-switch-status-badge ${isExcluded ? 'imt-status-off' : 'imt-status-on'}`;
-            }
-            if (excludeHint) {
-                excludeHint.textContent = isExcluded
-                    ? '当前域名已加入黑名单，不显示生词高亮与沉浸式翻译'
-                    : '开启后当前域名将不再显示生词高亮及沉浸式翻译悬浮胶囊';
-            }
-        }
-
-        function toggleExcludeSetting() {
-            const host = (location.hostname || '').toLowerCase();
-            if (!host) return;
-            let list = Array.isArray(CONFIG.excludedSites) ? [...CONFIG.excludedSites] : [];
-            const currentlyExcluded = list.some(pat => matchesDomainPattern(host, pat));
-            const nextExcluded = !currentlyExcluded;
-
-            if (nextExcluded) {
-                if (!list.some(pat => matchesDomainPattern(host, pat))) {
-                    list.push(host);
-                }
-            } else {
-                list = list.filter(pat => !matchesDomainPattern(host, pat));
-            }
-
-            CONFIG.excludedSites = list;
-            GM_setValue('lexipro_excluded_sites', list);
-            updateExcludeSwitchUI(nextExcluded);
-            handleExcludedSitesChange(list);
-        }
-
-        excludeSwitch?.addEventListener('click', toggleExcludeSetting);
-        excludeLabel?.addEventListener('click', (e) => {
-            e.preventDefault();
-            excludeSwitch?.click();
         });
 
         providerSelect.addEventListener('change', () => {
