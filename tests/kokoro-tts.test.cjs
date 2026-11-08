@@ -117,6 +117,12 @@ test('Kokoro TTS: Content script and userscript audio routing and graceful fallb
         // storage live listener
         assert.match(code, /key === 'lexipro_tts_engine'/, `${name} must support hot update for tts engine`);
         assert.match(code, /key === 'lexipro_kokoro_voice'/, `${name} must support hot update for kokoro voice`);
+
+        // example sentence pronunciation button and hanging indent alignment
+        assert.match(code, /imt-example-item/, `${name} must structure examples with imt-example-item for alignment`);
+        assert.match(code, /imt-example-num/, `${name} must isolate numbers with imt-example-num`);
+        assert.match(code, /imt-example-body/, `${name} must wrap text with imt-example-body so wrapped lines align`);
+        assert.match(code, /imt-speaker\s+imt-ex-speaker/, `${name} must provide example pronunciation speaker`);
     }
 });
 

@@ -1079,15 +1079,84 @@
             font-weight: 950;
         }
 
+        .imt-example-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .imt-example-num {
+            flex-shrink: 0;
+            min-width: 15px;
+            color: var(--aiu-text);
+            font-weight: 800;
+            line-height: 1.5;
+            user-select: none;
+        }
+
+        .imt-example-body {
+            flex: 1;
+            min-width: 0;
+        }
+
         .imt-ex-src {
             color: var(--aiu-text);
-            margin-top: 7px;
+            line-height: 1.5;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 6px;
+            margin-top: 0;
+        }
+
+        .imt-ex-text {
+            flex: 1;
+            min-width: 0;
+            word-break: break-word;
+        }
+
+        .imt-speaker.imt-ex-speaker {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            width: 20px;
+            height: 20px;
+            margin-left: 4px;
+            font-size: 11px;
+            border: 1px solid #82d5bb;
+            border-bottom: 2px solid #60bba5;
+            border-radius: 50%;
+            background: linear-gradient(180deg, #f5fffb, var(--aiu-primary-soft));
+            color: #0b8079;
+            cursor: pointer;
+            user-select: none;
+            opacity: 0.85;
+            transition: opacity 0.2s ease, transform 0.15s ease;
+        }
+
+        .imt-speaker.imt-ex-speaker:hover {
+            opacity: 1;
+            transform: translateY(-1px) scale(1.1);
+            box-shadow: 0 2px 0 rgba(18, 169, 157, .22);
+        }
+
+        .imt-speaker.imt-ex-speaker:active {
+            transform: translateY(1px) scale(0.95);
+            box-shadow: 0 0 0 rgba(18, 169, 157, .22);
         }
 
         .imt-ex-tgt {
             color: var(--aiu-text-soft);
             margin-top: 3px;
-            padding-left: 18px;
+            line-height: 1.45;
+            word-break: break-word;
+            padding-left: 0;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 6px;
         }
 
         .imt-meta {
@@ -3631,13 +3700,23 @@ Formatting requirements: Output valid JSON only.`;
         }
 
         if (data.mode === "en_word") {
-            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}<span class="imt-phonetic">${escapeHtml(data.phonetic || '')}</span><span class="imt-speaker" data-text="${escapeHtml(data.word || originalText)}" title="点击或悬停朗读">🔊</span></div>`;
+            let html = `<div class="imt-word-title">${escapeHtml(data.word || originalText)}<span class="imt-phonetic">${escapeHtml(data.phonetic || '')}</span><span class="imt-speaker" data-text="${escapeHtml(data.word || originalText)}" title="点击朗读单词">🔊</span></div>`;
             (data.entries || []).forEach(entry => {
                 html += `<div class="imt-section"><div><span class="imt-pos">${escapeHtml(entry.pos || '')}</span><span class="imt-meaning">${escapeHtml(entry.meaning || '')}</span></div></div>`;
                 if (entry.examples && entry.examples.length > 0) {
                     html += `<div class="imt-example"><strong>例句：</strong>`;
                     entry.examples.forEach((ex, index) => {
-                        html += `<div class="imt-ex-src">${index + 1}. ${escapeHtml(ex.source || '')}</div><div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>`;
+                        html += `
+                        <div class="imt-example-item">
+                            <span class="imt-example-num">${index + 1}.</span>
+                            <div class="imt-example-body">
+                                <div class="imt-ex-src">
+                                    <span class="imt-ex-text">${escapeHtml(ex.source || '')}</span>
+                                    <span class="imt-speaker imt-ex-speaker" data-text="${escapeHtml(ex.source || '')}" title="朗读英文例句">🔊</span>
+                                </div>
+                                <div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>
+                            </div>
+                        </div>`;
                     });
                     html += `</div>`;
                 }
@@ -3652,7 +3731,19 @@ Formatting requirements: Output valid JSON only.`;
                 if (entry.examples && entry.examples.length > 0) {
                     html += `<div class="imt-example"><strong>例句：</strong>`;
                     entry.examples.forEach((ex, index) => {
-                        html += `<div class="imt-ex-src">${index + 1}. ${escapeHtml(ex.source || '')}</div><div class="imt-ex-tgt">${escapeHtml(ex.target || '')}</div>`;
+                        html += `
+                        <div class="imt-example-item">
+                            <span class="imt-example-num">${index + 1}.</span>
+                            <div class="imt-example-body">
+                                <div class="imt-ex-src">
+                                    <span class="imt-ex-text">${escapeHtml(ex.source || '')}</span>
+                                </div>
+                                <div class="imt-ex-tgt">
+                                    <span class="imt-ex-text">${escapeHtml(ex.target || '')}</span>
+                                    <span class="imt-speaker imt-ex-speaker" data-text="${escapeHtml(ex.target || '')}" title="朗读英文例句">🔊</span>
+                                </div>
+                            </div>
+                        </div>`;
                     });
                     html += `</div>`;
                 }
