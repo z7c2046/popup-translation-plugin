@@ -62,10 +62,13 @@
     let initialAutoPronounce = GM_getValue('lexipro_auto_pronounce', false);
     initialAutoPronounce = Boolean(initialAutoPronounce);
 
-    // 初始化语音发音引擎配置（默认有道轻量极速，可选 local_service 本地原生伴侣服务、kokoro 离线神经模型、edge 自然语音）
-    let initialTtsEngine = GM_getValue('lexipro_tts_engine', 'youdao');
-    if (!['local_service', 'youdao', 'kokoro', 'edge'].includes(initialTtsEngine)) {
-        initialTtsEngine = 'youdao';
+    // 初始化语音发音引擎配置（默认本地原生伴侣服务，可选 youdao 在线发音、edge 自然语音）
+    let initialTtsEngine = GM_getValue('lexipro_tts_engine', 'local_service');
+    if (initialTtsEngine === 'kokoro') {
+        initialTtsEngine = 'local_service';
+    }
+    if (!['local_service', 'youdao', 'edge'].includes(initialTtsEngine)) {
+        initialTtsEngine = 'local_service';
     }
     let initialKokoroVoice = GM_getValue('lexipro_kokoro_voice', 'af_heart');
     let initialLocalTtsUrl = GM_getValue('lexipro_local_tts_url', 'http://127.0.0.1:18080');
@@ -1833,17 +1836,11 @@
         if (!text) return;
         stopCurrentAudio();
 
-        const engine = CONFIG.ttsEngine || 'youdao';
+        const engine = CONFIG.ttsEngine || 'local_service';
 
-        // 0. 如果配置为本地原生伴侣服务 (Sherpa-ONNX / Kokoro C++ 极速引擎)
-        if (engine === 'local_service') {
+        // 0. 如果配置为本地原生伴侣服务 (Sherpa-ONNX / Kokoro + MeloTTS 双引擎) 或旧版 kokoro
+        if (engine === 'local_service' || engine === 'kokoro') {
             playLocalServiceTTS(text);
-            return;
-        }
-
-        // 1. 如果配置为 Kokoro 浏览器离线神经网络引擎
-        if (engine === 'kokoro') {
-            playKokoroTTS(text);
             return;
         }
 
@@ -1877,7 +1874,7 @@
                 if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
                     return;
                 }
-                console.warn('[LexiPro TTS] 本地原生伴侣服务未响应 (请运行 start-local-tts.bat)，平滑降级至在线语音:', err);
+                console.warn('[LexiPro TTS] 本地原生伴侣软件未连接 (请运行根目录 LexiPro TTS.exe)，平滑降级至在线语音:', err);
                 // 优雅降级至有道发音
                 playYoudaoTTS(text);
             });

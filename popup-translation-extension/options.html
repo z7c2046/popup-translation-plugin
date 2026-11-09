@@ -52,7 +52,6 @@
           <select id="tts-engine-select" class="form-control">
             <option value="local_service">🚀 本地原生伴侣服务 (Sherpa-ONNX: Kokoro 英文 + MeloTTS 中文双引擎 · 零浏览器内存 · 支持静默常驻 · 推荐)</option>
             <option value="youdao">有道词典在线发音 (轻量极速 · 零下载 · 默认)</option>
-            <option value="kokoro">Kokoro-82M 浏览器内置离线语音 (近人类级超高音质 · 需后台运行)</option>
             <option value="edge">Edge 浏览器内置自然发音 (需 Edge 环境)</option>
           </select>
           <span class="tip">推荐选择「本地原生伴侣服务」：与 NextAI Translator 一样直接调用本地原生 C++ 推理，支持 Kokoro 英文 + MeloTTS 中文智能分流，浏览器内存占用直接归零，彻底告别掉帧与卡顿。</span>
@@ -64,40 +63,35 @@
             <label for="local-service-url" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: #166534;">🚀 本地原生双引擎伴侣服务 (Kokoro-82M + MeloTTS)</label>
             <span id="local-service-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #E2E8F0; color: #475569;">未检测</span>
           </div>
-          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+          <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
             <input type="text" id="local-service-url" class="form-control" placeholder="http://127.0.0.1:18080" value="http://127.0.0.1:18080" style="flex: 1; font-family: monospace; font-size: 12.5px;">
             <button type="button" id="btn-check-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔍 检测连接</button>
-            <button type="button" id="btn-test-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听英文 (Kokoro)</button>
-            <button type="button" id="btn-test-local-melo" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听中文 (MeloTTS)</button>
           </div>
-          <div style="font-size: 11.5px; color: #15803D; line-height: 1.6;">
-            <div>✨ <strong>双引擎智能分流</strong>：英文单词/例句自动调用 Kokoro-82M 拟真人声，中文释义/双语混合自动调用 MeloTTS 自然变调。</div>
-            <div>🤫 <strong>支持后台无黑窗口静默运行</strong>：</div>
-            <ul style="margin: 4px 0 0 16px; padding: 0;">
-              <li>双击项目根目录的 <code>一键后台静默启动.vbs</code> 即可在后台完全隐形运行（绝不弹出黑窗口）。</li>
-              <li>双击 <code>开机自动静默启动.bat</code> 即可设置随 Windows 开机静默常驻，开机即用。</li>
-              <li>需要停止时双击 <code>停止后台服务.bat</code> 即可一键关闭。</li>
-            </ul>
-          </div>
-        </div>
 
-        <div class="form-group" id="kokoro-options-group" style="display: none; padding: 12px; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px;">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label for="kokoro-voice-select" style="margin-bottom: 0; font-weight: 600; font-size: 13px;">Kokoro 默认语音音色</label>
-            <span id="kokoro-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #E2E8F0; color: #475569;">离线就绪</span>
+          <div style="margin-bottom: 10px;">
+            <label for="kokoro-voice-select" style="display: block; font-size: 12.5px; font-weight: 600; color: #166534; margin-bottom: 4px;">🎙️ Kokoro 英文拟真音色选择</label>
+            <select id="kokoro-voice-select" class="form-control" style="font-size: 12.5px; margin-bottom: 8px;">
+              <option value="af_heart">Heart (美音女声 · 极其自然温暖 · 官方推荐)</option>
+              <option value="am_adam">Adam (美音男声 · 磁性沉稳)</option>
+              <option value="bf_alice">Alice (英音女声 · 优雅清晰)</option>
+              <option value="bm_george">George (英音男声 · 沉着温和)</option>
+              <option value="af_bella">Bella (美音女声 · 活泼灵动)</option>
+              <option value="am_michael">Michael (美音男声 · 商务播音)</option>
+            </select>
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button type="button" id="btn-test-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听英文 (Kokoro)</button>
+              <button type="button" id="btn-test-local-melo" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听中文 (MeloTTS)</button>
+            </div>
           </div>
-          <select id="kokoro-voice-select" class="form-control" style="margin-bottom: 8px;">
-            <option value="af_heart">Heart (美音女声 · 极其自然温暖 · 官方推荐)</option>
-            <option value="am_adam">Adam (美音男声 · 磁性沉稳)</option>
-            <option value="bf_alice">Alice (英音女声 · 优雅清晰)</option>
-            <option value="bm_george">George (英音男声 · 沉着温和)</option>
-            <option value="af_bella">Bella (美音女声 · 活泼灵动)</option>
-            <option value="am_michael">Michael (美音男声 · 商务播音)</option>
-          </select>
-          <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <button type="button" id="btn-preload-kokoro" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">⚡ 立即预下载/预热模型</button>
-            <button type="button" id="btn-test-kokoro" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">🔊 试听发音</button>
-            <span id="kokoro-msg" style="font-size: 11.5px; color: #2563EB;"></span>
+
+          <div style="font-size: 11.5px; color: #15803D; line-height: 1.6; border-top: 1px dashed #BBF7D0; padding-top: 8px;">
+            <div>✨ <strong>双引擎智能分流</strong>：英文单词/例句自动调用 Kokoro-82M 拟真人声，中文释义/双语混合自动调用 MeloTTS 自然变调。</div>
+            <div>🖥️ <strong>原生桌面托盘软件 (免安装单文件)</strong>：</div>
+            <ul style="margin: 4px 0 0 16px; padding: 0;">
+              <li>双击项目根目录下的 <strong><code>LexiPro TTS.exe</code></strong> 即可直接启动！</li>
+              <li>软件会自动常驻在屏幕右下角任务栏托盘（显示绿色小喇叭图标 🔊），完全不占前台任务栏。</li>
+              <li>点击窗口右上角【×】自动收起缩进托盘；面板内可一键勾选「随 Windows 开机静默启动」。</li>
+            </ul>
           </div>
         </div>
 

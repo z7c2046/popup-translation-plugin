@@ -149,6 +149,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 语音引擎与伴侣服务状态联动
   function updateTtsUI() {
     if (!ttsEngineSelect) return;
+    if (ttsEngineSelect.value === 'kokoro') {
+      ttsEngineSelect.value = 'local_service';
+    }
     const isKokoro = ttsEngineSelect.value === 'kokoro';
     const isLocalService = ttsEngineSelect.value === 'local_service';
 
@@ -194,11 +197,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (e) {
       clearTimeout(timer);
-      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行一键后台静默启动.vbs)';
+      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行根目录 LexiPro TTS.exe)';
       localServiceStatusBadge.style.background = '#FEF2F2';
       localServiceStatusBadge.style.color = '#DC2626';
       if (isManual) {
-        alert('未检测到本地原生伴侣发音服务。\n\n请在项目根目录双击「一键后台静默启动.vbs」即可隐形启动，或双击「开机自动静默启动.bat」设置开机常驻！');
+        alert('未检测到本地原生伴侣发音服务。\n\n请在项目根目录双击「LexiPro TTS.exe」即可启动，它将自动常驻在屏幕右下角任务栏托盘中！');
       }
       return false;
     }
@@ -460,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_notion_database_id: cleanedDbId,
       lexipro_site_translation_style: siteStyleSelect.value,
       lexipro_site_auto_translate: false,
-      lexipro_tts_engine: ttsEngineSelect ? ttsEngineSelect.value : 'youdao',
+      lexipro_tts_engine: (ttsEngineSelect && ttsEngineSelect.value !== 'kokoro') ? ttsEngineSelect.value : 'local_service',
       lexipro_kokoro_voice: kokoroVoiceSelect ? kokoroVoiceSelect.value : 'af_heart',
       lexipro_local_tts_url: (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim()
     };
@@ -500,7 +503,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     notionTokenInput.value = cfg.lexipro_notion_token || '';
     notionDbInput.value = cfg.lexipro_notion_database_id || '';
     siteStyleSelect.value = cfg.lexipro_site_translation_style || 'replace';
-    if (ttsEngineSelect) ttsEngineSelect.value = cfg.lexipro_tts_engine || 'youdao';
+    let savedEngine = cfg.lexipro_tts_engine || 'local_service';
+    if (savedEngine === 'kokoro') savedEngine = 'local_service';
+    if (ttsEngineSelect) ttsEngineSelect.value = savedEngine;
     if (kokoroVoiceSelect) kokoroVoiceSelect.value = cfg.lexipro_kokoro_voice || 'af_heart';
     if (localServiceUrlInput) localServiceUrlInput.value = cfg.lexipro_local_tts_url || 'http://127.0.0.1:18080';
     updateTtsUI();
