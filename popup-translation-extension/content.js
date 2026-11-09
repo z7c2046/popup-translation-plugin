@@ -1016,8 +1016,22 @@
             justify-content: center;
             font-size: 15px;
             opacity: .95;
-            transition: transform .12s ease, box-shadow .12s ease;
+            transition: transform .12s ease, box-shadow .12s ease, opacity .22s cubic-bezier(0.34, 1.56, 0.64, 1);
             user-select: none;
+        }
+
+        .imt-speaker.imt-speaker-pending {
+            opacity: 0 !important;
+            transform: scale(0.35) !important;
+            pointer-events: none !important;
+            transition: none !important;
+        }
+
+        .imt-speaker.imt-speaker-visible {
+            opacity: .95 !important;
+            transform: scale(1) !important;
+            pointer-events: auto !important;
+            transition: opacity 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
         }
 
         .imt-speaker:hover {
@@ -3781,56 +3795,121 @@ Formatting requirements: Output valid JSON only.`;
         return renderSentenceTranslation(data, originalText, format);
     }
 
-    // ================= 打字机渐显（动森 Typewriter：逐字显示，保留富文本结构） =================
-    // 与 animal-island-ui 的 Typewriter 同款：按字符逐个显示，原有元素结构 / 换行 / 样式零影响。
+    // ================= 打字机渐显（动森 Typewriter：自适应流式律动，保留富文本结构） =================
+    // 与 animal-island-ui 的 Typewriter 同款升级版：按字符与喇叭控件严格按文档流律动显现，英文智能加速，喇叭图标与打字机同步弹出。
     let typewriterToken = 0;
 
-    // 中断当前打字机（重新发起翻译时调用）
+    // 中断当前打字机（重新发起翻译时调用，并安全唤出所有挂起的喇叭）
     function cancelTypewriter() {
         typewriterToken++;
+        [contentBox, quickContentBox].forEach(box => {
+            if (box) {
+                const pendingSpeakers = box.querySelectorAll('.imt-speaker-pending');
+                pendingSpeakers.forEach(sp => {
+                    sp.classList.remove('imt-speaker-pending');
+                    sp.classList.add('imt-speaker-visible');
+                });
+            }
+        });
     }
 
-    // 在容器内逐字“打”出内容，保留其内部所有 HTML 结构。speed: 每字间隔 ms。
-    function typewriterReveal(container, { speed = 22 } = {}) {
+    // 递归按文档顺序收集待打字项目（包含纯文本与随着打字进度出现的发音喇叭按钮）
+    function collectTypewriterItems(root) {
+        const items = [];
+        function walk(node) {
+            if (!node) return;
+            if (node.nodeType === 1) { // ELEMENT_NODE
+                if (node.classList && node.classList.contains('imt-speaker')) {
+                    items.push({ type: 'speaker', element: node });
+                    return; // 遇到发音喇叭不深入其子文本节点，避免 🔊 字符被意外抹去
+                }
+                for (let child = node.firstChild; child; child = child.nextSibling) {
+                    walk(child);
+                }
+            } else if (node.nodeType === 3) { // TEXT_NODE
+                if (node.nodeValue && node.nodeValue.length > 0) {
+                    items.push({ type: 'text', node: node, fullText: node.nodeValue });
+                }
+            }
+        }
+        walk(root);
+        return items;
+    }
+
+    // 在容器内逐字“打”出内容，保留其内部所有 HTML 结构。
+    // 智能自适应步长：英文单词 2~3 字符加速打字，中文 1 字符自然流淌，发音喇叭图标与打字机严格同步弹出。
+    function typewriterReveal(container, { speed = 14 } = {}) {
         typewriterToken++;
         const myToken = typewriterToken;
 
-        // 收集全部文本节点（跳过发音喇叭，让其立即出现）
-        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-            acceptNode(node) {
-                if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
-                if (node.parentElement && node.parentElement.closest('.imt-speaker')) {
-                    return NodeFilter.FILTER_REJECT;
-                }
-                return NodeFilter.FILTER_ACCEPT;
+        // 1. 初始化按文档流收集全部打字项
+        const items = collectTypewriterItems(container);
+        if (!items.length) return;
+
+        // 2. 初始将所有发音喇叭设为隐藏状态，杜绝例句尚未打出时喇叭提前孤立悬空的 Bug
+        const allSpeakers = container.querySelectorAll('.imt-speaker');
+        allSpeakers.forEach(sp => {
+            sp.classList.add('imt-speaker-pending');
+            sp.classList.remove('imt-speaker-visible');
+        });
+
+        // 3. 先清空全部文本节点内容，准备打字机逐字回填
+        items.forEach(item => {
+            if (item.type === 'text') {
+                item.node.nodeValue = '';
             }
         });
 
-        const nodes = [];
-        while (walker.nextNode()) nodes.push(walker.currentNode);
-        if (!nodes.length) return;
-
-        // 先记录完整文本再清空，准备逐字回填
-        const fullText = nodes.map(node => node.nodeValue);
-        nodes.forEach(node => { node.nodeValue = ''; });
-
-        let nodeIndex = 0;
+        let itemIndex = 0;
         let charPos = 0;
 
         function step() {
             if (myToken !== typewriterToken) return; // 已被新的请求中断
 
-            // 跳过已显示完的节点，定位到下一个待显示字符
-            while (nodeIndex < nodes.length && charPos >= fullText[nodeIndex].length) {
-                nodeIndex++;
-                charPos = 0;
-            }
-            if (nodeIndex >= nodes.length) return;
+            while (itemIndex < items.length) {
+                const item = items[itemIndex];
 
-            charPos++;
-            nodes[nodeIndex].nodeValue = fullText[nodeIndex].slice(0, charPos);
-            container.scrollTop = container.scrollHeight; // 跟随打字自动滚动
-            setTimeout(step, speed);
+                if (item.type === 'speaker') {
+                    // 随着打字机流式到达此处，唤出喇叭发音按钮
+                    item.element.classList.remove('imt-speaker-pending');
+                    item.element.classList.add('imt-speaker-visible');
+                    itemIndex++;
+                    continue; // 喇叭就位后立即打字下一个文本
+                }
+
+                if (item.type === 'text') {
+                    if (charPos < item.fullText.length) {
+                        const remaining = item.fullText.length - charPos;
+                        const firstCode = item.fullText.charCodeAt(charPos);
+                        const isAscii = firstCode <= 127;
+                        // 英文/数字/符号：2~3 字符自适应推进；中文/宽字符：1 字符推进
+                        let stepChars = isAscii ? Math.min(3, remaining) : 1;
+
+                        // 吞并后续紧跟的空格，避免标点与单词间产生顿挫
+                        if (charPos + stepChars < item.fullText.length && item.fullText.charCodeAt(charPos + stepChars) === 32) {
+                            stepChars++;
+                        }
+
+                        charPos += stepChars;
+                        item.node.nodeValue = item.fullText.slice(0, charPos);
+                        container.scrollTop = container.scrollHeight;
+
+                        const delay = isAscii ? 12 : 16;
+                        setTimeout(step, delay);
+                        return;
+                    }
+
+                    // 当前文本节点已全部输出完毕，转到下一个 item
+                    itemIndex++;
+                    charPos = 0;
+                }
+            }
+
+            // 全部打字完成，确保所有喇叭均已显示
+            allSpeakers.forEach(sp => {
+                sp.classList.remove('imt-speaker-pending');
+                sp.classList.add('imt-speaker-visible');
+            });
         }
 
         step();

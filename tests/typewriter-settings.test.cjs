@@ -17,6 +17,13 @@ assert.doesNotMatch(source, /lastTranslationHtml/, 'lastTranslationHtml should b
 // 3. Test setSettingsOpen and container switching
 assert.match(source, /function setSettingsOpen\(open\)\s*\{/, 'setSettingsOpen function must exist');
 
+// 3.1 Test Typewriter speaker sync and adaptive speed
+assert.match(source, /\.imt-speaker\.imt-speaker-pending/, 'CSS must define .imt-speaker-pending for hidden initial state');
+assert.match(source, /\.imt-speaker\.imt-speaker-visible/, 'CSS must define .imt-speaker-visible for smooth pop-in transition');
+assert.match(source, /function collectTypewriterItems/, 'collectTypewriterItems must be implemented');
+assert.match(source, /type:\s*['"]speaker['"]/, 'collectTypewriterItems must identify speaker items in document order');
+assert.match(source, /isAscii\s*\?\s*Math\.min\(3,\s*remaining\)\s*:\s*1/, 'typewriterReveal must use adaptive step sizing for snappy English sentences');
+
 // 4. Simulate DOM & Typewriter behavior in isolation
 class MockDOMNode {
     constructor(nodeType, value = '') {
