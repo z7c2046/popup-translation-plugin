@@ -101,12 +101,21 @@ function section(source, start, end) {
     assert.ok(popupSrc.includes("quickThemeSelect.addEventListener('change'"), 'popup.js must wire quickThemeSelect change event');
   }
 
-  // 5. 验证 options 页面静态排版预览、深浅自适应与高对比度色板
+  // 5. 验证 options 页面静态排版预览、深浅自适应、高对比度色板及左侧边栏分栏布局
   {
+    const optionsHtml = fs.readFileSync(path.join(extDir, 'options.html'), 'utf8');
     assert.ok(optionsSrc.includes('updatePreview'), 'options.js must include local static preview update function');
+    assert.ok(optionsSrc.includes('switchPanel'), 'options.js must implement sidebar switchPanel navigation');
     assert.ok(optionsSrc.includes("keyInput.value.trim()"), 'options.js must strictly save user key without hidden fallback injection');
     assert.ok(optionsCss.includes('--lp-text-secondary: #5D6672'), 'options.css must use WCAG-compliant high-contrast secondary text');
+    assert.ok(optionsCss.includes('.admin-shell'), 'options.css must define two-column .admin-shell layout');
+    assert.ok(optionsCss.includes('.nav-item.is-active'), 'options.css must style active sidebar nav item');
     assert.ok(popupCss.includes('--lp-text-secondary: #5D6672'), 'popup.css must use WCAG-compliant high-contrast secondary text');
+
+    for (const panel of ['reading', 'speech', 'sites', 'ai', 'notion']) {
+      assert.ok(optionsHtml.includes(`id="tab-${panel}"`), `options.html must define sidebar tab-${panel}`);
+      assert.ok(optionsHtml.includes(`id="panel-${panel}"`), `options.html must define settings panel-${panel}`);
+    }
   }
 
   // 6. 验证 DOM 保留机制（在 content.js 与 userscript 中原生节点放入 origWrapper，不销毁重写）

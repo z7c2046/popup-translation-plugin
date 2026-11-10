@@ -57,6 +57,69 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnReset = document.getElementById('btn-reset');
   const saveMsg = document.getElementById('save-msg');
   const previewBox = document.getElementById('preview-box');
+  const activePanelTitle = document.getElementById('active-panel-title');
+  const navTabs = Array.from(document.querySelectorAll('.sidebar-nav .nav-item'));
+  const settingsPanels = Array.from(document.querySelectorAll('.settings-panel'));
+
+  // 侧边栏分栏导航切换与 URL Hash 记忆
+  function switchPanel(panelName, { updateHash = true } = {}) {
+    const targetPanel = document.getElementById(`panel-${panelName}`);
+    const targetTab = document.getElementById(`tab-${panelName}`);
+    if (!targetPanel || !targetTab) return;
+
+    navTabs.forEach((tab) => {
+      const isTarget = tab === targetTab;
+      tab.classList.toggle('is-active', isTarget);
+      tab.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    });
+
+    settingsPanels.forEach((panel) => {
+      panel.classList.toggle('is-active', panel === targetPanel);
+    });
+
+    if (activePanelTitle) {
+      activePanelTitle.textContent = targetPanel.dataset.title || targetTab.textContent.trim();
+    }
+
+    if (updateHash && window.location.hash !== `#${panelName}`) {
+      try {
+        history.replaceState(null, '', `#${panelName}`);
+      } catch (e) {}
+    }
+  }
+
+  navTabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => {
+      switchPanel(tab.dataset.panel);
+    });
+    tab.addEventListener('keydown', (e) => {
+      let nextIdx = -1;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        nextIdx = (index + 1) % navTabs.length;
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        nextIdx = (index - 1 + navTabs.length) % navTabs.length;
+      }
+      if (nextIdx >= 0) {
+        e.preventDefault();
+        const nextTab = navTabs[nextIdx];
+        nextTab.focus();
+        switchPanel(nextTab.dataset.panel);
+      }
+    });
+  });
+
+  const initialPanel = window.location.hash.replace(/^#/, '');
+  if (initialPanel && document.getElementById(`panel-${initialPanel}`)) {
+    switchPanel(initialPanel, { updateHash: false });
+  }
+
+  // 支持 Ctrl+S / Cmd+S 快捷保存
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      btnSave?.click();
+    }
+  });
 
   // 规范化提取 32 位 Notion Database ID (去横杠与 URL 前后缀)
   function cleanDatabaseId(raw) {
@@ -85,7 +148,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 读取配置
-  const stored = await chrome.storage.local.get(DEFAULT_CONFIG);
+  const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+  const stored = hasChromeStorage ? await chrome.storage.local.get(DEFAULT_CONFIG) : { ...DEFAULT_CONFIG };
   fillForm(stored);
   updatePreview();
 
