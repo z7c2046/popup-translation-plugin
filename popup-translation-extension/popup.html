@@ -17,18 +17,16 @@
             <h1 class="brand-name">LexiPro</h1>
             <span class="badge" id="env-badge">检测中...</span>
           </div>
-          <span class="brand-domain" id="site-hostname">当前网站</span>
+          <span class="brand-domain" id="site-hostname"></span>
         </div>
       </div>
       <button id="btn-open-options" class="btn-icon" title="选项与配置中心">⚙️</button>
     </header>
 
-    <!-- 主操作与当前网站卡片 -->
-    <section class="card site-card">
-      <div class="site-desc" id="env-hint">划词翻译与生词高亮已就绪，划选英文即可查词。</div>
+    <!-- 当前网站操作区 -->
+    <section class="card site-card" id="site-card">
       <div id="conn-status-msg" class="conn-alert" style="display: none;"></div>
 
-      <!-- 通用网页沉浸式翻译开启入口 (默认未开启，不侵入股市图表与排版) -->
       <div id="general-immersion-box" class="action-wrap" style="display: none;">
         <button class="primary-btn secondary-style" id="btn-enable-immersion">
           <span>🌐</span>
@@ -36,29 +34,23 @@
         </button>
       </div>
 
-      <!-- 专属/已激活站点：沉浸式翻译操作区 -->
       <div id="special-action-box" class="action-wrap" style="display: none;">
-        <div class="special-title" id="special-title" style="display: none;">⚡ 沉浸式双语翻译</div>
         <button class="primary-btn" id="btn-site-translate">
           <span>🌐</span>
           <span id="btn-site-translate-text">一键翻译全页内容</span>
         </button>
         <div class="sub-row">
-          <button id="btn-disable-immersion" class="text-link-btn">退出此网站沉浸式</button>
+          <button id="btn-disable-immersion" class="text-link-btn">退出沉浸式</button>
         </div>
       </div>
     </section>
 
-    <!-- 偏好控制卡片 (极简 List 风格) -->
+    <!-- 偏好开关列表 -->
     <section class="card settings-card">
-      <!-- 排除生词高亮 -->
       <div class="setting-row">
         <div class="setting-left">
           <span class="setting-icon">🚫</span>
-          <div class="setting-meta">
-            <span class="setting-title">排除此网站生词高亮</span>
-            <span class="setting-sub" id="quick-exclude-label">未排除</span>
-          </div>
+          <span class="setting-title">排除此网站生词高亮</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="quick-exclude-check">
@@ -66,14 +58,10 @@
         </label>
       </div>
 
-      <!-- 进站自动翻译 (仅对当前网站生效) -->
       <div class="setting-row">
         <div class="setting-left">
           <span class="setting-icon">⚡</span>
-          <div class="setting-meta">
-            <span class="setting-title">进站自动翻译</span>
-            <span class="setting-sub" id="quick-auto-label">当前网站已关闭</span>
-          </div>
+          <span class="setting-title">进站自动翻译</span>
         </div>
         <label class="switch">
           <input type="checkbox" id="quick-auto-check">
@@ -81,40 +69,29 @@
         </label>
       </div>
 
-      <!-- 双语呈现模式 -->
       <div class="setting-row">
         <div class="setting-left">
           <span class="setting-icon">📖</span>
-          <div class="setting-meta">
-            <span class="setting-title">译文呈现样式</span>
-          </div>
+          <span class="setting-title">译文呈现样式</span>
         </div>
         <select id="quick-style-select" class="select-input">
-          <option value="replace">中文阅读 (原生排版)</option>
-          <option value="underline">双语对照 (段落对应)</option>
-          <option value="card">译文卡片 (独立卡片)</option>
+          <option value="replace">中文阅读</option>
+          <option value="underline">双语对照</option>
+          <option value="card">译文卡片</option>
         </select>
       </div>
 
-      <!-- 视觉皮肤 -->
       <div class="setting-row">
         <div class="setting-left">
           <span class="setting-icon">🎨</span>
-          <div class="setting-meta">
-            <span class="setting-title">界面视觉皮肤</span>
-          </div>
+          <span class="setting-title">界面视觉皮肤</span>
         </div>
         <select id="quick-theme-select" class="select-input">
-          <option value="market_desk">Market Desk (金融终端)</option>
-          <option value="animal_island">动森经典 (温馨治愈)</option>
+          <option value="market_desk">Market Desk</option>
+          <option value="animal_island">动森经典</option>
         </select>
       </div>
     </section>
-
-    <!-- 底部极简呼吸提示 -->
-    <footer class="footer">
-      <span>✨ 划选英文随时唤起动森速查气泡</span>
-    </footer>
   </div>
 
   <script src="popup.js"></script>

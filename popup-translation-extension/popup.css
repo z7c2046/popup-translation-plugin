@@ -351,6 +351,11 @@ input:checked + .slider {
   background-color: var(--lp-danger);
 }
 
+input:disabled + .slider {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 input:checked + .slider:before {
   transform: translateX(14px);
 }

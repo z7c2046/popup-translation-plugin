@@ -1,15 +1,14 @@
 /**
  * LexiPro - Popup Script
- * 遵循用户意图：按网站独立控制沉浸式翻译与自动翻译，通用网页默认轻量查词绝不侵入干扰
+ * 按网站独立控制沉浸式翻译与自动翻译，保持极简界面交互
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
   const envBadge = document.getElementById('env-badge');
-  const envHint = document.getElementById('env-hint');
   const siteHostname = document.getElementById('site-hostname');
+  const siteCard = document.getElementById('site-card');
   const connStatusMsg = document.getElementById('conn-status-msg');
   const specialBox = document.getElementById('special-action-box');
-  const specialTitle = document.getElementById('special-title');
   const generalImmersionBox = document.getElementById('general-immersion-box');
   const btnEnableImmersion = document.getElementById('btn-enable-immersion');
   const btnDisableImmersion = document.getElementById('btn-disable-immersion');
@@ -19,11 +18,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const quickThemeSelect = document.getElementById('quick-theme-select');
   const quickStyleSelect = document.getElementById('quick-style-select');
   const quickAutoCheck = document.getElementById('quick-auto-check');
-  const quickAutoLabel = document.getElementById('quick-auto-label');
   const quickExcludeCheck = document.getElementById('quick-exclude-check');
-  const quickExcludeLabel = document.getElementById('quick-exclude-label');
 
-  // 辅助：域名匹配判断
+  // 域名匹配判断
   function matchesPattern(host, pat) {
     if (!host || !pat) return false;
     let cleanPat = String(pat).toLowerCase().trim();
@@ -36,7 +33,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     return host === cleanPat || host.endsWith('.' + cleanPat);
   }
 
-  // 读取并初始化当前配置
+  // 读取并初始化配置
   const storedConfig = await chrome.storage.local.get({
     lexipro_ui_theme: 'market_desk',
     lexipro_site_translation_style: 'replace',
@@ -76,13 +73,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch (e) {}
 
   const rawUrl = activeTab?.url || '';
-  let hostname = '';
+  let urlObj = null;
   try {
-    hostname = new URL(rawUrl).hostname.toLowerCase();
+    urlObj = new URL(rawUrl);
   } catch (e) {}
 
+  const isWebPage = Boolean(urlObj && (urlObj.protocol === 'http:' || urlObj.protocol === 'https:'));
+  const hostname = isWebPage ? urlObj.hostname.toLowerCase() : '';
+
   if (siteHostname) {
-    siteHostname.innerText = hostname || '本地/扩展页面';
+    if (hostname) {
+      siteHostname.innerText = hostname;
+    } else if (urlObj?.protocol === 'chrome-extension:') {
+      siteHostname.innerText = '扩展程序页面';
+    } else {
+      siteHostname.innerText = '浏览器内部页';
+    }
     siteHostname.title = rawUrl;
   }
 
@@ -108,13 +114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 生词高亮与沉浸式排除开关处理
+  // 生词高亮与沉浸式排除开关
   if (quickExcludeCheck) {
     quickExcludeCheck.checked = isCurrentExcluded;
-    if (quickExcludeLabel) {
-      quickExcludeLabel.innerText = isCurrentExcluded ? '已排除高亮与胶囊' : '未排除';
-      quickExcludeLabel.style.color = isCurrentExcluded ? '#B33E45' : '#475569';
-    }
+    quickExcludeCheck.disabled = !isWebPage;
     quickExcludeCheck.addEventListener('change', async (e) => {
       if (!hostname) return;
       const isChecked = e.target.checked;
@@ -124,7 +127,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!currentExcludedSites.some(p => matchesPattern(hostname, p))) {
           currentExcludedSites.push(hostname);
         }
-        // 排除当前网页时，若其之前被加入沉浸式名单，则同步清理，彻底移除右下角悬浮按钮
         currentImmersionSites = currentImmersionSites.filter(p => !matchesPattern(hostname, p));
         await chrome.storage.local.set({ lexipro_excluded_sites: currentExcludedSites, lexipro_immersion_sites: currentImmersionSites });
         isUserImmersion = false;
@@ -138,21 +140,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         isImmersionActive = isReddit || isReuters || isUserImmersion;
       }
 
-      if (quickExcludeLabel) {
-        quickExcludeLabel.innerText = isChecked ? '已排除高亮与胶囊' : '未排除';
-        quickExcludeLabel.style.color = isChecked ? '#B33E45' : '#475569';
-      }
       renderPageState();
     });
   }
 
-  // 进站自动翻译开关（针对当前网站独立控制，绝不全局一刀切）
+  // 进站自动翻译开关
   if (quickAutoCheck) {
     quickAutoCheck.checked = isCurrentAutoTranslate;
-    if (quickAutoLabel) {
-      quickAutoLabel.innerText = isCurrentAutoTranslate ? '当前网站开启' : '已关闭';
-      quickAutoLabel.style.color = isCurrentAutoTranslate ? '#10B981' : '#475569';
-    }
+    quickAutoCheck.disabled = !isWebPage;
     quickAutoCheck.addEventListener('change', async (e) => {
       if (!hostname) return;
       const isChecked = e.target.checked;
@@ -167,10 +162,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
 
       await chrome.storage.local.set({ lexipro_auto_translate_sites: currentAutoTranslateSites });
-      if (quickAutoLabel) {
-        quickAutoLabel.innerText = isChecked ? '当前网站开启' : '已关闭';
-        quickAutoLabel.style.color = isChecked ? '#10B981' : '#475569';
-      }
     });
   }
 
@@ -203,36 +194,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function renderPageState() {
-    if (isCurrentExcluded) {
-      envBadge.innerText = '已排除当前网站';
+    if (!isWebPage) {
+      envBadge.innerText = '系统/扩展页';
       envBadge.className = 'badge badge-gray';
-      envHint.innerText = '当前网站已处于排除名单中，生词高亮与右下角沉浸式按钮均已彻底禁用，保持页面原生干净。';
       specialBox.style.display = 'none';
       if (generalImmersionBox) generalImmersionBox.style.display = 'none';
       connStatusMsg.style.display = 'none';
+      if (siteCard) siteCard.style.display = 'none';
       return;
-    } else if (isReddit) {
-      envBadge.innerText = 'Reddit (专属增强)';
+    }
+
+    if (isCurrentExcluded) {
+      envBadge.innerText = '已排除高亮';
+      envBadge.className = 'badge badge-gray';
+      specialBox.style.display = 'none';
+      if (generalImmersionBox) generalImmersionBox.style.display = 'none';
+      connStatusMsg.style.display = 'none';
+      if (siteCard) siteCard.style.display = 'none';
+      return;
+    }
+
+    if (siteCard) siteCard.style.display = '';
+
+    if (isReddit) {
+      envBadge.innerText = 'Reddit 增强';
       envBadge.className = 'badge badge-orange';
-      envHint.innerText = '已就绪专属双语沉浸式翻译。';
     } else if (isReuters) {
-      envBadge.innerText = '路透社 (专属增强)';
+      envBadge.innerText = '路透社增强';
       envBadge.className = 'badge badge-orange';
-      envHint.innerText = '已就绪路透社新闻全文双语翻译。';
     } else if (isUserImmersion) {
-      envBadge.innerText = '沉浸式翻译已启用';
+      envBadge.innerText = '沉浸式已开启';
       envBadge.className = 'badge badge-green';
-      envHint.innerText = '当前网页已开启沉浸式双语翻译，右下角已就绪操作胶囊。';
     } else {
       envBadge.innerText = '通用网页 (轻量查词模式)';
       envBadge.className = 'badge badge-green';
-      envHint.innerText = '沉浸式翻译与单词点击解释默认关闭，不打扰股市行情或页面排版；划词翻译可正常使用。';
     }
 
     if (isImmersionActive) {
       specialBox.style.display = 'block';
       if (generalImmersionBox) generalImmersionBox.style.display = 'none';
-      specialTitle.innerText = isReddit ? '⚡ Reddit 专属增强' : (isReuters ? '⚡ 路透社新闻专属增强' : '⚡ 沉浸式双语翻译');
 
       if (btnDisableImmersion) {
         btnDisableImmersion.style.display = (!isReddit && !isReuters && isUserImmersion) ? 'inline-block' : 'none';
@@ -244,9 +244,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         connStatusMsg.style.display = 'none';
         if (pageState.jobState === 'running') {
-          btnSiteTranslateText.innerText = `⏳ 正在翻译中 (${pageState.translatedCount}/${pageState.totalCount})...`;
+          btnSiteTranslateText.innerText = `⏳ 正在翻译 (${pageState.translatedCount}/${pageState.totalCount})`;
         } else if (pageState.failedCount > 0) {
-          btnSiteTranslateText.innerText = `⚠️ 重试未完成段落 (${pageState.failedCount}条)`;
+          btnSiteTranslateText.innerText = `⚠️ 重试失败段落 (${pageState.failedCount})`;
         } else if (pageState.jobState === 'completed') {
           btnSiteTranslateText.innerText = pageState.isShowingOriginal ? '返回中文译文' : '查看英文原文';
         } else {
@@ -282,7 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       if (pageState.failedCount > 0) {
         await chrome.tabs.sendMessage(activeTab.id, { type: 'RETRY_FAILED' });
-        btnSiteTranslateText.innerText = '⏳ 正在重试中...';
+        btnSiteTranslateText.innerText = '⏳ 正在重试...';
       } else if (pageState.jobState === 'completed') {
         const res = await chrome.tabs.sendMessage(activeTab.id, { type: 'TOGGLE_ORIGINAL' });
         pageState.isShowingOriginal = Boolean(res?.isShowingOriginal);
@@ -294,7 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       if (connStatusMsg) {
         connStatusMsg.style.display = 'block';
-        connStatusMsg.innerText = '操作失败: 页面通信中断，请刷新后重试。';
+        connStatusMsg.innerText = '页面通信中断，请刷新后重试。';
       }
     }
   });

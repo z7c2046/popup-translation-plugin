@@ -2742,9 +2742,6 @@
                                     ${Boolean(CONFIG.disableThinking) ? '已关闭思考（极速直出）' : '未关闭（深度推理）'}
                                 </span>
                             </label>
-                            <div class="imt-settings-hint" id="imt-thinking-hint">
-                                ${Boolean(CONFIG.disableThinking) ? '开启此项将关闭模型推理过程，翻译秒级直出（推荐日常查词）' : '关闭此项将保留模型深度思考链，输出更详尽但耗时较长'}
-                            </div>
                         </div>
                         <button
                             type="button"
@@ -2765,12 +2762,9 @@
                             <label for="imt-pronounce-switch">
                                 查词自动朗读发音
                                 <span class="imt-switch-status-badge ${Boolean(CONFIG.autoPronounce) ? 'imt-status-on' : 'imt-status-off'}" id="imt-pronounce-status-text">
-                                    ${Boolean(CONFIG.autoPronounce) ? '已开启（自动发音）' : '点击小喇叭发音（默认）'}
+                                    ${Boolean(CONFIG.autoPronounce) ? '已开启' : '点击发音'}
                                 </span>
                             </label>
-                            <div class="imt-settings-hint" id="imt-pronounce-hint">
-                                ${Boolean(CONFIG.autoPronounce) ? '划词或查词时将自动朗读英文发音' : '查词时保持静音，需要时点击音标旁的小喇叭 🔊 即可发音'}
-                            </div>
                         </div>
                         <button
                             type="button"
@@ -2802,19 +2796,14 @@
                         </div>
                     </div>
 
-                    <div class="imt-settings-hint" style="margin-top: 4px; line-height: 1.5;">
-                        💡 <strong>Token 获取方法：</strong><br/>
-                        1. 在浏览器中打开并登录 <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" style="color:var(--aiu-primary-dark);text-decoration:underline;">kimi.moonshot.cn</a><br/>
-                        2. 按 <code>F12</code> 打开开发者工具，切换到 <code>Application (应用)</code> &gt; <code>Local Storage</code> &gt; <code>https://kimi.moonshot.cn</code><br/>
-                        3. 分别复制 <code>refresh_token</code> 和 <code>access_token</code> 填入上方输入框。<br/>
-                        <em>（Access Token 过期后脚本会自动尝试用 Refresh Token 刷新）</em>
+                    <div class="imt-settings-hint" style="margin-top: 4px;">
+                        <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" style="color:var(--aiu-primary-dark);text-decoration:underline;">kimi.moonshot.cn</a> → F12 → Local Storage 复制 Token
                     </div>
                 </div>
 
                 <div class="imt-settings-group" id="notion-settings-group" style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(216, 200, 171, .6);">
                     <div class="imt-settings-switch-copy" style="margin-bottom: 4px;">
                         <label>📓 Notion 生词本同步 (可选)</label>
-                        <div class="imt-settings-hint">配置后将在网页中自动高亮生词本中的生词，并可一键星标收藏。</div>
                     </div>
                     <div class="imt-settings-group" style="margin-bottom: 6px;">
                         <label for="imt-notion-token">Notion Token</label>
@@ -2837,7 +2826,6 @@
         const sfModelSelect = settingsBox.querySelector('#sf-model-select');
         const thinkingSwitch = settingsBox.querySelector('#imt-thinking-switch');
         const thinkingStatusBadge = settingsBox.querySelector('#imt-thinking-status-text');
-        const thinkingHint = settingsBox.querySelector('#imt-thinking-hint');
         const thinkingLabel = settingsBox.querySelector('label[for="imt-thinking-switch"]');
         const kimiRefreshTokenInput = settingsBox.querySelector('#kimi-refresh-token');
         const kimiAccessTokenInput = settingsBox.querySelector('#kimi-access-token');
@@ -2852,11 +2840,6 @@
             if (thinkingStatusBadge) {
                 thinkingStatusBadge.textContent = disabled ? '已关闭思考（极速直出）' : '未关闭（深度推理）';
                 thinkingStatusBadge.className = `imt-switch-status-badge ${disabled ? 'imt-status-off' : 'imt-status-on'}`;
-            }
-            if (thinkingHint) {
-                thinkingHint.textContent = disabled
-                    ? '开启此项将关闭模型推理过程，翻译秒级直出（推荐日常查词）'
-                    : '关闭此项将保留模型深度思考链，输出更详尽但耗时较长';
             }
         }
 
@@ -2882,7 +2865,6 @@
 
         const pronounceSwitch = settingsBox.querySelector('#imt-pronounce-switch');
         const pronounceStatusBadge = settingsBox.querySelector('#imt-pronounce-status-text');
-        const pronounceHint = settingsBox.querySelector('#imt-pronounce-hint');
         const pronounceLabel = settingsBox.querySelector('label[for="imt-pronounce-switch"]');
 
         function updatePronounceSwitchUI(enabled) {
@@ -2893,13 +2875,8 @@
                 ? '当前已开启自动发音（点击改为点击发音）'
                 : '当前为点击发音（点击开启自动发音）';
             if (pronounceStatusBadge) {
-                pronounceStatusBadge.textContent = enabled ? '已开启（自动发音）' : '点击小喇叭发音（默认）';
+                pronounceStatusBadge.textContent = enabled ? '已开启' : '点击发音';
                 pronounceStatusBadge.className = `imt-switch-status-badge ${enabled ? 'imt-status-on' : 'imt-status-off'}`;
-            }
-            if (pronounceHint) {
-                pronounceHint.textContent = enabled
-                    ? '划词或查词时将自动朗读英文发音'
-                    : '查词时保持静音，需要时点击音标旁的小喇叭 🔊 即可发音';
             }
         }
 

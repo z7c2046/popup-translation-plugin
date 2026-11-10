@@ -11,35 +11,27 @@
     <header class="header">
       <div class="brand">
         <span class="brand-icon">译</span>
-        <div>
-          <h1>Popup Translation 设置中心</h1>
-          <p>配置阅读呈现模式、站点翻译规则、AI 翻译引擎与生词本同步</p>
-        </div>
+        <h1>Popup Translation 设置中心</h1>
       </div>
     </header>
 
     <main class="content">
-      <!-- 1. 阅读与呈现偏好 (含本地静态实时预览) -->
+      <!-- 1. 阅读与呈现偏好 -->
       <section class="card">
         <h2 class="card-title">📖 阅读与呈现偏好</h2>
-        <p class="card-desc">针对中文母语者优化：随心选择沉浸中文或中英对照，并可即时查看排版效果。</p>
 
         <div class="form-group">
           <label for="site-style-select">呈现模式</label>
           <select id="site-style-select" class="form-control">
-            <option value="replace">中文阅读 (原生排版，直接以中文流畅阅读，每段可一键切换原文)</option>
-            <option value="underline">双语对照 (保留完整英文，每段英文下方紧贴中文译文)</option>
-            <option value="card">译文卡片 (上方英文原文，下方独立卡片承载译文与复制工具)</option>
+            <option value="replace">中文阅读 (原生排版)</option>
+            <option value="underline">双语对照</option>
+            <option value="card">译文卡片</option>
           </select>
-          <span class="tip">提示：在 Reddit 或路透社页面右下角的悬浮胶囊工具条中，也可随时点击设置齿轮即时切换。</span>
         </div>
 
         <div class="form-group">
           <div class="switch-row">
-            <div>
-              <div class="switch-title">🔊 查词时自动朗读发音</div>
-              <div class="switch-desc">默认关闭（点击音标旁的小喇叭 🔊 发音）。开启后划词查词时将自动播放英文读音。</div>
-            </div>
+            <div class="switch-title">🔊 查词时自动朗读发音</div>
             <label class="switch">
               <input type="checkbox" id="auto-pronounce-check">
               <span class="slider"></span>
@@ -48,19 +40,18 @@
         </div>
 
         <div class="form-group">
-          <label for="tts-engine-select">🎙️ 语音发音引擎配置</label>
+          <label for="tts-engine-select">🎙️ 语音发音引擎</label>
           <select id="tts-engine-select" class="form-control">
-            <option value="local_service">🚀 本地原生伴侣服务 (Sherpa-ONNX: Kokoro 英文 + MeloTTS 中文双引擎 · 零浏览器内存 · 支持静默常驻 · 推荐)</option>
-            <option value="youdao">有道词典在线发音 (轻量极速 · 零下载 · 默认)</option>
-            <option value="edge">Edge 浏览器内置自然发音 (需 Edge 环境)</option>
+            <option value="local_service">🚀 本地原生服务 (Kokoro + MeloTTS · 推荐)</option>
+            <option value="youdao">有道词典在线发音</option>
+            <option value="edge">Edge 浏览器自然发音</option>
           </select>
-          <span class="tip">推荐选择「本地原生伴侣服务」：与 NextAI Translator 一样直接调用本地原生 C++ 推理，支持 Kokoro 英文 + MeloTTS 中文智能分流，浏览器内存占用直接归零，彻底告别掉帧与卡顿。</span>
         </div>
 
         <!-- 本地原生伴侣服务配置面板 -->
         <div class="form-group" id="local-service-group" style="display: none; padding: 12px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px;">
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-            <label for="local-service-url" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: #166534;">🚀 本地原生双引擎伴侣服务 (Kokoro-82M + MeloTTS)</label>
+            <label for="local-service-url" style="margin-bottom: 0; font-weight: 600; font-size: 13px; color: #166534;">🚀 本地原生服务 (Kokoro + MeloTTS)</label>
             <span id="local-service-status-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #E2E8F0; color: #475569;">未检测</span>
           </div>
           <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 10px;">
@@ -68,36 +59,26 @@
             <button type="button" id="btn-check-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔍 检测连接</button>
           </div>
 
-          <div style="margin-bottom: 10px;">
-            <label for="kokoro-voice-select" style="display: block; font-size: 12.5px; font-weight: 600; color: #166534; margin-bottom: 4px;">🎙️ Kokoro 英文拟真音色选择</label>
+          <div style="margin-bottom: 0;">
+            <label for="kokoro-voice-select" style="display: block; font-size: 12.5px; font-weight: 600; color: #166534; margin-bottom: 4px;">🎙️ Kokoro 音色</label>
             <select id="kokoro-voice-select" class="form-control" style="font-size: 12.5px; margin-bottom: 8px;">
-              <option value="af_heart">Heart (美音女声 · 极其自然温暖 · 官方推荐)</option>
-              <option value="am_adam">Adam (美音男声 · 磁性沉稳)</option>
-              <option value="bf_alice">Alice (英音女声 · 优雅清晰)</option>
-              <option value="bm_george">George (英音男声 · 沉着温和)</option>
-              <option value="af_bella">Bella (美音女声 · 活泼灵动)</option>
-              <option value="am_michael">Michael (美音男声 · 商务播音)</option>
+              <option value="af_heart">Heart (美音女声 · 推荐)</option>
+              <option value="am_adam">Adam (美音男声)</option>
+              <option value="bf_alice">Alice (英音女声)</option>
+              <option value="bm_george">George (英音男声)</option>
+              <option value="af_bella">Bella (美音女声)</option>
+              <option value="am_michael">Michael (美音男声)</option>
             </select>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
               <button type="button" id="btn-test-local-service" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听英文 (Kokoro)</button>
               <button type="button" id="btn-test-local-melo" class="btn btn-secondary" style="font-size: 12px; padding: 5px 12px; white-space: nowrap;">🔊 试听中文 (MeloTTS)</button>
             </div>
           </div>
-
-          <div style="font-size: 11.5px; color: #15803D; line-height: 1.6; border-top: 1px dashed #BBF7D0; padding-top: 8px;">
-            <div>✨ <strong>双引擎智能分流</strong>：英文单词/例句自动调用 Kokoro-82M 拟真人声，中文释义/双语混合自动调用 MeloTTS 自然变调。</div>
-            <div>🖥️ <strong>原生桌面托盘软件 (免安装单文件)</strong>：</div>
-            <ul style="margin: 4px 0 0 16px; padding: 0;">
-              <li>双击项目根目录下的 <strong><code>LexiPro TTS.exe</code></strong> 即可直接启动！</li>
-              <li>软件会自动常驻在屏幕右下角任务栏托盘（显示绿色小喇叭图标 🔊），完全不占前台任务栏。</li>
-              <li>点击窗口右上角【×】自动收起缩进托盘；面板内可一键勾选「随 Windows 开机静默启动」。</li>
-            </ul>
-          </div>
         </div>
 
-        <!-- 本地静态效果预览区 (零网络请求，不消耗 API Token) -->
+        <!-- 本地静态效果预览区 -->
         <div class="form-group">
-          <label>👀 排版效果即时预览 (本地模拟)</label>
+          <label>👀 排版预览</label>
           <div class="preview-box" id="preview-box">
             <div class="preview-item" id="preview-item-1">
               <div class="preview-orig" id="preview-orig-1">Revenue for the third quarter may rise by 5% amid robust data center demand.</div>
@@ -114,66 +95,56 @@
       <!-- 2. 网站规则与视觉外观 -->
       <section class="card">
         <h2 class="card-title">🌐 站点规则与视觉外观</h2>
-        <p class="card-desc">配置 Reddit 社区与路透社新闻页面的自动化行为与视觉皮肤。</p>
 
         <div class="form-group">
-          <label for="ui-theme-select">🎨 界面视觉皮肤 (Theme)</label>
+          <label for="ui-theme-select">🎨 界面视觉皮肤</label>
           <select id="ui-theme-select" class="form-control">
-            <option value="market_desk">Market Desk (金融终端高级深浅自适应 · 默认推荐)</option>
-            <option value="animal_island">动森经典 (Animal Island 温馨纸质风格)</option>
+            <option value="market_desk">Market Desk (深浅自适应)</option>
+            <option value="animal_island">动森经典</option>
           </select>
-          <span class="tip">Market Desk 皮肤基于专业阅读与金融终端设计，自动自适应系统与网页深浅色；动森经典保留经典温馨纸感。</span>
         </div>
 
         <div class="form-group">
-          <label for="auto-translate-sites-input">⚡ 进站自动翻译的网站名单 (白名单)</label>
-          <textarea id="auto-translate-sites-input" class="form-control" rows="2" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;reuters.com&#10;reddit.com"></textarea>
-          <span class="tip">重要：只有在此名单中的特定网站，打开网页时才会自动开始全文翻译；不在名单中的网站（如 TradingView 股市看盘等）默认绝对不自动翻译，需手动点击开启。</span>
+          <label for="auto-translate-sites-input">⚡ 进站自动翻译名单</label>
+          <textarea id="auto-translate-sites-input" class="form-control" rows="2" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="每行一个域名，如 reuters.com"></textarea>
         </div>
       </section>
 
-      <!-- 3. 生词高亮排除黑名单 (Excluded Sites) -->
+      <!-- 3. 生词高亮排除名单 -->
       <section class="card">
-        <h2 class="card-title">🚫 生词高亮排除名单 (黑名单)</h2>
-        <p class="card-desc">配置不希望高亮生词的网站列表。处于排除名单中的网站将<strong>完全禁用 Notion 页面生词高亮与动态扫描</strong>，适合 TradingView 股市行情、图表看盘、代码编辑器等需要保持页面干净的原生网页。</p>
+        <h2 class="card-title">🚫 生词高亮排除名单</h2>
 
         <div class="form-group">
-          <label for="excluded-sites-input">排除生词高亮的域名 (每行一个域名)</label>
-          <textarea id="excluded-sites-input" class="form-control" rows="3" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="例如：&#10;tradingview.com&#10;github.com"></textarea>
-          <span class="tip">提示：支持输入主域名（如 <code>tradingview.com</code> 自动匹配所有子域名）或完整链接（自动提取主机名）。留空表示在所有网站正常高亮。</span>
+          <label for="excluded-sites-input">排除域名</label>
+          <textarea id="excluded-sites-input" class="form-control" rows="3" style="resize: vertical; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.5;" placeholder="每行一个域名，如 tradingview.com"></textarea>
         </div>
       </section>
 
       <!-- 4. 大模型翻译服务与 API -->
       <section class="card">
-        <h2 class="card-title">🤖 硅基流动 (SiliconFlow) 大语言模型配置</h2>
-        <p class="card-desc">全网划词翻译、Reddit 与路透社翻译的核心驱动引擎。</p>
+        <h2 class="card-title">🤖 SiliconFlow AI 配置</h2>
 
         <div class="form-group">
-          <label for="sf-model-select">推荐翻译模型</label>
+          <label for="sf-model-select">翻译模型</label>
           <select id="sf-model-select" class="form-control">
-            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (官方推荐，翻译极速且自然)</option>
-            <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B (超长上下文支持)</option>
-            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B (通用强劲能力)</option>
-            <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414 (智谱通用 9B)</option>
+            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (推荐)</option>
+            <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B</option>
+            <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B</option>
+            <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="sf-key-input">硅基流动 API Key</label>
+          <label for="sf-key-input">API Key</label>
           <div class="input-with-button">
             <input type="password" id="sf-key-input" class="form-control" placeholder="sk-...">
             <button type="button" id="btn-toggle-sf-key" class="btn-toggle-eye">👁️</button>
           </div>
-          <span class="tip">如留空可回退使用公共测试 Key。保存时将严格保存您的实际输入。数据仅保存在您的本地浏览器中。</span>
         </div>
 
         <div class="form-group">
           <div class="switch-row">
-            <div>
-              <div class="switch-title">翻译响应模式：快速响应 (推荐)</div>
-              <div class="switch-desc">跳过冗长的思考模型思维链推理，使单次查词与段落翻译极速上屏。</div>
-            </div>
+            <div class="switch-title">⚡ 快速响应模式</div>
             <label class="switch">
               <input type="checkbox" id="disable-thinking-check" checked>
               <span class="slider"></span>
@@ -190,21 +161,21 @@
       <!-- 5. 生词本与 Notion 增量同步 -->
       <section class="card">
         <h2 class="card-title">📓 Notion 生词本同步 (可选)</h2>
-        <p class="card-desc">配置您的 Notion 知识库，在浏览网页时自动高亮生词本中的单词。此项为可选增强，未配置不影响页面翻译与划词。</p>
 
         <div class="form-group">
-          <label for="notion-token-input">Notion Integration Token</label>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+            <label for="notion-token-input" style="margin-bottom: 0;">Notion Token</label>
+            <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" style="font-size: 12px; color: var(--lp-primary); text-decoration: none;">Integrations ↗</a>
+          </div>
           <div class="input-with-button">
             <input type="password" id="notion-token-input" class="form-control" placeholder="ntn_... 或 secret_...">
             <button type="button" id="btn-toggle-notion-token" class="btn-toggle-eye" title="显示/隐藏 Token">👁️</button>
           </div>
-          <span class="tip">在 <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" style="color:var(--lp-primary);text-decoration:none;">Notion 开发者平台</a> 创建 Internal Integration 即可获取。</span>
         </div>
 
         <div class="form-group">
-          <label for="notion-db-input">Notion Database ID (数据库 ID)</label>
-          <input type="text" id="notion-db-input" class="form-control" placeholder="32 位数据库 ID (支持直接粘贴 Notion 数据库完整 URL)">
-          <span class="tip">如 https://notion.so/workspace/11112222333344445555666677778888?v=... 中的 32 位字符。保存或测试时会自动提取。</span>
+          <label for="notion-db-input">Notion Database ID</label>
+          <input type="text" id="notion-db-input" class="form-control" placeholder="32 位 Database ID 或完整 URL">
         </div>
 
         <div class="button-group">

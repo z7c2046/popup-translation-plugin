@@ -19,7 +19,7 @@ assert.match(source, /id="imt-thinking-group"/, 'Settings UI must include #imt-t
 assert.match(source, /id="imt-thinking-switch"/, 'Settings UI must include #imt-thinking-switch button');
 assert.match(source, /role="switch"/, 'Thinking switch button must declare role="switch"');
 assert.match(source, /id="imt-thinking-status-text"/, 'Settings UI must include status text badge');
-assert.match(source, /id="imt-thinking-hint"/, 'Settings UI must include explanatory hint text');
+assert.doesNotMatch(source, /id="imt-thinking-hint"/, 'Settings UI must keep switch layout minimal without verbose hint text');
 assert.match(source, /for="imt-thinking-switch"[^>]*>\s*关闭深度思考/, 'Label must explicitly indicate 关闭深度思考');
 
 // 4. Check CSS definitions for switch and status badges

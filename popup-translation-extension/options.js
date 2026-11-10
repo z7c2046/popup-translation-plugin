@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const items = [
       {
         orig: 'Revenue for the third quarter may rise by 5% amid robust data center demand.',
-        trans: '得益于数据中心强劲的需求，第三季度营收可能增长 5% 保留。'
+        trans: '得益于数据中心强劲的需求，第三季度营收可能增长 5%。'
       },
       {
         orig: 'I keep holding my shares because the chip supply cycle is clearly turning upward.',
@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function checkLocalServiceStatus(isManual = false) {
     if (!localServiceStatusBadge) return;
     const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
-    localServiceStatusBadge.innerText = '⏳ 正在检测连接...';
+    localServiceStatusBadge.innerText = '⏳ 检测中...';
     localServiceStatusBadge.style.background = '#EFF6FF';
     localServiceStatusBadge.style.color = '#2563EB';
 
@@ -183,12 +183,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await res.json();
         const hasKokoro = data.features?.kokoro?.ready;
         const hasMelo = data.features?.melo?.ready;
-        let featText = '已就绪';
-        if (hasKokoro && hasMelo) featText = 'Kokoro英文 + MeloTTS中文双引擎就绪';
-        else if (hasKokoro) featText = 'Kokoro英文就绪';
-        else if (hasMelo) featText = 'MeloTTS中文就绪';
+        let featText = '服务在线';
+        if (hasKokoro && hasMelo) featText = '双引擎在线';
+        else if (hasKokoro) featText = 'Kokoro 在线';
+        else if (hasMelo) featText = 'MeloTTS 在线';
 
-        localServiceStatusBadge.innerText = `✅ 服务在线 (${featText} · 零浏览器内存)`;
+        localServiceStatusBadge.innerText = `✅ ${featText}`;
         localServiceStatusBadge.style.background = '#ECFDF5';
         localServiceStatusBadge.style.color = '#059669';
         return true;
@@ -197,11 +197,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (e) {
       clearTimeout(timer);
-      localServiceStatusBadge.innerText = '○ 未检测到服务 (请双击运行根目录 LexiPro TTS.exe)';
+      localServiceStatusBadge.innerText = '○ 未启动服务';
       localServiceStatusBadge.style.background = '#FEF2F2';
       localServiceStatusBadge.style.color = '#DC2626';
       if (isManual) {
-        alert('未检测到本地原生伴侣发音服务。\n\n请在项目根目录双击「LexiPro TTS.exe」即可启动，它将自动常驻在屏幕右下角任务栏托盘中！');
+        alert('未检测到本地原生发音服务。\n\n请双击项目根目录的「LexiPro TTS.exe」启动。');
       }
       return false;
     }
@@ -469,7 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     await chrome.storage.local.set(toSave);
-    saveMsg.innerText = '✅ 配置已成功保存！已向页面广播热更新。';
+    saveMsg.innerText = '✅ 已保存';
     saveMsg.className = 'save-msg text-success';
     setTimeout(() => { saveMsg.innerText = ''; }, 3000);
   });
