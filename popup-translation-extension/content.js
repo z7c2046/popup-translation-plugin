@@ -209,6 +209,39 @@
         }
     }
 
+    const DEFAULT_SF_API_KEY = "";
+    const DEFAULT_KIMI_REFRESH_TOKEN = "";
+    const DEFAULT_KIMI_ACCESS_TOKEN = "";
+
+    const rawSfApiKey = GM_getValue('lexipro_sf_api_key', null);
+    let initialSfApiKey = (rawSfApiKey === null || rawSfApiKey === undefined)
+        ? DEFAULT_SF_API_KEY
+        : String(rawSfApiKey);
+
+    let initialKimiRefreshToken = GM_getValue('lexipro_kimi_refresh_token', null);
+    if (initialKimiRefreshToken === null || initialKimiRefreshToken === undefined) {
+        initialKimiRefreshToken = DEFAULT_KIMI_REFRESH_TOKEN;
+        if (initialKimiRefreshToken) {
+            GM_setValue('lexipro_kimi_refresh_token', initialKimiRefreshToken);
+        }
+    } else {
+        initialKimiRefreshToken = String(initialKimiRefreshToken);
+    }
+
+    let initialKimiAccessToken = GM_getValue('lexipro_kimi_access_token', null);
+    if (initialKimiAccessToken === null || initialKimiAccessToken === undefined) {
+        initialKimiAccessToken = DEFAULT_KIMI_ACCESS_TOKEN;
+        if (initialKimiAccessToken) {
+            GM_setValue('lexipro_kimi_access_token', initialKimiAccessToken);
+        }
+    } else {
+        initialKimiAccessToken = String(initialKimiAccessToken);
+    }
+
+    function isChromeExtensionRuntime() {
+        return typeof chrome !== 'undefined' && Boolean(chrome.runtime && chrome.runtime.id);
+    }
+
     // ================= 配置区 =================
     const CONFIG = {
         llmProvider: initialProvider, // 当前大模型服务商：'siliconflow' 或 'kimi_free'
@@ -225,15 +258,15 @@
             siliconflow: {
                 name: '硅基流动',
                 apiUrl: 'https://api.siliconflow.cn/v1/chat/completions',
-                apiKey: "",
+                apiKey: initialSfApiKey,
                 model: initialSfModel,
                 supportsJsonResponse: true,
                 disableThinking: initialDisableThinking
             },
             kimi_free: {
                 name: 'Kimi (网页免费版)',
-                refreshToken: "",
-                accessToken: "",
+                refreshToken: initialKimiRefreshToken,
+                accessToken: initialKimiAccessToken,
                 enableThinking: !initialDisableThinking
             }
         },
@@ -243,20 +276,6 @@
         cacheTTL: 12 * 60 * 60 * 1000, // 本地缓存有效期：12小时
         defaultTriggerMode: 'click', // 默认小红点激活模式：'hover' (悬停) 或 'click' (点击)
     };
-
-    // 如果代码中内置了硬编码的 Kimi Token，且与存储不一致时，优先同步到 GM 存储确保最新生效
-    if (CONFIG.llmProviders.kimi_free.refreshToken) {
-        const storedRefresh = GM_getValue('lexipro_kimi_refresh_token', '');
-        if (!storedRefresh || storedRefresh !== CONFIG.llmProviders.kimi_free.refreshToken) {
-            GM_setValue('lexipro_kimi_refresh_token', CONFIG.llmProviders.kimi_free.refreshToken);
-        }
-    }
-    if (CONFIG.llmProviders.kimi_free.accessToken) {
-        const storedAccess = GM_getValue('lexipro_kimi_access_token', '');
-        if (!storedAccess || storedAccess !== CONFIG.llmProviders.kimi_free.accessToken) {
-            GM_setValue('lexipro_kimi_access_token', CONFIG.llmProviders.kimi_free.accessToken);
-        }
-    }
 
     // animal-island-ui「island 动森不规则有机气泡」轮廓路径（objectBoundingBox 0~1，与官方 Tooltip 一致）
     const ISLAND_CLIP_PATH = 'M0.501,0.005 L0.501,0.005 L0.523,0.005 L0.549,0.006 C0.704,0.01,0.796,0.017,0.825,0.027 L0.827,0.028 C0.872,0.045,0.939,0.044,0.978,0.17 C1,0.254,1,0.365,0.99,0.505 L0.988,0.513 C0.979,0.558,0.971,0.598,0.965,0.633 C0.956,0.689,0.979,0.77,0.964,0.865 C0.953,0.928,0.921,0.966,0.869,0.979 C0.821,0.986,0.773,0.992,0.726,0.995 L0.712,0.996 L0.694,0.997 C0.648,1,0.586,1,0.507,1 L0.501,1 L0.464,1 C0.385,1,0.325,0.998,0.283,0.995 C0.234,0.992,0.184,0.987,0.133,0.979 C0.081,0.966,0.05,0.928,0.039,0.865 C0.023,0.77,0.047,0.689,0.037,0.633 C0.031,0.595,0.023,0.552,0.013,0.505 C-0.006,0.365,-0.002,0.254,0.024,0.17 C0.064,0.045,0.13,0.045,0.174,0.028 L0.175,0.028 C0.204,0.017,0.303,0.009,0.474,0.005 L0.501,0.005';
@@ -1672,6 +1691,44 @@
             background: rgba(180, 160, 130, 0.22);
             color: #7d6b55;
         }
+
+        .imt-ext-settings-footer {
+            margin-top: 4px;
+            padding-top: 10px;
+            border-top: 2px dashed rgba(216, 200, 171, .8);
+        }
+
+        .imt-ext-settings-link-btn {
+            width: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 12px;
+            border: 2px solid var(--aiu-border);
+            border-bottom-width: 3px;
+            border-radius: 12px;
+            background: var(--aiu-card-soft);
+            color: #0b8079;
+            font-family: var(--aiu-font);
+            font-size: .88em;
+            font-weight: 800;
+            cursor: pointer;
+            transition: background .15s ease, border-color .15s ease, transform .12s ease, box-shadow .12s ease;
+        }
+
+        .imt-ext-settings-link-btn:hover {
+            background: var(--aiu-primary-soft);
+            border-color: #82d5bb;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 0 rgba(18, 169, 157, .18);
+        }
+
+        .imt-ext-settings-link-btn:active {
+            transform: translateY(1px);
+            border-bottom-width: 2px;
+            box-shadow: none;
+        }
     
         /* 单词点击专属悬浮操作胶囊 (Word Action Capsule) */
         .imt-word-action-capsule {
@@ -2305,6 +2362,38 @@
         :host([data-skin="modern"]) .imt-settings-hint,
         :host([data-skin="modern"]) .imt-settings-hint a {
             color: var(--aiu-primary) !important;
+        }
+
+        :host([data-skin="modern"]) .imt-ext-settings-footer {
+            border-top: 1px solid var(--modern-divider);
+        }
+
+        :host([data-skin="modern"]) .imt-ext-settings-link-btn {
+            background: var(--modern-input-bg);
+            border: 1px solid var(--modern-divider);
+            border-bottom-width: 1px;
+            border-radius: 10px;
+            color: var(--aiu-primary);
+            font-family: var(--aiu-font);
+            font-weight: 600;
+            box-shadow: none;
+        }
+
+        :host([data-skin="modern"]) .imt-ext-settings-link-btn:hover {
+            background: rgba(79, 70, 229, 0.08);
+            border-color: var(--aiu-primary);
+            box-shadow: none;
+            transform: none;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-ext-settings-link-btn {
+            border-color: rgba(255, 255, 255, 0.14);
+            color: #818cf8;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-ext-settings-link-btn:hover {
+            background: rgba(99, 102, 241, 0.16);
+            border-color: #818cf8;
         }
 
         :host([data-skin="modern"]) .imt-animal-switch {
@@ -3520,7 +3609,57 @@
     });
 
     function renderSettingsUI() {
+        const isExtensionEnv = isChromeExtensionRuntime();
         const isKimi = CONFIG.llmProvider === 'kimi_free';
+        const legacyCredentialSectionsHtml = isExtensionEnv ? '' : `
+                <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="kimi-refresh-token">Kimi Refresh Token *</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="kimi-refresh-token" placeholder="粘贴 refresh_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.refreshToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-refresh-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="kimi-access-token">Kimi Access Token *</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="kimi-access-token" placeholder="粘贴 access_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.accessToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-access-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+
+                    <div class="imt-settings-hint" style="margin-top: 4px;">
+                        <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" style="color:var(--aiu-primary-dark);text-decoration:underline;">kimi.moonshot.cn</a> → F12 → Local Storage 复制 Token
+                    </div>
+                </div>
+
+                <div class="imt-settings-group" id="notion-settings-group" style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(216, 200, 171, .6);">
+                    <div class="imt-settings-switch-copy" style="margin-bottom: 4px;">
+                        <label>📓 Notion 生词本同步 (可选)</label>
+                    </div>
+                    <div class="imt-settings-group" style="margin-bottom: 6px;">
+                        <label for="imt-notion-token">Notion Token</label>
+                        <div class="imt-token-input-wrapper">
+                            <input type="password" class="form-input" id="imt-notion-token" placeholder="ntn_... 或 secret_..." value="${escapeHtml(CONFIG.notionToken || '')}" />
+                            <button type="button" class="imt-token-toggle-btn" data-target="imt-notion-token" title="显示/隐藏">👁️</button>
+                        </div>
+                    </div>
+                    <div class="imt-settings-group">
+                        <label for="imt-notion-db">Notion 数据库 ID</label>
+                        <input type="text" class="form-input" id="imt-notion-db" placeholder="32 位数据库 ID" value="${escapeHtml(CONFIG.notionDatabaseId || '')}" />
+                    </div>
+                </div>
+        `;
+        const extensionOptionsFooterHtml = isExtensionEnv ? `
+                <div class="imt-ext-settings-footer">
+                    <button type="button" class="imt-ext-settings-link-btn" id="imt-open-ext-options-btn">
+                        <span>打开扩展设置（Kimi Token / API Key / Notion）</span>
+                        <span aria-hidden="true">↗</span>
+                    </button>
+                </div>
+        ` : '';
+
         settingsBox.innerHTML = `
             <div class="imt-settings-panel">
                 <div class="imt-settings-title">选项设置</div>
@@ -3604,45 +3743,7 @@
                         </button>
                     </div>
                 </div>
-
-                <div class="imt-settings-group" id="kimi-settings-group" style="display: ${isKimi ? 'block' : 'none'};">
-                    <div class="imt-settings-group" style="margin-bottom: 6px;">
-                        <label for="kimi-refresh-token">Kimi Refresh Token *</label>
-                        <div class="imt-token-input-wrapper">
-                            <input type="password" class="form-input" id="kimi-refresh-token" placeholder="粘贴 refresh_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.refreshToken || '')}" />
-                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-refresh-token" title="显示/隐藏">👁️</button>
-                        </div>
-                    </div>
-
-                    <div class="imt-settings-group" style="margin-bottom: 6px;">
-                        <label for="kimi-access-token">Kimi Access Token *</label>
-                        <div class="imt-token-input-wrapper">
-                            <input type="password" class="form-input" id="kimi-access-token" placeholder="粘贴 access_token" value="${escapeHtml(CONFIG.llmProviders.kimi_free.accessToken || '')}" />
-                            <button type="button" class="imt-token-toggle-btn" data-target="kimi-access-token" title="显示/隐藏">👁️</button>
-                        </div>
-                    </div>
-
-                    <div class="imt-settings-hint" style="margin-top: 4px;">
-                        <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" style="color:var(--aiu-primary-dark);text-decoration:underline;">kimi.moonshot.cn</a> → F12 → Local Storage 复制 Token
-                    </div>
-                </div>
-
-                <div class="imt-settings-group" id="notion-settings-group" style="margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(216, 200, 171, .6);">
-                    <div class="imt-settings-switch-copy" style="margin-bottom: 4px;">
-                        <label>📓 Notion 生词本同步 (可选)</label>
-                    </div>
-                    <div class="imt-settings-group" style="margin-bottom: 6px;">
-                        <label for="imt-notion-token">Notion Token</label>
-                        <div class="imt-token-input-wrapper">
-                            <input type="password" class="form-input" id="imt-notion-token" placeholder="ntn_... 或 secret_..." value="${escapeHtml(CONFIG.notionToken || '')}" />
-                            <button type="button" class="imt-token-toggle-btn" data-target="imt-notion-token" title="显示/隐藏">👁️</button>
-                        </div>
-                    </div>
-                    <div class="imt-settings-group">
-                        <label for="imt-notion-db">Notion 数据库 ID</label>
-                        <input type="text" class="form-input" id="imt-notion-db" placeholder="32 位数据库 ID" value="${escapeHtml(CONFIG.notionDatabaseId || '')}" />
-                    </div>
-                </div>
+${legacyCredentialSectionsHtml}${extensionOptionsFooterHtml}
             </div>
         `;
 
@@ -3736,13 +3837,12 @@
             const provider = providerSelect.value;
             CONFIG.llmProvider = provider;
             GM_setValue('lexipro_llm_provider', provider);
-            
-            if (provider === 'siliconflow') {
-                sfModelGroup.style.display = 'block';
-                kimiSettingsGroup.style.display = 'none';
-            } else {
-                sfModelGroup.style.display = 'none';
-                kimiSettingsGroup.style.display = 'block';
+
+            if (sfModelGroup) {
+                sfModelGroup.style.display = provider === 'siliconflow' ? 'block' : 'none';
+            }
+            if (kimiSettingsGroup) {
+                kimiSettingsGroup.style.display = provider === 'kimi_free' ? 'block' : 'none';
             }
         });
 
@@ -3750,6 +3850,21 @@
             const model = sfModelSelect.value;
             CONFIG.llmProviders.siliconflow.model = model;
             GM_setValue('lexipro_sf_model', model);
+        });
+
+        const openExtOptionsBtn = settingsBox.querySelector('#imt-open-ext-options-btn');
+        openExtOptionsBtn?.addEventListener('click', () => {
+            try {
+                chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' }, (res) => {
+                    if ((chrome.runtime.lastError || !res || !res.success) && typeof chrome.runtime.getURL === 'function') {
+                        window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
+                    }
+                });
+            } catch (e) {
+                if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+                    window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
+                }
+            }
         });
 
         kimiRefreshTokenInput?.addEventListener('input', () => {
@@ -4800,13 +4915,17 @@ Formatting requirements: Output valid JSON only.`;
 
         if (providerKey === 'siliconflow') {
             if (!provider.apiUrl || !provider.apiKey || !provider.model) {
-                throw new Error(`硅基流动服务商配置不完整`);
+                const cfgPlace = isChromeExtensionRuntime() ? '扩展设置（AI 翻译引擎）' : '⚙️ 设置面板';
+                throw new Error(`硅基流动配置不完整，请在${cfgPlace}中填写 API Key`);
             }
         } else if (providerKey === 'kimi_free') {
-            const hasTokens = (provider.accessToken || GM_getValue('lexipro_kimi_access_token', ''))
-                || (provider.refreshToken || GM_getValue('lexipro_kimi_refresh_token', ''));
-            if (!hasTokens) {
-                throw new Error('未配置 Kimi Token，请在 ⚙️ 设置面板中填写 Access Token 与 Refresh Token');
+            const storedAccess = GM_getValue('lexipro_kimi_access_token', null);
+            const storedRefresh = GM_getValue('lexipro_kimi_refresh_token', null);
+            const effAccess = (storedAccess !== null && storedAccess !== undefined) ? storedAccess : (provider.accessToken || '');
+            const effRefresh = (storedRefresh !== null && storedRefresh !== undefined) ? storedRefresh : (provider.refreshToken || '');
+            if (!effAccess && !effRefresh) {
+                const cfgPlace = isChromeExtensionRuntime() ? '扩展设置（AI 翻译引擎）' : '⚙️ 设置面板';
+                throw new Error(`未配置 Kimi Token，请在${cfgPlace}中填写 Access Token 与 Refresh Token`);
             }
         }
 
@@ -4852,7 +4971,10 @@ Formatting requirements: Output valid JSON only.`;
 
     function refreshKimiAccessToken() {
         return new Promise((resolve, reject) => {
-            const refreshToken = GM_getValue('lexipro_kimi_refresh_token', '') || CONFIG.llmProviders.kimi_free?.refreshToken;
+            const storedRefresh = GM_getValue('lexipro_kimi_refresh_token', null);
+            const refreshToken = (storedRefresh !== null && storedRefresh !== undefined)
+                ? storedRefresh
+                : (CONFIG.llmProviders.kimi_free?.refreshToken || '');
             if (!refreshToken) {
                 reject(new Error('未配置 Kimi Refresh Token，无法自动刷新凭证'));
                 return;
@@ -4950,8 +5072,14 @@ Formatting requirements: Output valid JSON only.`;
     async function requestKimiWebCompletion({ messages, timeout = 60000 }) {
         getActiveLLMProvider();
 
-        let accessToken = GM_getValue('lexipro_kimi_access_token', '') || CONFIG.llmProviders.kimi_free?.accessToken;
-        const refreshToken = GM_getValue('lexipro_kimi_refresh_token', '') || CONFIG.llmProviders.kimi_free?.refreshToken;
+        const storedAccess = GM_getValue('lexipro_kimi_access_token', null);
+        const storedRefresh = GM_getValue('lexipro_kimi_refresh_token', null);
+        let accessToken = (storedAccess !== null && storedAccess !== undefined)
+            ? storedAccess
+            : (CONFIG.llmProviders.kimi_free?.accessToken || '');
+        const refreshToken = (storedRefresh !== null && storedRefresh !== undefined)
+            ? storedRefresh
+            : (CONFIG.llmProviders.kimi_free?.refreshToken || '');
 
         if (!accessToken && refreshToken) {
             accessToken = await refreshKimiAccessToken();
@@ -7347,6 +7475,45 @@ CRITICAL RULES:
                 CONFIG.disableThinking = Boolean(value);
                 if (CONFIG.llmProviders?.siliconflow) CONFIG.llmProviders.siliconflow.disableThinking = CONFIG.disableThinking;
                 if (CONFIG.llmProviders?.kimi_free) CONFIG.llmProviders.kimi_free.enableThinking = !CONFIG.disableThinking;
+            } else if (key === 'lexipro_llm_provider') {
+                CONFIG.llmProvider = value === 'kimi_free' ? 'kimi_free' : 'siliconflow';
+                const pSel = settingsBox.querySelector('#imt-provider-select');
+                if (pSel && pSel.value !== CONFIG.llmProvider) {
+                    pSel.value = CONFIG.llmProvider;
+                }
+                const sfGrp = settingsBox.querySelector('#sf-model-group');
+                if (sfGrp) sfGrp.style.display = CONFIG.llmProvider === 'siliconflow' ? 'block' : 'none';
+                const kmGrp = settingsBox.querySelector('#kimi-settings-group');
+                if (kmGrp) kmGrp.style.display = CONFIG.llmProvider === 'kimi_free' ? 'block' : 'none';
+            } else if (key === 'lexipro_sf_model') {
+                const nextModel = VALID_SF_MODELS.includes(value) ? value : 'Qwen/Qwen2.5-7B-Instruct';
+                if (CONFIG.llmProviders?.siliconflow) {
+                    CONFIG.llmProviders.siliconflow.model = nextModel;
+                }
+                const mSel = settingsBox.querySelector('#sf-model-select');
+                if (mSel && mSel.value !== nextModel) {
+                    mSel.value = nextModel;
+                }
+            } else if (key === 'lexipro_sf_api_key') {
+                if (CONFIG.llmProviders?.siliconflow) {
+                    CONFIG.llmProviders.siliconflow.apiKey = (value === null || value === undefined) ? DEFAULT_SF_API_KEY : String(value);
+                }
+            } else if (key === 'lexipro_kimi_refresh_token') {
+                if (CONFIG.llmProviders?.kimi_free) {
+                    CONFIG.llmProviders.kimi_free.refreshToken = (value === null || value === undefined) ? '' : String(value);
+                }
+                const refreshInput = settingsBox.querySelector('#kimi-refresh-token');
+                if (refreshInput && refreshInput.value !== CONFIG.llmProviders.kimi_free.refreshToken) {
+                    refreshInput.value = CONFIG.llmProviders.kimi_free.refreshToken;
+                }
+            } else if (key === 'lexipro_kimi_access_token') {
+                if (CONFIG.llmProviders?.kimi_free) {
+                    CONFIG.llmProviders.kimi_free.accessToken = (value === null || value === undefined) ? '' : String(value);
+                }
+                const accessInput = settingsBox.querySelector('#kimi-access-token');
+                if (accessInput && accessInput.value !== CONFIG.llmProviders.kimi_free.accessToken) {
+                    accessInput.value = CONFIG.llmProviders.kimi_free.accessToken;
+                }
             } else if (key === 'lexipro_notion_token') {
                 CONFIG.notionToken = value || '';
                 if (!isCurrentSiteExcluded() && CONFIG.notionToken && CONFIG.notionDatabaseId) {

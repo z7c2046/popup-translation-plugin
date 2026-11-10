@@ -7,8 +7,11 @@ const DEFAULT_CONFIG = {
   lexipro_ui_theme: 'modern',
   lexipro_modern_color_mode: 'auto',
   lexipro_animal_background: 'default',
+  lexipro_llm_provider: 'siliconflow',
   lexipro_sf_model: 'Qwen/Qwen2.5-7B-Instruct',
   lexipro_sf_api_key: '',
+  lexipro_kimi_refresh_token: '',
+  lexipro_kimi_access_token: '',
   lexipro_disable_thinking: true,
   lexipro_auto_pronounce: false,
   lexipro_excluded_sites: [],
@@ -61,11 +64,22 @@ function normalizeAnimalBg(val) {
   return ANIMAL_BACKGROUNDS.some(bg => bg.id === val) ? val : 'default';
 }
 
+function normalizeLlmProvider(val) {
+  return val === 'kimi_free' ? 'kimi_free' : 'siliconflow';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
   const themeSelect = document.getElementById('ui-theme-select');
+  const llmProviderSelect = document.getElementById('llm-provider-select');
+  const sfActiveBadge = document.getElementById('sf-active-badge');
+  const kimiActiveBadge = document.getElementById('kimi-active-badge');
   const modelSelect = document.getElementById('sf-model-select');
   const keyInput = document.getElementById('sf-key-input');
   const btnToggleKey = document.getElementById('btn-toggle-sf-key');
+  const kimiRefreshInput = document.getElementById('kimi-refresh-token-input');
+  const kimiAccessInput = document.getElementById('kimi-access-token-input');
+  const btnToggleKimiRefresh = document.getElementById('btn-toggle-kimi-refresh');
+  const btnToggleKimiAccess = document.getElementById('btn-toggle-kimi-access');
   const thinkingCheck = document.getElementById('disable-thinking-check');
   const autoPronounceCheck = document.getElementById('auto-pronounce-check');
   const excludedSitesInput = document.getElementById('excluded-sites-input');
@@ -90,6 +104,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const btnTestSf = document.getElementById('btn-test-sf');
   const testSfResult = document.getElementById('test-sf-result');
+  const btnTestKimi = document.getElementById('btn-test-kimi');
+  const testKimiResult = document.getElementById('test-kimi-result');
   const btnToggleNotionToken = document.getElementById('btn-toggle-notion-token');
   const btnTestNotion = document.getElementById('btn-test-notion');
   const testNotionResult = document.getElementById('test-notion-result');
@@ -336,15 +352,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   const EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
   const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
 
+  function updateEngineBadges() {
+    const provider = normalizeLlmProvider(llmProviderSelect ? llmProviderSelect.value : 'siliconflow');
+    if (sfActiveBadge) {
+      sfActiveBadge.style.display = provider === 'siliconflow' ? 'inline-flex' : 'none';
+    }
+    if (kimiActiveBadge) {
+      kimiActiveBadge.style.display = provider === 'kimi_free' ? 'inline-flex' : 'none';
+    }
+  }
+
+  llmProviderSelect?.addEventListener('change', updateEngineBadges);
+
+  function toggleEyeInput(inputEl, btnEl) {
+    if (!inputEl || !btnEl) return;
+    if (inputEl.type === 'password') {
+      inputEl.type = 'text';
+      btnEl.innerHTML = EYE_OFF_SVG;
+    } else {
+      inputEl.type = 'password';
+      btnEl.innerHTML = EYE_OPEN_SVG;
+    }
+  }
+
   // 密码显示/隐藏切换
   btnToggleKey.addEventListener('click', () => {
-    if (keyInput.type === 'password') {
-      keyInput.type = 'text';
-      btnToggleKey.innerHTML = EYE_OFF_SVG;
-    } else {
-      keyInput.type = 'password';
-      btnToggleKey.innerHTML = EYE_OPEN_SVG;
-    }
+    toggleEyeInput(keyInput, btnToggleKey);
+  });
+
+  btnToggleKimiRefresh?.addEventListener('click', () => {
+    toggleEyeInput(kimiRefreshInput, btnToggleKimiRefresh);
+  });
+
+  btnToggleKimiAccess?.addEventListener('click', () => {
+    toggleEyeInput(kimiAccessInput, btnToggleKimiAccess);
   });
 
   // 本地实时排版效果预览 (零网络消耗)
@@ -453,6 +494,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (skinDirty) {
         applySkinToDocument();
         updatePreview();
+      }
+      if (changes.lexipro_llm_provider && llmProviderSelect) {
+        llmProviderSelect.value = normalizeLlmProvider(changes.lexipro_llm_provider.newValue);
+        updateEngineBadges();
+      }
+      if (changes.lexipro_sf_model && modelSelect && changes.lexipro_sf_model.newValue) {
+        modelSelect.value = changes.lexipro_sf_model.newValue;
+      }
+      if (changes.lexipro_disable_thinking && thinkingCheck) {
+        thinkingCheck.checked = changes.lexipro_disable_thinking.newValue !== false;
+      }
+      if (changes.lexipro_auto_pronounce && autoPronounceCheck) {
+        autoPronounceCheck.checked = Boolean(changes.lexipro_auto_pronounce.newValue);
+      }
+      if (changes.lexipro_sf_api_key && keyInput && document.activeElement !== keyInput) {
+        keyInput.value = changes.lexipro_sf_api_key.newValue || '';
+      }
+      if (changes.lexipro_kimi_refresh_token && kimiRefreshInput && document.activeElement !== kimiRefreshInput) {
+        kimiRefreshInput.value = changes.lexipro_kimi_refresh_token.newValue || '';
+      }
+      if (changes.lexipro_kimi_access_token && kimiAccessInput && document.activeElement !== kimiAccessInput) {
+        kimiAccessInput.value = changes.lexipro_kimi_access_token.newValue || '';
+      }
+      if (changes.lexipro_notion_token && notionTokenInput && document.activeElement !== notionTokenInput) {
+        notionTokenInput.value = changes.lexipro_notion_token.newValue || '';
+      }
+      if (changes.lexipro_notion_database_id && notionDbInput && document.activeElement !== notionDbInput) {
+        notionDbInput.value = changes.lexipro_notion_database_id.newValue || '';
       }
     });
   }
@@ -637,6 +706,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 测试 API 连通性
   btnTestSf.addEventListener('click', async () => {
+    const sfApiKey = keyInput.value.trim();
+    if (!sfApiKey) {
+      testSfResult.innerText = '○ 请先填写 SiliconFlow API Key';
+      testSfResult.className = 'test-result text-error';
+      return;
+    }
+
     testSfResult.innerText = '正在测试连接...';
     testSfResult.className = 'test-result';
 
@@ -662,7 +738,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${keyInput.value.trim() || DEFAULT_CONFIG.lexipro_sf_api_key}`
+            'Authorization': `Bearer ${sfApiKey}`
           },
           data: JSON.stringify(testBody)
         }
@@ -679,6 +755,144 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (err) {
       testSfResult.innerText = `○ 连接失败: ${err.message || err}`;
       testSfResult.className = 'test-result text-error';
+    }
+  });
+
+  function createKimiTestHeaders(token) {
+    const trafficId = Array.from({ length: 20 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Origin': 'https://kimi.moonshot.cn',
+      'Referer': 'https://kimi.moonshot.cn/',
+      'X-Traffic-Id': trafficId
+    };
+  }
+
+  async function refreshKimiTestToken(refreshToken) {
+    const res = await chrome.runtime.sendMessage({
+      type: 'GM_XHR',
+      details: {
+        url: 'https://kimi.moonshot.cn/api/auth/token/refresh',
+        method: 'GET',
+        headers: createKimiTestHeaders(refreshToken),
+        timeout: 20000
+      }
+    });
+
+    if (res && res.success && res.response?.status === 200) {
+      const data = JSON.parse(res.response.responseText || '{}');
+      if (data.access_token) {
+        return {
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token || refreshToken
+        };
+      }
+    }
+
+    const status = res?.response?.status;
+    let detail = '';
+    try {
+      const errJson = JSON.parse(res?.response?.responseText || '{}');
+      detail = errJson.message || errJson.msg || '';
+    } catch (e) {}
+    throw new Error(`Refresh Token 刷新失败 (HTTP ${status || 'Error'})${detail ? `：${detail}` : ''}`);
+  }
+
+  async function createKimiTestChat(accessToken) {
+    const res = await chrome.runtime.sendMessage({
+      type: 'GM_XHR',
+      details: {
+        url: 'https://kimi.moonshot.cn/api/chat',
+        method: 'POST',
+        headers: createKimiTestHeaders(accessToken),
+        data: JSON.stringify({
+          name: 'Popup Translation Test',
+          is_example: false
+        }),
+        timeout: 20000
+      }
+    });
+
+    if (res && res.success && res.response?.status === 200) {
+      const data = JSON.parse(res.response.responseText || '{}');
+      if (data.id) {
+        return { ok: true, chatId: data.id };
+      }
+    }
+
+    const status = res?.response?.status;
+    let detail = '';
+    try {
+      const errJson = JSON.parse(res?.response?.responseText || '{}');
+      detail = errJson.message || errJson.msg || errJson.error_msg || '';
+    } catch (e) {}
+    return {
+      ok: false,
+      status,
+      error: res?.error || `HTTP ${status || 'Error'}${detail ? `：${detail}` : ''}`
+    };
+  }
+
+  // 测试 Kimi 网页版 Token 连通性
+  btnTestKimi?.addEventListener('click', async () => {
+    if (!testKimiResult) return;
+    let refreshToken = kimiRefreshInput ? kimiRefreshInput.value.trim() : '';
+    let accessToken = kimiAccessInput ? kimiAccessInput.value.trim() : '';
+
+    if (!accessToken && !refreshToken) {
+      testKimiResult.innerText = '○ 请先填写 Kimi Access Token 或 Refresh Token';
+      testKimiResult.className = 'test-result text-error';
+      return;
+    }
+
+    if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+      testKimiResult.innerText = '○ 请在 Chrome 扩展环境下测试连通性';
+      testKimiResult.className = 'test-result text-error';
+      return;
+    }
+
+    testKimiResult.innerText = '正在验证 Kimi Token 连通性...';
+    testKimiResult.className = 'test-result';
+
+    let refreshed = false;
+    try {
+      if (!accessToken && refreshToken) {
+        const nextTokens = await refreshKimiTestToken(refreshToken);
+        accessToken = nextTokens.accessToken;
+        refreshToken = nextTokens.refreshToken;
+        refreshed = true;
+      }
+
+      let chatRes = await createKimiTestChat(accessToken);
+      if (!chatRes.ok && chatRes.status === 401 && refreshToken) {
+        const nextTokens = await refreshKimiTestToken(refreshToken);
+        accessToken = nextTokens.accessToken;
+        refreshToken = nextTokens.refreshToken;
+        refreshed = true;
+        chatRes = await createKimiTestChat(accessToken);
+      }
+
+      if (!chatRes.ok) {
+        throw new Error(chatRes.error || 'Kimi 会话创建失败');
+      }
+
+      if (refreshed) {
+        if (kimiAccessInput) kimiAccessInput.value = accessToken;
+        if (kimiRefreshInput) kimiRefreshInput.value = refreshToken;
+        await saveStoragePatch({
+          lexipro_kimi_access_token: accessToken,
+          lexipro_kimi_refresh_token: refreshToken
+        });
+      }
+
+      testKimiResult.innerText = refreshed
+        ? '● 连接成功！已自动刷新并更新最新 Token'
+        : '● 连接成功！Kimi Token 状态有效';
+      testKimiResult.className = 'test-result text-success';
+    } catch (err) {
+      testKimiResult.innerText = `○ 连接失败: ${err.message || err}`;
+      testKimiResult.className = 'test-result text-error';
     }
   });
 
@@ -766,9 +980,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_ui_theme: normalizeUiSkin(themeSelect ? themeSelect.value : 'modern'),
       lexipro_modern_color_mode: currentColorMode,
       lexipro_animal_background: currentAnimalBg,
+      lexipro_llm_provider: normalizeLlmProvider(llmProviderSelect ? llmProviderSelect.value : 'siliconflow'),
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim(),
+      lexipro_kimi_refresh_token: kimiRefreshInput ? kimiRefreshInput.value.trim() : '',
+      lexipro_kimi_access_token: kimiAccessInput ? kimiAccessInput.value.trim() : '',
       lexipro_disable_thinking: thinkingCheck.checked,
+      lexipro_kimi_thinking: !thinkingCheck.checked,
       lexipro_auto_pronounce: autoPronounceCheck ? autoPronounceCheck.checked : false,
       lexipro_excluded_sites: excludedSites,
       lexipro_auto_translate_sites: autoTranslateSites,
@@ -805,9 +1023,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (themeSelect) themeSelect.value = normalizeUiSkin(cfg.lexipro_ui_theme);
     currentColorMode = normalizeColorMode(cfg.lexipro_modern_color_mode);
     currentAnimalBg = normalizeAnimalBg(cfg.lexipro_animal_background);
+    if (llmProviderSelect) llmProviderSelect.value = normalizeLlmProvider(cfg.lexipro_llm_provider);
     modelSelect.value = cfg.lexipro_sf_model || DEFAULT_CONFIG.lexipro_sf_model;
     keyInput.value = cfg.lexipro_sf_api_key || '';
+    if (kimiRefreshInput) kimiRefreshInput.value = cfg.lexipro_kimi_refresh_token || '';
+    if (kimiAccessInput) kimiAccessInput.value = cfg.lexipro_kimi_access_token || '';
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;
+    updateEngineBadges();
     if (autoPronounceCheck) autoPronounceCheck.checked = Boolean(cfg.lexipro_auto_pronounce);
     if (excludedSitesInput) {
       const list = Array.isArray(cfg.lexipro_excluded_sites) ? cfg.lexipro_excluded_sites : [];

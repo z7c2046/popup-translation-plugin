@@ -276,24 +276,60 @@
           </section>
 
           <!-- 4. AI 翻译引擎 -->
-          <section class="settings-panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" data-title="AI 翻译引擎" data-subtitle="配置大模型翻译服务、API 密钥与快速响应模式。">
+          <section class="settings-panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" data-title="AI 翻译引擎" data-subtitle="选择默认翻译服务商，并配置 SiliconFlow API Key 或 Kimi 网页版 Token。">
             <div class="card">
               <div class="card-section">
                 <h3 class="card-title">
                   <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <rect x="4" y="4" width="16" height="16" rx="2"/>
-                    <rect x="9" y="9" width="6" height="6"/>
-                    <line x1="9" y1="1" x2="9" y2="4"/>
-                    <line x1="15" y1="1" x2="15" y2="4"/>
-                    <line x1="9" y1="20" x2="9" y2="23"/>
-                    <line x1="15" y1="20" x2="15" y2="23"/>
-                    <line x1="20" y1="9" x2="23" y2="9"/>
-                    <line x1="20" y1="14" x2="23" y2="14"/>
-                    <line x1="1" y1="9" x2="4" y2="9"/>
-                    <line x1="1" y1="14" x2="4" y2="14"/>
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                   </svg>
-                  <span>SiliconFlow AI 配置</span>
+                  <span>服务商与推理偏好</span>
                 </h3>
+
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="llm-provider-select">默认 AI 服务商</label>
+                    <select id="llm-provider-select" class="form-control">
+                      <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                      <option value="kimi_free">Kimi (网页免费版)</option>
+                    </select>
+                  </div>
+
+                  <div class="form-group">
+                    <label>推理模式</label>
+                    <div class="switch-row">
+                      <div class="switch-title">快速响应模式（关闭深度思考）</div>
+                      <label class="switch">
+                        <input type="checkbox" id="disable-thinking-check" checked>
+                        <span class="slider"></span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="sf-config-card">
+              <div class="card-section">
+                <div class="card-title-row">
+                  <h3 class="card-title">
+                    <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="4" y="4" width="16" height="16" rx="2"/>
+                      <rect x="9" y="9" width="6" height="6"/>
+                      <line x1="9" y1="1" x2="9" y2="4"/>
+                      <line x1="15" y1="1" x2="15" y2="4"/>
+                      <line x1="9" y1="20" x2="9" y2="23"/>
+                      <line x1="15" y1="20" x2="15" y2="23"/>
+                      <line x1="20" y1="9" x2="23" y2="9"/>
+                      <line x1="20" y1="14" x2="23" y2="14"/>
+                      <line x1="1" y1="9" x2="4" y2="9"/>
+                      <line x1="1" y1="14" x2="4" y2="14"/>
+                    </svg>
+                    <span>SiliconFlow AI 配置</span>
+                  </h3>
+                  <span id="sf-active-badge" class="engine-active-badge">当前使用</span>
+                </div>
 
                 <div class="form-group">
                   <label for="sf-model-select">翻译模型</label>
@@ -317,14 +353,54 @@
                     </button>
                   </div>
                 </div>
+              </div>
+
+              <div class="card-divider"></div>
+
+              <div class="button-group" style="margin-top: 0;">
+                <button type="button" id="btn-test-sf" class="btn btn-secondary">测试 SiliconFlow 连通性</button>
+                <span id="test-sf-result" class="test-result"></span>
+              </div>
+            </div>
+
+            <div class="card" id="kimi-config-card">
+              <div class="card-section">
+                <div class="card-title-row">
+                  <h3 class="card-title">
+                    <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M12 2L14.8 8.6L22 9.3L16.5 14L18.2 21L12 17.3L5.8 21L7.5 14L2 9.3L9.2 8.6L12 2z"/>
+                    </svg>
+                    <span>Kimi (网页免费版) Token 配置</span>
+                  </h3>
+                  <div class="card-title-actions">
+                    <span id="kimi-active-badge" class="engine-active-badge" style="display: none;">当前使用</span>
+                    <a href="https://kimi.moonshot.cn" target="_blank" rel="noopener noreferrer" class="external-link">kimi.moonshot.cn ↗</a>
+                  </div>
+                </div>
 
                 <div class="form-group">
-                  <div class="switch-row">
-                    <div class="switch-title">快速响应模式</div>
-                    <label class="switch">
-                      <input type="checkbox" id="disable-thinking-check" checked>
-                      <span class="slider"></span>
-                    </label>
+                  <label for="kimi-refresh-token-input">Kimi Refresh Token</label>
+                  <div class="input-with-button">
+                    <input type="password" id="kimi-refresh-token-input" class="form-control mono-input" placeholder="粘贴 Local Storage 中的 refresh_token">
+                    <button type="button" id="btn-toggle-kimi-refresh" class="btn-toggle-eye" title="显示/隐藏 Refresh Token" aria-label="显示/隐藏 Refresh Token">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="kimi-access-token-input">Kimi Access Token</label>
+                  <div class="input-with-button">
+                    <input type="password" id="kimi-access-token-input" class="form-control mono-input" placeholder="粘贴 Local Storage 中的 access_token">
+                    <button type="button" id="btn-toggle-kimi-access" class="btn-toggle-eye" title="显示/隐藏 Access Token" aria-label="显示/隐藏 Access Token">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -332,8 +408,8 @@
               <div class="card-divider"></div>
 
               <div class="button-group" style="margin-top: 0;">
-                <button type="button" id="btn-test-sf" class="btn btn-secondary">测试 AI 翻译连通性</button>
-                <span id="test-sf-result" class="test-result"></span>
+                <button type="button" id="btn-test-kimi" class="btn btn-secondary">测试 Kimi Token 连通性</button>
+                <span id="test-kimi-result" class="test-result"></span>
               </div>
             </div>
           </section>

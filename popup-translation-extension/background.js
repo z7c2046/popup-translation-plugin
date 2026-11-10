@@ -138,6 +138,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'OPEN_OPTIONS_PAGE') {
+    if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.openOptionsPage === 'function') {
+      chrome.runtime.openOptionsPage()
+        .then(() => sendResponse({ success: true }))
+        .catch(() => sendResponse({ success: false }));
+    } else {
+      sendResponse({ success: false });
+    }
+    return true;
+  }
+
   // 3. Kokoro 离线神经网络 TTS 发音转发代理
   if (typeof message.type === 'string' && message.type.startsWith('KOKORO_TTS_')) {
     const offscreenType = message.type.replace('KOKORO_TTS_', 'KOKORO_');

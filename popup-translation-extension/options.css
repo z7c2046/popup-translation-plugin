@@ -317,6 +317,49 @@ body {
   margin-bottom: 16px;
 }
 
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.card-title-row .card-title {
+  margin-bottom: 0;
+}
+
+.card-title-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.engine-active-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  background: rgba(79, 70, 229, 0.12);
+  color: #4f46e5;
+  border: 1px solid rgba(79, 70, 229, 0.28);
+}
+
+body[data-skin="modern"][data-theme="dark"] .engine-active-badge {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.35);
+}
+
+body[data-skin="animal_island"] .engine-active-badge {
+  background: #e8faf5;
+  color: #0b8079;
+  border: 1.5px solid #82d5bb;
+}
+
 .title-svg {
   width: 17px;
   height: 17px;
