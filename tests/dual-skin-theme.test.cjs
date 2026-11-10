@@ -181,6 +181,163 @@ test('Dual Skin Content & Userscript: runtime theme resolution, Shadow DOM skins
     }
 });
 
+test('Modern Skin Speaker Alignment: .imt-speaker and .imt-ex-speaker match toolbar .imt-action-btn tactile hover/press physics', () => {
+    for (const [name, source] of [['content.js', contentJs], ['userscript', userscript]]) {
+        const modernBlock = section(
+            source,
+            '/* ================= 皮肤一：现代极简风格 (:host([data-skin="modern"])) ================= */',
+            ':host([data-skin="modern"]) .imt-section {'
+        );
+
+        assert.doesNotMatch(
+            modernBlock,
+            /\.imt-speaker[\s\S]*border-bottom:\s*3px/,
+            `${name}: modern skin speakers must use 1px modern border instead of 3px cartoon border`
+        );
+        assert.doesNotMatch(
+            modernBlock,
+            /\.imt-speaker[\s\S]*transform:\s*translateY\(2px\)/,
+            `${name}: modern skin speakers must not use old Animal Island translateY(2px) active transform`
+        );
+        assert.match(
+            modernBlock,
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker\s*\{[\s\S]*?border:\s*1px solid var\(--modern-divider\);[\s\S]*?border-bottom-width:\s*1px;/,
+            `${name}: modern speakers must inherit uniform 1px modern border and surface`
+        );
+        assert.match(
+            modernBlock,
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:hover,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:hover\s*\{[\s\S]*?transform:\s*translateY\(-1px\);[\s\S]*?box-shadow:\s*0 4px 10px var\(--modern-accent-glow\);/,
+            `${name}: modern speaker hover must match .imt-action-btn lift and indigo glow`
+        );
+        assert.match(
+            modernBlock,
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:active,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:active[\s\S]*?transform:\s*translateY\(1px\)\s*scale\(0\.95\);[\s\S]*?border-bottom-width:\s*1px;[\s\S]*?box-shadow:\s*none;/,
+            `${name}: modern speaker active press must match .imt-action-btn scale(0.95) + translateY(1px) + box-shadow: none`
+        );
+    }
+});
+
+test('Animal Island Wallpaper Picker: background only updates on tile click, never on mouse hover', async () => {
+    const helperDefs = section(optionsJs, 'const DEFAULT_CONFIG =', "document.addEventListener('DOMContentLoaded'");
+    const pickerDefs = section(optionsJs, '  function renderAnimalBgPicker() {', '  // 侧边栏分栏导航切换');
+
+    // Source-level guard against reintroducing hover-preview listeners on wallpaper tiles
+    assert.doesNotMatch(
+        pickerDefs,
+        /addEventListener\(\s*['"]mouse(?:enter|over|leave|out)['"]/,
+        'renderAnimalBgPicker must not bind mouse hover listeners that switch backdrop on hover'
+    );
+
+    const makeEl = (tag = 'div') => {
+        const classes = new Set();
+        const attrs = new Map();
+        const listeners = new Map();
+        const el = {
+            tagName: tag.toUpperCase(),
+            children: [],
+            style: {},
+            dataset: {},
+            textContent: '',
+            _innerHTML: '',
+            get innerHTML() { return this._innerHTML; },
+            set innerHTML(val) {
+                this._innerHTML = val;
+                if (val === '') this.children = [];
+            },
+            setAttribute(k, v) { attrs.set(k, String(v)); },
+            getAttribute(k) { return attrs.has(k) ? attrs.get(k) : null; },
+            removeAttribute(k) { attrs.delete(k); },
+            classList: {
+                add: (...names) => names.forEach(n => classes.add(n)),
+                remove: (...names) => names.forEach(n => classes.delete(n)),
+                toggle: (n, force) => {
+                    const next = force === undefined ? !classes.has(n) : Boolean(force);
+                    if (next) classes.add(n);
+                    else classes.delete(n);
+                    return next;
+                },
+                contains: (n) => classes.has(n)
+            },
+            addEventListener(type, fn) {
+                if (!listeners.has(type)) listeners.set(type, []);
+                listeners.get(type).push(fn);
+            },
+            async dispatchEvent(type) {
+                for (const fn of (listeners.get(type) || [])) {
+                    await fn({ target: el, currentTarget: el });
+                }
+            },
+            appendChild(child) {
+                this.children.push(child);
+                return child;
+            },
+            querySelectorAll(sel) {
+                if (sel === '.aiu-bg-tile') return this.children;
+                return [];
+            }
+        };
+        return el;
+    };
+
+    const pageBackdrop = makeEl('div');
+    const bodyEl = makeEl('body');
+    const animalBgGrid = makeEl('div');
+    const animalBgCurrentBadge = makeEl('span');
+    const modernColorModeGroup = makeEl('div');
+    const animalBgGroup = makeEl('div');
+    const themeSelect = { value: 'animal_island' };
+    const savedPatches = [];
+
+    const ctx = vm.createContext({
+        document: {
+            body: bodyEl,
+            createElement: (tag) => makeEl(tag)
+        },
+        pageBackdrop,
+        animalBgGrid,
+        animalBgCurrentBadge,
+        modernColorModeGroup,
+        animalBgGroup,
+        themeSelect,
+        modernColorIndicator: null,
+        modernColorButtons: [],
+        currentColorMode: 'auto',
+        currentAnimalBg: 'default',
+        resolveModernTheme: () => 'light',
+        saveStoragePatch: async (patch) => { savedPatches.push(patch); }
+    });
+
+    vm.runInContext(
+        `${helperDefs}\n${pickerDefs}\nrenderAnimalBgPicker();\napplySkinToDocument();\nthis.__api = { pageBackdrop, animalBgGrid, animalBgCurrentBadge, getBg: () => currentAnimalBg };`,
+        ctx
+    );
+
+    const tiles = ctx.__api.animalBgGrid.children;
+    assert.equal(tiles.length, 19);
+    assert.equal(ctx.__api.pageBackdrop.getAttribute('data-animal-bg'), 'default');
+
+    const sweetTile = tiles.find(t => t.dataset.bg === 'sweet-corner');
+    assert.ok(sweetTile);
+
+    // Hovering sweet-corner must NOT alter backdrop, selected state, or storage
+    await sweetTile.dispatchEvent('mouseenter');
+    await sweetTile.dispatchEvent('mouseover');
+    await sweetTile.dispatchEvent('mouseleave');
+    assert.equal(ctx.__api.pageBackdrop.getAttribute('data-animal-bg'), 'default');
+    assert.equal(ctx.__api.getBg(), 'default');
+    assert.equal(ctx.__api.animalBgCurrentBadge.textContent, '奶油色波点');
+    assert.equal(savedPatches.length, 0);
+
+    // Clicking sweet-corner must update backdrop, selection, badge, and storage
+    await sweetTile.dispatchEvent('click');
+    assert.equal(ctx.__api.pageBackdrop.getAttribute('data-animal-bg'), 'sweet-corner');
+    assert.equal(ctx.__api.getBg(), 'sweet-corner');
+    assert.equal(sweetTile.classList.contains('is-selected'), true);
+    assert.equal(sweetTile.getAttribute('aria-checked'), 'true');
+    assert.equal(ctx.__api.animalBgCurrentBadge.textContent, '甜点街角');
+    assert.deepEqual(JSON.parse(JSON.stringify(savedPatches)), [{ lexipro_animal_background: 'sweet-corner' }]);
+});
+
 test('Branding Check: Dual-skin files contain zero LexiPro / Lexi Pro strings', () => {
     for (const [label, text] of [
         ['options.html', optionsHtml],

@@ -167,16 +167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         <span class="aiu-bg-tile-cn">${bg.cn}</span>
         <span class="aiu-bg-tile-id">${bg.id}</span>
       `;
-      btn.addEventListener('mouseenter', () => {
-        if (normalizeUiSkin(themeSelect?.value) === 'animal_island' && pageBackdrop) {
-          pageBackdrop.setAttribute('data-animal-bg', bg.id);
-        }
-      });
-      btn.addEventListener('mouseleave', () => {
-        if (normalizeUiSkin(themeSelect?.value) === 'animal_island' && pageBackdrop) {
-          pageBackdrop.setAttribute('data-animal-bg', currentAnimalBg);
-        }
-      });
       btn.addEventListener('click', async () => {
         currentAnimalBg = normalizeAnimalBg(bg.id);
         applySkinToDocument();

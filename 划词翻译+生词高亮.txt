@@ -502,10 +502,6 @@
             document.documentElement.setAttribute('data-lexipro-skin', currentUiSkin);
             document.documentElement.setAttribute('data-lexipro-theme', resolvedTheme);
         }
-        const themeStatusText = document.getElementById('lps-theme-status');
-        if (themeStatusText) {
-            themeStatusText.innerText = currentUiSkin === 'animal_island' ? '动森经典' : '现代极简';
-        }
         const logoIcon = document.querySelector('#lexipro-site-fab .lexipro-site-logo-icon');
         if (logoIcon) {
             logoIcon.innerText = currentUiSkin === 'animal_island' ? '🍃' : '译';
@@ -797,7 +793,7 @@
             font-weight: 900;
             line-height: 1;
             opacity: 1;
-            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
         }
 
         .imt-action-btn:hover {
@@ -888,7 +884,7 @@
             font-weight: 900;
             line-height: 1;
             opacity: 1;
-            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, color .12s ease;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
         }
 
         .imt-font-step-btn {
@@ -1967,7 +1963,8 @@
             color: #ffffff;
         }
 
-        :host([data-skin="modern"]) .imt-action-btn:active {
+        :host([data-skin="modern"]) .imt-action-btn:active,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn:active {
             transform: translateY(1px) scale(0.95);
             border-bottom-width: 1px;
             box-shadow: none;
@@ -2088,53 +2085,76 @@
             color: #a5b4fc;
         }
 
-        /* 现代极简：薄荷音标喇叭按钮（保留与工具栏统一的按压反馈物理动效） */
-        :host([data-skin="modern"][data-theme="light"]) .imt-speaker,
-        :host([data-skin="modern"][data-theme="light"]) .imt-speaker.imt-ex-speaker {
-            border: 1px solid #82d5bb;
-            border-bottom: 3px solid #60bba5;
-            background: linear-gradient(180deg, #f5fffb, #e8faf5);
-            color: #0b8079;
-            box-shadow: 0 2px 4px rgba(13, 161, 117, 0.14);
+        /* 现代极简：喇叭发音按钮（与顶部工具栏 .imt-action-btn 保持完全一致的外观、悬浮光晕与按压反馈动效） */
+        :host([data-skin="modern"]) .imt-speaker,
+        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker {
+            border: 1px solid var(--modern-divider);
+            border-bottom-width: 1px;
+            border-radius: 9px;
+            background: var(--modern-input-bg);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            color: var(--aiu-text-soft);
+            font-weight: 700;
         }
 
-        :host([data-skin="modern"][data-theme="light"]) .imt-speaker:hover,
-        :host([data-skin="modern"][data-theme="light"]) .imt-speaker.imt-ex-speaker:hover {
-            background: linear-gradient(180deg, #e7fcf5, #cef7eb);
-            border-color: #4cc2ad;
-            color: #096f69;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(13, 161, 117, 0.22);
+        :host([data-skin="modern"]) .imt-speaker {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 9px;
+        }
+
+        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker {
+            width: 24px;
+            height: 24px;
+            min-width: 24px;
+            border-radius: 8px;
+            font-size: 12px;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker {
-            background: linear-gradient(180deg, #243530, #1c2b27);
-            border: 1px solid #3b7364;
-            border-bottom: 3px solid #275247;
-            color: #4ee3be;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        :host([data-skin="modern"]) .imt-speaker:hover,
+        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:hover {
+            background: var(--aiu-primary-soft);
+            border-color: rgba(79, 70, 229, 0.35);
+            color: var(--aiu-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker:hover,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker:hover {
-            background: linear-gradient(180deg, #2b403a, #21342f);
-            border-color: #478a78;
-            color: #6ee7cb;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.45);
+            color: #ffffff;
         }
 
         :host([data-skin="modern"]) .imt-speaker:active,
-        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:active {
-            transform: translateY(2px);
+        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:active,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker:active,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker:active {
+            transform: translateY(1px) scale(0.95);
             border-bottom-width: 1px;
-            box-shadow: 0 1px 0 rgba(18, 169, 157, .12);
+            box-shadow: none;
         }
 
         :host([data-skin="modern"]) .imt-speaker.playing {
-            border-color: #19c8b9;
-            box-shadow: 0 0 0 2px rgba(25, 200, 185, 0.35);
+            background: var(--aiu-primary-soft);
+            border-color: var(--aiu-primary);
+            color: var(--aiu-primary);
+            box-shadow: 0 0 0 2px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.playing {
+            background: rgba(99, 102, 241, 0.24);
+            border-color: #818cf8;
+            color: #ffffff;
         }
 
         :host([data-skin="modern"]) .imt-section {
@@ -5597,84 +5617,126 @@ CRITICAL RULES:
                 user-select: none;
             }
             .lexipro-site-fab-toolbar {
+                position: relative;
                 display: flex;
                 align-items: center;
-                gap: 6px;
             }
             .lexipro-site-fab {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                padding: 0 15px;
-                height: 44px;
-                min-height: 44px;
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.92);
-                color: #0f172a;
-                border: 1.5px solid rgba(0, 0, 0, 0.08);
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                cursor: pointer;
-                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                box-sizing: border-box;
-            }
-            .lexipro-site-fab:hover {
-                background: #ffffff;
-                border-color: rgba(79, 70, 229, 0.35);
-                transform: translateY(-1px);
-                box-shadow: 0 14px 36px rgba(79, 70, 229, 0.18);
-            }
-            .lexipro-site-fab:active {
-                transform: translateY(1px);
-            }
-            .lexipro-site-fab.dragging {
-                opacity: 0.8;
-                cursor: grabbing;
-            }
-            .lexipro-site-fab-more {
+                position: relative;
+                overflow: hidden;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 40px;
-                height: 44px;
+                gap: 11px;
+                padding: 0 26px 0 20px;
+                height: 56px;
                 min-height: 44px;
+                min-width: 172px;
                 border-radius: 999px;
-                background: rgba(255, 255, 255, 0.92);
-                color: #475569;
-                border: 1.5px solid rgba(0, 0, 0, 0.08);
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+                background: rgba(255, 255, 255, 0.94);
+                color: #0f172a;
+                border: 1.5px solid rgba(15, 23, 42, 0.09);
+                box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
                 backdrop-filter: blur(16px);
                 -webkit-backdrop-filter: blur(16px);
                 cursor: pointer;
-                transition: all 0.2s ease;
-                font-size: 14px;
+                outline: none;
+                transition:
+                    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+                    border-color 0.18s ease,
+                    background 0.18s ease,
+                    color 0.18s ease;
                 box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
             }
-            .lexipro-site-fab-more:hover {
+            .lexipro-site-fab:hover {
                 background: #ffffff;
-                color: #4f46e5;
-                border-color: rgba(79, 70, 229, 0.35);
+                border-color: rgba(79, 70, 229, 0.42);
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 16px 38px rgba(79, 70, 229, 0.22), 0 4px 12px rgba(15, 23, 42, 0.08);
+            }
+            .lexipro-site-fab:not(.dragging):active {
+                transform: translateY(2px) scale(0.95);
+                border-color: rgba(79, 70, 229, 0.65);
+                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.18), inset 0 2px 6px rgba(15, 23, 42, 0.08);
+                transition-duration: 0.08s;
+            }
+            .lexipro-site-fab:focus-visible {
+                border-color: #4f46e5;
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.28), 0 12px 32px rgba(15, 23, 42, 0.12);
+            }
+            .lexipro-site-fab.dragging {
+                opacity: 0.82;
+                cursor: grabbing;
+                transform: scale(0.98);
+                transition: opacity 0.12s ease;
+            }
+            .lexipro-site-fab.lexipro-fab-clicked {
+                animation: lexipro-fab-click-pop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            @keyframes lexipro-fab-click-pop {
+                0% {
+                    transform: translateY(2px) scale(0.94);
+                }
+                48% {
+                    transform: translateY(-2px) scale(1.04);
+                }
+                100% {
+                    transform: translateY(0) scale(1);
+                }
+            }
+            .lexipro-fab-ripple {
+                position: absolute;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 0;
+                background: radial-gradient(circle, rgba(79, 70, 229, 0.3) 0%, rgba(59, 130, 246, 0.14) 55%, transparent 72%);
+                transform: scale(0);
+                animation: lexipro-fab-ripple-expand 0.52s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            }
+            @keyframes lexipro-fab-ripple-expand {
+                0% {
+                    transform: scale(0);
+                    opacity: 0.9;
+                }
+                100% {
+                    transform: scale(1);
+                    opacity: 0;
+                }
+            }
+            .lexipro-site-fab-icon,
+            .lexipro-site-fab-label {
+                position: relative;
+                z-index: 1;
             }
             .lexipro-site-fab-icon {
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 16px;
+                font-size: 19px;
+                flex-shrink: 0;
             }
             .lexipro-site-logo-icon {
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                width: 22px;
-                height: 22px;
-                border-radius: 7px;
+                width: 30px;
+                height: 30px;
+                border-radius: 999px;
                 background: linear-gradient(135deg, #4f46e5, #3b82f6);
                 color: #ffffff;
                 font-weight: 800;
-                font-size: 12px;
+                font-size: 14.5px;
                 line-height: 1;
-                box-shadow: 0 3px 10px rgba(79, 70, 229, 0.28);
+                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.32);
+                transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            }
+            .lexipro-site-fab:hover .lexipro-site-logo-icon {
+                transform: scale(1.06);
+            }
+            .lexipro-site-fab:not(.dragging):active .lexipro-site-logo-icon {
+                transform: scale(0.92);
             }
             .lexipro-site-spinner {
                 display: inline-block;
@@ -5685,124 +5747,26 @@ CRITICAL RULES:
                 to { transform: rotate(360deg); }
             }
             .lexipro-site-fab-label {
-                font-size: 13.5px;
-                font-weight: 650;
-                letter-spacing: -0.2px;
+                font-size: 16px;
+                font-weight: 700;
+                letter-spacing: 0.2px;
+                line-height: 1;
                 white-space: nowrap;
             }
             .lexipro-site-badge {
                 position: absolute;
-                top: -5px;
-                right: 38px;
+                top: -4px;
+                right: 4px;
                 background: linear-gradient(135deg, #4f46e5, #3b82f6);
                 color: #ffffff;
-                font-size: 10px;
+                font-size: 11px;
                 font-weight: 700;
-                padding: 1px 6px;
+                padding: 2px 7px;
                 border-radius: 999px;
                 border: 2px solid #ffffff;
-                box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
-            }
-
-            /* 悬浮菜单面板（默认现代极简 Light） */
-            .lexipro-site-menu {
-                display: none;
-                width: 262px;
-                background: rgba(255, 255, 255, 0.96);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
-                border: 1.5px solid rgba(0, 0, 0, 0.08);
-                border-radius: 18px;
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
-                padding: 12px;
-                margin-bottom: 10px;
-                color: #0f172a;
-                font-size: 12.5px;
-            }
-            .lexipro-site-menu.show {
-                display: block;
-            }
-            .lexipro-site-menu-header {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding-bottom: 8px;
-                margin-bottom: 8px;
-                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-                font-size: 12px;
-                font-weight: 700;
-                color: #4f46e5;
-            }
-            .lexipro-site-status-pill {
-                font-size: 11px;
-                font-weight: 500;
-                color: #64748b;
-            }
-            .lexipro-menu-divider {
-                height: 1px;
-                background: rgba(0, 0, 0, 0.08);
-                margin: 6px 0;
-            }
-            .lexipro-site-menu-btn {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                width: 100%;
-                padding: 7px 10px;
-                border-radius: 10px;
-                border: 1px solid transparent;
-                background: transparent;
-                color: inherit;
-                font-size: 12px;
-                font-weight: 600;
+                box-shadow: 0 3px 10px rgba(79, 70, 229, 0.38);
                 cursor: pointer;
-                text-align: left;
-                transition: all 0.15s ease;
-            }
-            .lexipro-site-menu-btn:hover {
-                background: rgba(79, 70, 229, 0.07);
-                border-color: rgba(79, 70, 229, 0.2);
-                color: #4f46e5;
-            }
-            .lexipro-theme-status-value {
-                margin-left: auto;
-                font-weight: 700;
-                color: #4f46e5;
-            }
-            .lexipro-style-group {
-                margin: 6px 0;
-                padding: 7px 8px;
-                background: #f8fafc;
-                border: 1px solid rgba(0, 0, 0, 0.06);
-                border-radius: 12px;
-            }
-            .lexipro-style-title {
-                font-size: 11px;
-                color: #64748b;
-                margin-bottom: 4px;
-                font-weight: 600;
-            }
-            .lexipro-style-option {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 5px 8px;
-                border-radius: 8px;
-                border: 1px solid transparent;
-                font-size: 12px;
-                cursor: pointer;
-                color: #475569;
-                transition: all 0.15s ease;
-            }
-            .lexipro-style-option:hover {
-                background: rgba(79, 70, 229, 0.06);
-                color: #0f172a;
-            }
-            .lexipro-style-option.active {
-                background: rgba(79, 70, 229, 0.1);
-                border-color: rgba(79, 70, 229, 0.28);
-                color: #4f46e5;
-                font-weight: 700;
+                z-index: 2;
             }
 
             /* 原文/中文 切换微型胶囊按钮 */
@@ -5925,66 +5889,30 @@ CRITICAL RULES:
             }
 
             /* ================= 现代极简 · 黑夜模式 (html[data-lexipro-skin="modern"][data-lexipro-theme="dark"]) ================= */
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab,
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab-more {
-                background: rgba(28, 31, 38, 0.88);
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab {
+                background: rgba(28, 31, 38, 0.92);
                 color: #f3f4f6;
-                border-color: rgba(255, 255, 255, 0.1);
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+                border-color: rgba(255, 255, 255, 0.14);
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.52);
             }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:hover,
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab-more:hover {
-                background: rgba(34, 38, 47, 0.96);
-                border-color: rgba(99, 102, 241, 0.55);
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:hover {
+                background: rgba(34, 38, 47, 0.98);
+                border-color: rgba(129, 140, 248, 0.62);
                 color: #ffffff;
-                box-shadow: 0 14px 36px rgba(99, 102, 241, 0.25);
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 18px 42px rgba(99, 102, 241, 0.32), 0 6px 16px rgba(0, 0, 0, 0.45);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:not(.dragging):active {
+                transform: translateY(2px) scale(0.95);
+                border-color: rgba(129, 140, 248, 0.85);
+                box-shadow: 0 5px 16px rgba(99, 102, 241, 0.25), inset 0 2px 6px rgba(0, 0, 0, 0.45);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-fab-ripple {
+                background: radial-gradient(circle, rgba(129, 140, 248, 0.36) 0%, rgba(59, 130, 246, 0.18) 55%, transparent 72%);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-logo-icon {
                 background: linear-gradient(135deg, #6366f1, #3b82f6);
-                box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu {
-                background: rgba(28, 31, 38, 0.94);
-                border-color: rgba(255, 255, 255, 0.1);
-                color: #f3f4f6;
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu-header {
-                border-bottom-color: rgba(255, 255, 255, 0.08);
-                color: #818cf8;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-status-pill {
-                color: #9ca3af;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-menu-divider {
-                background: rgba(255, 255, 255, 0.08);
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu-btn:hover {
-                background: rgba(99, 102, 241, 0.16);
-                border-color: rgba(99, 102, 241, 0.32);
-                color: #ffffff;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-theme-status-value {
-                color: #818cf8;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-group {
-                background: rgba(18, 20, 24, 0.65);
-                border-color: rgba(255, 255, 255, 0.08);
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-title {
-                color: #9ca3af;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option {
-                color: #9ca3af;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option:hover {
-                background: rgba(255, 255, 255, 0.07);
-                color: #f3f4f6;
-            }
-            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option.active {
-                background: rgba(99, 102, 241, 0.2);
-                border-color: rgba(99, 102, 241, 0.4);
-                color: #c7d2fe;
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn {
                 background: rgba(28, 31, 38, 0.9);
@@ -6035,105 +5963,46 @@ CRITICAL RULES:
             html[data-lexipro-skin="animal_island"] .lexipro-site-fab-container {
                 font-family: "Nunito", "Noto Sans SC", "Trebuchet MS", "PingFang SC", "Microsoft YaHei", sans-serif;
             }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab,
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more {
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab {
                 background:
                     radial-gradient(circle, rgba(216, 200, 171, .35) 1.2px, transparent 1.4px) 0 0 / 14px 14px,
                     linear-gradient(180deg, #fffdf3, #fff8e4);
                 color: #794f27;
                 border: 2px solid #d8c8ab;
-                border-bottom: 4px solid #bdae9d;
-                box-shadow: 0 8px 20px rgba(114, 93, 66, 0.24);
+                border-bottom: 5px solid #bdae9d;
+                box-shadow: 0 10px 24px rgba(114, 93, 66, 0.24);
                 backdrop-filter: none;
                 font-weight: 800;
             }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:hover,
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more:hover {
-                background: linear-gradient(180deg, #effdf8, #e8faf5);
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:hover {
+                background: linear-gradient(180deg, #effdf8, #dff8ef);
                 border-color: #82d5bb;
-                border-bottom-color: #60bba5;
+                border-bottom-color: #5cb8a1;
                 color: #0b8079;
-                box-shadow: 0 10px 24px rgba(18, 169, 157, 0.24);
+                transform: translateY(-2px) scale(1.02);
+                box-shadow: 0 14px 28px rgba(18, 169, 157, 0.28);
             }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:active,
-            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more:active {
-                transform: translateY(2px);
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:not(.dragging):active {
+                transform: translateY(3px) scale(0.96);
                 border-bottom-width: 2px;
+                box-shadow: 0 3px 8px rgba(18, 169, 157, 0.16);
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-fab-ripple {
+                background: radial-gradient(circle, rgba(25, 200, 185, 0.34) 0%, rgba(25, 200, 185, 0.14) 55%, transparent 72%);
             }
             html[data-lexipro-skin="animal_island"] .lexipro-site-logo-icon {
                 background: linear-gradient(180deg, #ffe18d, #f7cd67);
                 color: #794f27;
                 border: 1.5px solid #d6a943;
-                border-radius: 8px;
+                border-radius: 999px;
                 box-shadow: 0 2px 0 #c69a37;
-                font-size: 13px;
+                font-size: 15px;
             }
             html[data-lexipro-skin="animal_island"] .lexipro-site-badge {
                 background: #19c8b9;
                 color: #ffffff;
                 border: 2px solid #fffdf3;
                 box-shadow: 0 2px 0 #12a99d;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-menu {
-                background:
-                    radial-gradient(circle, rgba(216, 200, 171, .35) 1.2px, transparent 1.4px) 0 0 / 16px 16px,
-                    linear-gradient(180deg, #fffdf3, #fff8e4);
-                border: 2px solid #d8c8ab;
-                border-radius: 22px;
-                color: #725d42;
-                box-shadow: 0 6px 0 #bdae9d, 0 18px 38px rgba(114, 93, 66, 0.25);
-                backdrop-filter: none;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-header {
-                border-bottom: 1.5px dashed #e2d5bd;
-                color: #794f27;
-                font-weight: 900;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-status-pill {
-                color: #9b8567;
-                font-weight: 700;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-menu-divider {
-                height: 0;
-                background: transparent;
-                border-top: 1.5px dashed #e2d5bd;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-btn {
-                border-radius: 12px;
-                color: #725d42;
-                font-weight: 700;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-btn:hover {
-                background: #effdf8;
-                border-color: #82d5bb;
-                color: #0b8079;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-theme-status-value {
-                color: #0b8079;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-style-group {
-                background: rgba(255, 253, 247, 0.85);
-                border: 1.5px dashed #d8c8ab;
-                border-radius: 14px;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-style-title {
-                color: #9b8567;
-                font-weight: 700;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-style-option {
-                color: #725d42;
-                border-radius: 10px;
-                font-weight: 600;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-style-option:hover {
-                background: #effdf8;
-                color: #0b8079;
-            }
-            html[data-lexipro-skin="animal_island"] .lexipro-style-option.active {
-                background: #e8faf5;
-                border-color: #82d5bb;
-                color: #0b8079;
-                box-shadow: 0 2px 0 rgba(18, 169, 157, 0.2);
             }
             html[data-lexipro-skin="animal_island"] .lexipro-orig-toggle-btn {
                 background: linear-gradient(180deg, #fffdf3, #fff1c8);
@@ -6801,7 +6670,6 @@ CRITICAL RULES:
         function setTranslationStyle(newStyle) {
             siteTranslationStyle = newStyle;
             GM_setValue('lexipro_site_translation_style', newStyle);
-            updateStyleMenuUI();
             if (isSiteShowingTranslation) {
                 siteItemsMap.forEach(it => {
                     if (it.status === 'done') applyItemStyle(it);
@@ -6810,7 +6678,7 @@ CRITICAL RULES:
             showSiteToast('呈现样式已切换为: ' + (newStyle === 'replace' ? '中文阅读 (原生字体)' : newStyle === 'underline' ? '下划线双语对照' : '独立轻量卡片'));
         }
 
-        // 悬浮 UI 构建（双按钮设计：主操作 + 更多选项）
+        // 悬浮 UI 构建（圆角沉浸式翻译单按钮设计，移除与扩展 Popup 重复的设置入口）
         let fabWrapper = null;
         function buildSiteFab() {
             if (isCurrentSiteExcluded() || !isCurrentSiteImmersionEnabled()) return;
@@ -6824,190 +6692,125 @@ CRITICAL RULES:
             let b = 40, r = 32;
             if (savedPos && typeof savedPos.bottom === 'number' && typeof savedPos.right === 'number') {
                 b = Math.max(16, Math.min(window.innerHeight - 80, savedPos.bottom));
-                r = Math.max(16, Math.min(window.innerWidth - 80, savedPos.right));
+                r = Math.max(16, Math.min(Math.max(16, window.innerWidth - 200), savedPos.right));
             }
             fabWrapper.style.bottom = b + 'px';
             fabWrapper.style.right = r + 'px';
 
             fabWrapper.innerHTML = `
-                <div class="lexipro-site-menu" id="lexipro-site-menu">
-                    <div class="lexipro-site-menu-header">
-                        <span>${siteConfig.name} 翻译增强</span>
-                        <span id="lexipro-site-status-text" class="lexipro-site-status-pill">就绪</span>
-                    </div>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-translate">🌐 一键翻译本页</button>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-retry" style="display:none;color:#ff9fa5;">⚠️ 重试未完成段落</button>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-restore" style="display:none;">🔄 还原为英文原文</button>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-new-items" style="display:none;">✨ 翻译新增内容</button>
-                    
-                    <div class="lexipro-style-group">
-                        <div class="lexipro-style-title">翻译显示样式：</div>
-                        <div class="lexipro-style-option" data-style="replace">
-                            <span>中文阅读 (原生排版)</span>
-                            <span class="check-icon">✓</span>
-                        </div>
-                        <div class="lexipro-style-option" data-style="underline">
-                            <span>下划线双语对照</span>
-                            <span class="check-icon">✓</span>
-                        </div>
-                        <div class="lexipro-style-option" data-style="card">
-                            <span>独立卡片对照</span>
-                            <span class="check-icon">✓</span>
-                        </div>
-                    </div>
-
-                    <div class="lexipro-menu-divider"></div>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-theme-toggle">
-                        <span>🎨 界面视觉皮肤:</span>
-                        <span id="lps-theme-status" class="lexipro-theme-status-value">${currentUiSkin === 'animal_island' ? '动森经典' : '现代极简'}</span>
-                    </button>
-                    <button class="lexipro-site-menu-btn" id="lps-btn-auto-toggle">
-                        <span>⚡ 进站自动翻译:</span>
-                        <span id="lps-auto-status" style="margin-left:auto;font-weight:bold;color:${isCurrentSiteAutoTranslate() ? '#31c39a' : '#8b949f'};">${isCurrentSiteAutoTranslate() ? '当前网站开启' : '已关闭'}</span>
-                    </button>
-                </div>
                 <div class="lexipro-site-fab-toolbar">
-                    <div class="lexipro-site-fab" id="lexipro-site-fab">
+                    <div class="lexipro-site-fab" id="lexipro-site-fab" role="button" tabindex="0" aria-label="沉浸式翻译" title="点击开始沉浸式翻译（可拖拽移动）">
                         <div class="lexipro-site-fab-icon">
                             <span class="lexipro-site-spinner" style="display:none;">⏳</span>
                             <span class="lexipro-site-logo-icon">${currentUiSkin === 'animal_island' ? '🍃' : '译'}</span>
                         </div>
-                        <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">${siteConfig.isGeneral ? '沉浸式翻译' : ('翻译' + siteConfig.name)}</div>
+                        <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">沉浸式翻译</div>
                     </div>
-                    <button class="lexipro-site-fab-more" id="lexipro-site-fab-more" title="翻译选项与设置">⚙️</button>
-                    <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;">0</div>
+                    <div class="lexipro-site-badge" id="lexipro-site-badge" style="display:none;" title="点击翻译新增段落">0</div>
                 </div>
             `;
 
             document.body.appendChild(fabWrapper);
 
             const fab = fabWrapper.querySelector('#lexipro-site-fab');
-            const fabMore = fabWrapper.querySelector('#lexipro-site-fab-more');
-            const menu = fabWrapper.querySelector('#lexipro-site-menu');
-            const btnTranslate = fabWrapper.querySelector('#lps-btn-translate');
-            const btnRetry = fabWrapper.querySelector('#lps-btn-retry');
-            const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
-            const btnNewItems = fabWrapper.querySelector('#lps-btn-new-items');
+            const badge = fabWrapper.querySelector('#lexipro-site-badge');
 
-            updateStyleMenuUI();
             applyUISkin();
+
+            function triggerFabClickEffect(clickEvent) {
+                if (!fab) return;
+                fab.classList.remove('lexipro-fab-clicked');
+                void fab.offsetWidth;
+                fab.classList.add('lexipro-fab-clicked');
+                if (fab._clickAnimTimer) clearTimeout(fab._clickAnimTimer);
+                fab._clickAnimTimer = setTimeout(() => {
+                    fab.classList.remove('lexipro-fab-clicked');
+                }, 380);
+
+                const rect = fab.getBoundingClientRect ? fab.getBoundingClientRect() : { width: 180, height: 56, left: 0, top: 0 };
+                const width = rect.width || fab.offsetWidth || 180;
+                const height = rect.height || fab.offsetHeight || 56;
+                const size = Math.max(width, height) * 2.2;
+                const hasPointerCoords = clickEvent && typeof clickEvent.clientX === 'number' && typeof clickEvent.clientY === 'number' && (clickEvent.clientX !== 0 || clickEvent.clientY !== 0);
+                const offsetX = hasPointerCoords ? (clickEvent.clientX - rect.left) : (width / 2);
+                const offsetY = hasPointerCoords ? (clickEvent.clientY - rect.top) : (height / 2);
+
+                const ripple = document.createElement('span');
+                ripple.className = 'lexipro-fab-ripple';
+                ripple.style.width = size + 'px';
+                ripple.style.height = size + 'px';
+                ripple.style.left = (offsetX - size / 2) + 'px';
+                ripple.style.top = (offsetY - size / 2) + 'px';
+                fab.appendChild(ripple);
+
+                const removeRipple = () => {
+                    if (ripple.parentNode) ripple.remove();
+                };
+                ripple.addEventListener('animationend', removeRipple, { once: true });
+                setTimeout(removeRipple, 580);
+            }
 
             fab.addEventListener('click', (e) => {
                 e.stopPropagation();
+                if (typeof fab._consumeSuppressClick === 'function' && fab._consumeSuppressClick()) {
+                    return;
+                }
+                triggerFabClickEffect(e);
                 if (!isSiteShowingTranslation && !isSiteTranslating) {
                     runSiteTranslation();
                 } else if (isSiteShowingTranslation && !isSiteTranslating) {
-                    // 已翻译状态下点击主按钮快速切换原文与中文
-                    const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
-                    siteItemsMap.forEach(it => {
-                        it.isShowingOriginal = !isShowingOrig;
-                        applyItemStyle(it);
-                    });
-                    updateSiteFabState();
+                    const hasDone = Array.from(siteItemsMap.values()).some(it => it.status === 'done');
+                    const hasFailed = Array.from(siteItemsMap.values()).some(it => it.status === 'failed' || it.status === 'error');
+                    if (!hasDone && hasFailed) {
+                        runSiteTranslation({ retryFailedOnly: true });
+                    } else {
+                        // 已翻译状态下点击主按钮快速切换原文与中文
+                        const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
+                        siteItemsMap.forEach(it => {
+                            it.isShowingOriginal = !isShowingOrig;
+                            applyItemStyle(it);
+                        });
+                        updateSiteFabState();
+                    }
                 } else {
-                    menu.classList.toggle('show');
+                    showSiteToast(`正在翻译中 (${siteTranslatedCount}/${siteTotalCount})，请稍候...`);
                 }
             });
 
-            fabMore.addEventListener('click', (e) => {
-                e.stopPropagation();
-                menu.classList.toggle('show');
-            });
-
-            fab.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                menu.classList.toggle('show');
-            });
-
-            btnTranslate.addEventListener('click', () => {
-                menu.classList.remove('show');
-                runSiteTranslation();
-            });
-
-            btnRetry.addEventListener('click', () => {
-                menu.classList.remove('show');
-                runSiteTranslation({ retryFailedOnly: true });
-            });
-
-            btnRestore.addEventListener('click', () => {
-                menu.classList.remove('show');
-                restoreSiteOriginal();
-            });
-
-            btnNewItems.addEventListener('click', () => {
-                menu.classList.remove('show');
-                runSiteTranslation();
-            });
-
-            const btnThemeToggle = fabWrapper.querySelector('#lps-btn-theme-toggle');
-            btnThemeToggle.addEventListener('click', () => {
-                const nextTheme = currentUiSkin === 'animal_island' ? 'modern' : 'animal_island';
-                siteUITheme = nextTheme;
-                GM_setValue('lexipro_ui_theme', nextTheme);
-                applyUISkin(nextTheme);
-                showSiteToast('已切换皮肤: ' + (nextTheme === 'animal_island' ? '动森经典' : '现代极简'));
-            });
-
-            const btnAutoToggle = fabWrapper.querySelector('#lps-btn-auto-toggle');
-            const autoStatusText = fabWrapper.querySelector('#lps-auto-status');
-            function updateAutoStatusUI() {
-                const isAuto = isCurrentSiteAutoTranslate();
-                if (autoStatusText) {
-                    autoStatusText.innerText = isAuto ? '当前网站开启' : '已关闭';
-                    autoStatusText.style.color = isAuto ? '#31c39a' : '#8b949f';
+            fab.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    fab.click();
                 }
-            }
-
-            btnAutoToggle.addEventListener('click', () => {
-                const host = (location && location.hostname ? location.hostname : '').toLowerCase();
-                if (!host) return;
-                let list = Array.isArray(CONFIG.autoTranslateSites) ? [...CONFIG.autoTranslateSites] : [];
-                const exists = list.some(pat => matchesDomainPattern(host, pat));
-                if (exists) {
-                    list = list.filter(pat => !matchesDomainPattern(host, pat));
-                } else {
-                    list.push(host);
-                }
-                CONFIG.autoTranslateSites = list;
-                GM_setValue('lexipro_auto_translate_sites', list);
-                updateAutoStatusUI();
-                showSiteToast('对此网站进站自动翻译: ' + (isCurrentSiteAutoTranslate() ? '已开启' : '已关闭'));
             });
 
-            fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    const chosenStyle = opt.dataset.style;
-                    setTranslationStyle(chosenStyle);
+            if (badge) {
+                badge.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerFabClickEffect();
+                    runSiteTranslation();
                 });
-            });
-
-            document.addEventListener('click', (e) => {
-                if (!fabWrapper.contains(e.target)) {
-                    menu.classList.remove('show');
-                }
-            });
+            }
 
             setupFabDrag(fabWrapper, fab);
         }
 
-        function updateStyleMenuUI() {
-            if (!fabWrapper) return;
-            fabWrapper.querySelectorAll('.lexipro-style-option').forEach(opt => {
-                const isActive = opt.dataset.style === siteTranslationStyle;
-                opt.classList.toggle('active', isActive);
-                const check = opt.querySelector('.check-icon');
-                if (check) check.style.display = isActive ? 'inline' : 'none';
-            });
-        }
-
         function setupFabDrag(container, handle) {
             let dragging = false;
+            let suppressNextClick = false;
             let startX = 0, startY = 0;
             let initRight = 0, initBottom = 0;
+
+            handle._consumeSuppressClick = () => {
+                if (!suppressNextClick) return false;
+                suppressNextClick = false;
+                return true;
+            };
 
             handle.addEventListener('mousedown', (e) => {
                 if (e.button !== 0) return;
                 dragging = false;
+                suppressNextClick = false;
                 startX = e.clientX;
                 startY = e.clientY;
 
@@ -7021,7 +6824,9 @@ CRITICAL RULES:
                     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
                         dragging = true;
                         handle.classList.add('dragging');
-                        const newR = Math.max(12, Math.min(window.innerWidth - 80, initRight - dx));
+                        const fabWidth = handle.offsetWidth || 180;
+                        const maxRight = Math.max(12, window.innerWidth - fabWidth - 12);
+                        const newR = Math.max(12, Math.min(maxRight, initRight - dx));
                         const newB = Math.max(12, Math.min(window.innerHeight - 80, initBottom - dy));
                         container.style.right = newR + 'px';
                         container.style.bottom = newB + 'px';
@@ -7033,6 +6838,8 @@ CRITICAL RULES:
                     document.removeEventListener('mouseup', onUp);
                     handle.classList.remove('dragging');
                     if (dragging) {
+                        suppressNextClick = true;
+                        setTimeout(() => { suppressNextClick = false; }, 120);
                         const r = window.innerWidth - container.getBoundingClientRect().right;
                         const b = window.innerHeight - container.getBoundingClientRect().bottom;
                         GM_setValue('lexipro_site_fab_pos', { right: Math.round(r), bottom: Math.round(b) });
@@ -7046,55 +6853,37 @@ CRITICAL RULES:
 
         function updateSiteFabState() {
             if (!fabWrapper) return;
+            const fab = fabWrapper.querySelector('#lexipro-site-fab');
             const label = fabWrapper.querySelector('#lexipro-site-fab-label');
             const badge = fabWrapper.querySelector('#lexipro-site-badge');
             const spin = fabWrapper.querySelector('.lexipro-site-spinner');
             const logo = fabWrapper.querySelector('.lexipro-site-logo-icon');
-            const btnTrans = fabWrapper.querySelector('#lps-btn-translate');
-            const btnRetry = fabWrapper.querySelector('#lps-btn-retry');
-            const btnRestore = fabWrapper.querySelector('#lps-btn-restore');
-            const btnNew = fabWrapper.querySelector('#lps-btn-new-items');
-            const statusText = fabWrapper.querySelector('#lexipro-site-status-text');
 
-            const failedCount = Array.from(siteItemsMap.values()).filter(it => it.status === 'failed' || it.status === 'error').length;
             const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
+
+            if (fab) {
+                fab.classList.toggle('is-translating', Boolean(isSiteTranslating));
+            }
 
             if (isSiteTranslating) {
                 spin.style.display = 'inline-block';
                 logo.style.display = 'none';
                 label.innerText = `翻译中 ${siteTranslatedCount}/${siteTotalCount}`;
-                statusText.innerText = '翻译中...';
             } else if (isSiteShowingTranslation) {
                 spin.style.display = 'none';
                 logo.style.display = 'inline-flex';
                 label.innerText = isShowingOrig ? `显示原文 (${siteTranslatedCount})` : `已翻译 (${siteTranslatedCount})`;
-                btnTrans.style.display = 'none';
-                btnRestore.style.display = 'flex';
-                statusText.innerText = '已翻译';
             } else {
                 spin.style.display = 'none';
                 logo.style.display = 'inline-flex';
-                label.innerText = '翻译' + siteConfig.name;
-                btnTrans.style.display = 'flex';
-                btnRestore.style.display = 'none';
-                statusText.innerText = '就绪';
-            }
-
-            if (btnRetry) {
-                btnRetry.style.display = (!isSiteTranslating && failedCount > 0) ? 'flex' : 'none';
-                if (failedCount > 0) {
-                    btnRetry.innerText = `⚠️ 重试未完成段落 (${failedCount}条)`;
-                }
+                label.innerText = '沉浸式翻译';
             }
 
             if (siteUntranslatedNewCount > 0 && isSiteShowingTranslation) {
                 badge.style.display = 'flex';
                 badge.innerText = '+' + siteUntranslatedNewCount;
-                btnNew.style.display = 'flex';
-                btnNew.innerText = `✨ 翻译新增内容 (${siteUntranslatedNewCount}条)`;
             } else {
                 badge.style.display = 'none';
-                btnNew.style.display = 'none';
             }
         }
 
@@ -7217,7 +7006,7 @@ CRITICAL RULES:
             applyUISkin(nextSkin);
         };
         window.__lexipro_update_auto_status = () => {
-            if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
+            siteAutoTranslate = isCurrentSiteAutoTranslate();
         };
 
         window.__lexipro_site_disconnect_observer = () => {
@@ -7229,12 +7018,11 @@ CRITICAL RULES:
         window.__lexipro_site_storage_listener = (key, value) => {
             if (key === 'lexipro_site_translation_style' && value) {
                 siteTranslationStyle = value;
-                updateStyleMenuUI();
                 if (isSiteShowingTranslation) {
                     siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
                 }
             } else if (key === 'lexipro_auto_translate_sites') {
-                if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
+                siteAutoTranslate = isCurrentSiteAutoTranslate();
             } else if (key === 'lexipro_ui_theme' && value) {
                 siteUITheme = normalizeUiSkin(value);
                 applyUISkin(siteUITheme);
