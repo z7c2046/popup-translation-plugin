@@ -122,10 +122,32 @@
                   <div class="form-group">
                     <label for="ui-theme-select">界面视觉皮肤</label>
                     <select id="ui-theme-select" class="form-control">
-                      <option value="market_desk">Market Desk (深浅自适应)</option>
+                      <option value="modern">现代极简 (深浅自适应)</option>
                       <option value="animal_island">动森经典</option>
                     </select>
                   </div>
+                </div>
+
+                <!-- 现代极简色彩模式开关（仅 modern 皮肤显示） -->
+                <div class="skin-subpanel" id="modern-color-mode-group" style="margin-top: 16px;">
+                  <div class="label-between" style="margin-bottom: 8px;">
+                    <label>色彩外观</label>
+                  </div>
+                  <div class="segmented-control-track" id="modern-color-mode-control" role="radiogroup" aria-label="现代极简色彩模式">
+                    <div class="segmented-indicator" id="modern-color-indicator"></div>
+                    <button type="button" class="segmented-tab-btn selected" role="radio" aria-checked="true" data-mode="auto">跟随系统</button>
+                    <button type="button" class="segmented-tab-btn" role="radio" aria-checked="false" data-mode="light">浅色模式</button>
+                    <button type="button" class="segmented-tab-btn" role="radio" aria-checked="false" data-mode="dark">深色模式</button>
+                  </div>
+                </div>
+
+                <!-- 动森背景壁纸选择器（仅 animal_island 皮肤显示） -->
+                <div class="skin-subpanel" id="animal-bg-group" style="display: none; margin-top: 18px;">
+                  <div class="label-between" style="margin-bottom: 10px;">
+                    <label>背景壁纸</label>
+                    <span id="animal-bg-current-badge" class="aiu-bg-current-badge">奶油色波点</span>
+                  </div>
+                  <div class="aiu-bg-picker-grid" id="animal-bg-grid" role="radiogroup" aria-label="动森背景壁纸"></div>
                 </div>
               </div>
 

@@ -363,6 +363,30 @@
     let currentMaxNo = 0;
     let noColumnName = null;
 
+    // ================= 皮肤状态与归一化 =================
+    function normalizeUiSkin(val) {
+        if (val === 'animal_island') return 'animal_island';
+        if (val === 'market_desk' || val === 'modern' || !val) return 'modern';
+        return 'modern';
+    }
+
+    function normalizeColorMode(val) {
+        if (val === 'light' || val === 'dark') return val;
+        return 'auto';
+    }
+
+    let currentUiSkin = normalizeUiSkin(GM_getValue('lexipro_ui_theme', 'modern'));
+    let currentModernColorMode = normalizeColorMode(GM_getValue('lexipro_modern_color_mode', 'auto'));
+    const skinMediaQuery = (typeof window !== 'undefined' && window.matchMedia)
+        ? window.matchMedia('(prefers-color-scheme: dark)')
+        : null;
+
+    function resolveUiColorTheme(mode = currentModernColorMode) {
+        if (mode === 'dark') return 'dark';
+        if (mode === 'light') return 'light';
+        return (skinMediaQuery && skinMediaQuery.matches) ? 'dark' : 'light';
+    }
+
     // ================= 注入主页面高亮 CSS =================
     GM_addStyle(`
         .notion-vocab-inline-container {
@@ -381,6 +405,28 @@
             line-height: inherit !important;
             box-decoration-break: clone;
             -webkit-box-decoration-break: clone;
+            background: rgba(79, 70, 229, 0.08) !important;
+            color: inherit !important;
+            border: none;
+            border-bottom: 2px solid #4f46e5;
+            border-radius: 4px;
+            padding: 0 3px 1px;
+            cursor: help;
+            transition: background-color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+        }
+        .${CONFIG.highlightClass}:hover {
+            background: rgba(79, 70, 229, 0.16) !important;
+            border-bottom-color: #3b82f6;
+        }
+        html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .${CONFIG.highlightClass} {
+            background: rgba(99, 102, 241, 0.18) !important;
+            border-bottom-color: #818cf8;
+        }
+        html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .${CONFIG.highlightClass}:hover {
+            background: rgba(99, 102, 241, 0.28) !important;
+            border-bottom-color: #60a5fa;
+        }
+        html[data-lexipro-skin="animal_island"] .${CONFIG.highlightClass} {
             background:
                 radial-gradient(circle, rgba(247, 205, 103, .34) 1.5px, transparent 1.6px),
                 #fff8d7 !important;
@@ -390,9 +436,7 @@
             border-bottom: 3px solid #d4b15a;
             border-radius: 999px;
             padding: 0 5px 1px;
-            cursor: help;
             box-shadow: 0 2px 0 rgba(189, 174, 160, .85);
-            transition: background-color .2s, transform .2s, box-shadow .2s;
         }
         /* 全局单词点击激活样式（浅青高亮背景 + 虚线下划线） */
         .imt-word-click-active {
@@ -405,11 +449,18 @@
             cursor: pointer !important;
             transition: background-color 0.15s ease !important;
         }
-        .${CONFIG.highlightClass}:hover {
+        html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .imt-word-click-active {
+            background: rgba(25, 200, 185, 0.24) !important;
+            border-bottom: 1.5px dashed #60a5fa !important;
+            box-shadow: 0 0 0 2px rgba(25, 200, 185, 0.18) !important;
+            color: #f8fafc !important;
+        }
+        html[data-lexipro-skin="animal_island"] .${CONFIG.highlightClass}:hover {
             background:
                 radial-gradient(circle, rgba(25, 200, 185, .28) 1.5px, transparent 1.6px),
                 #e8faf5 !important;
             border-color: #82d5bb;
+            border-bottom-color: #60bba5;
             box-shadow: 0 3px 0 rgba(130, 213, 187, .9);
             transform: translateY(-1px);
         }
@@ -417,9 +468,46 @@
 
     // ================= 构建 Shadow DOM UI =================
     const host = document.createElement('div');
+    host.id = 'imt-shadow-host';
     host.style.cssText = 'position:absolute;top:0;left:0;width:100%;z-index:2147483647;pointer-events:none;';
     document.body.appendChild(host);
     const shadow = host.attachShadow({ mode: 'closed' });
+
+    function applyUISkin(skinOverride, colorModeOverride) {
+        if (skinOverride !== undefined) currentUiSkin = normalizeUiSkin(skinOverride);
+        if (colorModeOverride !== undefined) currentModernColorMode = normalizeColorMode(colorModeOverride);
+        const resolvedTheme = currentUiSkin === 'modern' ? resolveUiColorTheme(currentModernColorMode) : 'light';
+        host.setAttribute('data-skin', currentUiSkin);
+        host.setAttribute('data-theme', resolvedTheme);
+        if (document.documentElement) {
+            document.documentElement.setAttribute('data-lexipro-skin', currentUiSkin);
+            document.documentElement.setAttribute('data-lexipro-theme', resolvedTheme);
+        }
+        const themeStatusText = document.getElementById('lps-theme-status');
+        if (themeStatusText) {
+            themeStatusText.innerText = currentUiSkin === 'animal_island' ? '动森经典' : '现代极简';
+        }
+        const logoIcon = document.querySelector('#lexipro-site-fab .lexipro-site-logo-icon');
+        if (logoIcon) {
+            logoIcon.innerText = currentUiSkin === 'animal_island' ? '🍃' : '译';
+        }
+        const skinSel = shadow.querySelector('#imt-skin-select');
+        if (skinSel && skinSel.value !== currentUiSkin) skinSel.value = currentUiSkin;
+        const colorGroup = shadow.querySelector('#imt-color-mode-group');
+        if (colorGroup) colorGroup.style.display = currentUiSkin === 'modern' ? 'block' : 'none';
+        const colorSel = shadow.querySelector('#imt-color-mode-select');
+        if (colorSel && colorSel.value !== currentModernColorMode) colorSel.value = currentModernColorMode;
+        if (typeof window !== 'undefined' && typeof window.__lexipro_sync_site_theme === 'function') {
+            window.__lexipro_sync_site_theme(currentUiSkin);
+        }
+    }
+
+    applyUISkin();
+    skinMediaQuery?.addEventListener?.('change', () => {
+        if (currentUiSkin === 'modern' && currentModernColorMode === 'auto') {
+            applyUISkin();
+        }
+    });
 
     // 完整展开的 CSS 样式表，不再进行任何压缩
     const style = document.createElement('style');
@@ -1617,6 +1705,628 @@
             font-size: 12px;
             line-height: 1;
         }
+
+        /* ================= 动森皮肤补充状态（收藏星标 & 单词点击胶囊） ================= */
+        :host([data-skin="animal_island"]) .imt-action-btn.imt-favorited {
+            color: #d6a943;
+            border-color: #e6ba4a;
+            background: linear-gradient(180deg, #fffdf0, #ffefc2);
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule {
+            background: linear-gradient(180deg, #fffdf3, #fff8e4);
+            color: #794f27;
+            border: 2px solid #c4b89e;
+            box-shadow: 0 4px 0 #bdae9d, 0 10px 22px rgba(114, 93, 66, .24);
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule .imt-capsule-arrow {
+            top: -7px;
+            border-bottom: 5px solid #c4b89e;
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule.imt-flip-up .imt-capsule-arrow {
+            top: auto;
+            bottom: -7px;
+            border-bottom: none;
+            border-top: 5px solid #c4b89e;
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule .imt-capsule-word {
+            color: #794f27;
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule .imt-capsule-btn-audio {
+            background: #fffdf3;
+            color: #725d42;
+            border: 1px solid #d8c8ab;
+            border-bottom: 2px solid #c4b89e;
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule .imt-capsule-btn-audio:hover {
+            background: #e8faf5;
+            border-color: #82d5bb;
+            color: #0b8079;
+        }
+
+        :host([data-skin="animal_island"]) .imt-word-action-capsule .imt-capsule-btn-ai {
+            background: linear-gradient(180deg, #26d9c6, #19c8b9);
+            border: 1px solid #12a99d;
+            border-bottom: 2px solid #0e8f85;
+            color: #ffffff;
+        }
+
+        /* ================= 皮肤一：现代极简风格 (:host([data-skin="modern"])) ================= */
+        :host([data-skin="modern"]) {
+            --aiu-font: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+            --modern-btn-radius: 20px;
+            --modern-card-radius: 24px;
+        }
+
+        :host([data-skin="modern"][data-theme="light"]) {
+            --aiu-bg: #f1f5f9;
+            --aiu-card: rgba(255, 255, 255, 0.94);
+            --aiu-card-soft: rgba(248, 250, 252, 0.96);
+            --aiu-text: #0f172a;
+            --aiu-text-soft: #475569;
+            --modern-text-muted: #94a3b8;
+            --aiu-primary: #4f46e5;
+            --aiu-primary-dark: #3b82f6;
+            --aiu-primary-soft: rgba(79, 70, 229, 0.1);
+            --aiu-border: rgba(0, 0, 0, 0.08);
+            --aiu-shadow: rgba(0, 0, 0, 0.1);
+            --modern-accent-gradient: linear-gradient(135deg, #4f46e5, #3b82f6);
+            --modern-accent-glow: rgba(79, 70, 229, 0.25);
+            --modern-input-bg: rgba(255, 255, 255, 0.95);
+            --modern-divider: rgba(0, 0, 0, 0.08);
+            --modern-card-border: rgba(0, 0, 0, 0.1);
+            --modern-header-bg: rgba(248, 250, 252, 0.9);
+            --modern-dict-box-bg: #f3f4f6;
+            --modern-dict-accent: #b02a5f;
+            --modern-dict-badge-bg: #0da175;
+            --modern-dict-bullet: #111827;
+            --modern-arrow-bg: #ffffff;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) {
+            --aiu-bg: #111215;
+            --aiu-card: rgba(28, 31, 38, 0.92);
+            --aiu-card-soft: rgba(18, 20, 24, 0.85);
+            --aiu-text: #f3f4f6;
+            --aiu-text-soft: #9ca3af;
+            --modern-text-muted: #6b7280;
+            --aiu-primary: #6366f1;
+            --aiu-primary-dark: #3b82f6;
+            --aiu-primary-soft: rgba(99, 102, 241, 0.16);
+            --aiu-border: rgba(255, 255, 255, 0.09);
+            --aiu-shadow: rgba(0, 0, 0, 0.5);
+            --modern-accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
+            --modern-accent-glow: rgba(99, 102, 241, 0.22);
+            --modern-input-bg: rgba(18, 20, 24, 0.72);
+            --modern-divider: rgba(255, 255, 255, 0.08);
+            --modern-card-border: rgba(255, 255, 255, 0.12);
+            --modern-header-bg: rgba(18, 20, 24, 0.78);
+            --modern-dict-box-bg: rgba(18, 20, 24, 0.65);
+            --modern-dict-accent: #f472b6;
+            --modern-dict-badge-bg: #0d9488;
+            --modern-dict-bullet: #f3f4f6;
+            --modern-arrow-bg: #1c1f26;
+        }
+
+        :host([data-skin="modern"]) #imt-dot {
+            background: var(--modern-accent-gradient);
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 4px 14px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) #imt-dot {
+            border-color: #1c1f26;
+        }
+
+        :host([data-skin="modern"]) #imt-dot:hover {
+            transform: translate(4px, 2px) scale(1.1);
+            box-shadow: 0 6px 18px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"]) #imt-tooltip {
+            background: var(--aiu-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid var(--modern-card-border);
+            border-radius: 20px;
+            box-shadow: 0 16px 48px var(--aiu-shadow);
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+        }
+
+        :host([data-skin="modern"]) #imt-tooltip.imt-fixed-mode {
+            box-shadow:
+                0 0 0 1px var(--aiu-primary-soft),
+                0 24px 56px var(--aiu-shadow);
+        }
+
+        :host([data-skin="modern"]) #imt-tooltip::before,
+        :host([data-skin="modern"]) #imt-tooltip::after,
+        :host([data-skin="modern"]) .imt-word-title::before {
+            display: none;
+        }
+
+        :host([data-skin="modern"]) #imt-header {
+            background: var(--modern-header-bg);
+            border-bottom: 1px solid var(--modern-divider);
+            border-radius: 18px 18px 0 0;
+            padding: 10px 14px;
+            color: var(--aiu-text);
+        }
+
+        :host([data-skin="modern"]) #imt-tooltip.quick-mode #imt-header {
+            padding-left: 14px;
+        }
+
+        :host([data-skin="modern"]) .imt-drag-indicator {
+            color: var(--aiu-text-soft);
+            font-weight: 700;
+            text-shadow: none;
+            opacity: 0.9;
+        }
+
+        :host([data-skin="modern"]) .imt-header-actions > .imt-adv-only[style] {
+            width: 1px !important;
+            height: 16px !important;
+            background: var(--modern-divider) !important;
+            box-shadow: none;
+        }
+
+        :host([data-skin="modern"]) .imt-action-btn {
+            width: 30px;
+            height: 30px;
+            min-width: 30px;
+            border: 1px solid var(--modern-divider);
+            border-bottom-width: 1px;
+            border-radius: 10px;
+            background: var(--modern-input-bg);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            color: var(--aiu-text-soft);
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+        }
+
+        :host([data-skin="modern"]) .imt-action-btn:hover {
+            background: var(--aiu-primary-soft);
+            border-color: rgba(79, 70, 229, 0.35);
+            color: var(--aiu-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-color: rgba(99, 102, 241, 0.45);
+            color: #ffffff;
+        }
+
+        :host([data-skin="modern"]) .imt-action-btn:active {
+            transform: translateY(1px) scale(0.95);
+            border-bottom-width: 1px;
+            box-shadow: none;
+        }
+
+        :host([data-skin="modern"]) #imt-star-btn:hover,
+        :host([data-skin="modern"]) #imt-quick-star-btn:hover {
+            color: #eab308;
+        }
+
+        :host([data-skin="modern"][data-theme="light"]) .imt-action-btn.imt-favorited {
+            border: 1px solid #f59e0b;
+            background: linear-gradient(180deg, #fffbeb, #fef3c7);
+            color: #d97706;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn.imt-favorited {
+            border: 1px solid rgba(250, 204, 21, 0.45);
+            background: linear-gradient(180deg, #3a3016, #2b2310);
+            color: #facc15;
+            box-shadow: 0 2px 10px rgba(250, 204, 21, 0.18);
+        }
+
+        :host([data-skin="modern"]) .imt-pinned {
+            background: var(--modern-accent-gradient) !important;
+            border-color: transparent !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 12px var(--modern-accent-glow) !important;
+        }
+
+        :host([data-skin="modern"]) #imt-font-popover {
+            background: var(--aiu-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid var(--modern-card-border);
+            border-radius: 16px;
+            box-shadow: 0 14px 36px var(--aiu-shadow);
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+        }
+
+        :host([data-skin="modern"]) .imt-font-popover-title,
+        :host([data-skin="modern"]) #imt-font-value {
+            color: var(--aiu-text);
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"]) .imt-font-step-btn,
+        :host([data-skin="modern"]) #imt-font-reset-btn {
+            border: 1px solid var(--modern-divider);
+            border-bottom-width: 1px;
+            border-radius: 10px;
+            background: var(--modern-input-bg);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            color: var(--aiu-text);
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-font-step-btn,
+        :host([data-skin="modern"][data-theme="dark"]) #imt-font-reset-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        :host([data-skin="modern"]) .imt-font-step-btn:hover:not(:disabled):not(.imt-disabled),
+        :host([data-skin="modern"]) #imt-font-reset-btn:hover:not(:disabled):not(.imt-disabled) {
+            background: var(--aiu-primary-soft);
+            border-color: rgba(79, 70, 229, 0.4);
+            color: var(--aiu-primary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-font-step-btn:hover:not(:disabled):not(.imt-disabled),
+        :host([data-skin="modern"][data-theme="dark"]) #imt-font-reset-btn:hover:not(:disabled):not(.imt-disabled) {
+            color: #ffffff;
+        }
+
+        :host([data-skin="modern"]) .imt-font-step-btn:active:not(:disabled):not(.imt-disabled),
+        :host([data-skin="modern"]) #imt-font-reset-btn:active:not(:disabled):not(.imt-disabled) {
+            transform: translateY(1px);
+            border-bottom-width: 1px;
+            box-shadow: none;
+        }
+
+        :host([data-skin="modern"]) #imt-content,
+        :host([data-skin="modern"]) #imt-settings {
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+            font-weight: 500;
+            border-radius: 0 0 18px 18px;
+        }
+
+        :host([data-skin="modern"]) .imt-spinner {
+            border-color: var(--modern-divider);
+            border-top-color: var(--aiu-primary);
+        }
+
+        :host([data-skin="modern"]) .imt-word-title {
+            color: var(--aiu-text);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        :host([data-skin="modern"]) .imt-phonetic {
+            background: rgba(99, 102, 241, 0.1);
+            color: #4f46e5;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: .78em;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-phonetic {
+            background: rgba(99, 102, 241, 0.18);
+            color: #a5b4fc;
+        }
+
+        /* 现代极简：薄荷音标喇叭按钮（保留与工具栏统一的按压反馈物理动效） */
+        :host([data-skin="modern"][data-theme="light"]) .imt-speaker,
+        :host([data-skin="modern"][data-theme="light"]) .imt-speaker.imt-ex-speaker {
+            border: 1px solid #82d5bb;
+            border-bottom: 3px solid #60bba5;
+            background: linear-gradient(180deg, #f5fffb, #e8faf5);
+            color: #0b8079;
+            box-shadow: 0 2px 4px rgba(13, 161, 117, 0.14);
+        }
+
+        :host([data-skin="modern"][data-theme="light"]) .imt-speaker:hover,
+        :host([data-skin="modern"][data-theme="light"]) .imt-speaker.imt-ex-speaker:hover {
+            background: linear-gradient(180deg, #e7fcf5, #cef7eb);
+            border-color: #4cc2ad;
+            color: #096f69;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(13, 161, 117, 0.22);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker {
+            background: linear-gradient(180deg, #243530, #1c2b27);
+            border: 1px solid #3b7364;
+            border-bottom: 3px solid #275247;
+            color: #4ee3be;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker:hover,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker:hover {
+            background: linear-gradient(180deg, #2b403a, #21342f);
+            border-color: #478a78;
+            color: #6ee7cb;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+        }
+
+        :host([data-skin="modern"]) .imt-speaker:active,
+        :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(18, 169, 157, .12);
+        }
+
+        :host([data-skin="modern"]) .imt-speaker.playing {
+            border-color: #19c8b9;
+            box-shadow: 0 0 0 2px rgba(25, 200, 185, 0.35);
+        }
+
+        :host([data-skin="modern"]) .imt-section {
+            border-top: 1px solid var(--modern-divider);
+        }
+
+        :host([data-skin="modern"]) .imt-pos {
+            background: var(--modern-dict-badge-bg);
+            box-shadow: none;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"]) .imt-meaning,
+        :host([data-skin="modern"]) .imt-quick-exp,
+        :host([data-skin="modern"]) .imt-translation,
+        :host([data-skin="modern"]) .imt-preserved-heading {
+            color: var(--aiu-text);
+            font-weight: 500;
+        }
+
+        :host([data-skin="modern"]) .imt-preserved-heading {
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"]) .imt-example {
+            background: var(--modern-dict-box-bg);
+            border: 1px solid var(--modern-divider);
+            border-radius: 12px;
+            box-shadow: none;
+            font-weight: 500;
+        }
+
+        :host([data-skin="modern"]) .imt-example strong,
+        :host([data-skin="modern"]) .imt-meta strong {
+            color: var(--modern-dict-accent);
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"]) .imt-example-num,
+        :host([data-skin="modern"]) .imt-ex-src,
+        :host([data-skin="modern"]) .imt-meta {
+            color: var(--aiu-text);
+        }
+
+        :host([data-skin="modern"]) .imt-ex-tgt {
+            color: var(--aiu-text-soft);
+        }
+
+        :host([data-skin="modern"]) .imt-code {
+            background: var(--modern-dict-box-bg);
+            border: 1px solid var(--modern-divider);
+            border-bottom-width: 1px;
+            border-radius: 8px;
+            color: var(--aiu-text);
+            font-weight: 600;
+        }
+
+        /* 现代极简：悬停生词速查卡（隐藏有机 SVG 轮廓，使用毛玻璃卡片与箭头） */
+        :host([data-skin="modern"]) #imt-quick-tooltip {
+            background: var(--aiu-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1.5px solid var(--modern-card-border);
+            border-radius: 16px;
+            box-shadow: 0 14px 36px var(--aiu-shadow);
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+            filter: none;
+            width: 310px;
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip .imt-island-shape {
+            display: none !important;
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip .imt-island-content {
+            padding: 10px 14px 14px;
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip #imt-quick-header {
+            padding: 0 0 8px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--modern-divider);
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip .imt-quick-content {
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+            font-weight: 500;
+        }
+
+        :host([data-skin="modern"]) .imt-island-arrow {
+            background: var(--modern-arrow-bg);
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip:not(.imt-flip-up) .imt-island-arrow {
+            border-top: 1.5px solid var(--modern-card-border);
+            border-left: 1.5px solid var(--modern-card-border);
+        }
+
+        :host([data-skin="modern"]) #imt-quick-tooltip.imt-flip-up .imt-island-arrow {
+            border-right: 1.5px solid var(--modern-card-border);
+            border-bottom: 1.5px solid var(--modern-card-border);
+        }
+
+        /* 现代极简：弹窗内置设置面板 */
+        :host([data-skin="modern"]) .imt-settings-title {
+            color: var(--aiu-text);
+            font-weight: 700;
+            border-bottom: 1px solid var(--modern-divider);
+        }
+
+        :host([data-skin="modern"]) .imt-settings-group label {
+            color: var(--aiu-text-soft);
+            font-weight: 600;
+        }
+
+        :host([data-skin="modern"]) .imt-settings-panel .form-input {
+            background: var(--modern-input-bg);
+            border: 1px solid var(--modern-divider);
+            border-radius: 10px;
+            color: var(--aiu-text);
+            font-family: var(--aiu-font);
+            font-weight: 500;
+            box-shadow: none;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-settings-panel .form-input {
+            border-color: rgba(255, 255, 255, 0.14);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-settings-panel select.form-input option {
+            background: #1c1f26;
+            color: #f3f4f6;
+        }
+
+        :host([data-skin="modern"]) .imt-settings-panel .form-input:focus {
+            border-color: var(--aiu-primary);
+            box-shadow: 0 0 0 3px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"]) #notion-settings-group {
+            border-top-color: var(--modern-divider) !important;
+        }
+
+        :host([data-skin="modern"]) .imt-settings-hint,
+        :host([data-skin="modern"]) .imt-settings-hint a {
+            color: var(--aiu-primary) !important;
+        }
+
+        :host([data-skin="modern"]) .imt-animal-switch {
+            min-width: 44px;
+            height: 24px;
+            border: none;
+            background: rgba(148, 163, 184, 0.36);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.12);
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-animal-switch {
+            background: rgba(255, 255, 255, 0.18);
+        }
+
+        :host([data-skin="modern"]) .imt-animal-switch.imt-animal-switch-checked {
+            background: var(--modern-accent-gradient);
+            border: none;
+            box-shadow: 0 2px 8px var(--modern-accent-glow);
+        }
+
+        :host([data-skin="modern"]) .imt-animal-switch-handle {
+            width: 18px;
+            height: 18px;
+            left: 3px;
+            border: none;
+            background: #ffffff;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        }
+
+        :host([data-skin="modern"]) .imt-animal-switch.imt-animal-switch-checked .imt-animal-switch-handle {
+            left: calc(100% - 21px);
+            border: none;
+        }
+
+        :host([data-skin="modern"]) .imt-switch-status-badge.imt-status-off {
+            background: rgba(16, 185, 129, 0.14);
+            color: #059669;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-switch-status-badge.imt-status-off {
+            color: #34d399;
+        }
+
+        :host([data-skin="modern"]) .imt-switch-status-badge.imt-status-on {
+            background: var(--modern-dict-box-bg);
+            color: var(--aiu-text-soft);
+        }
+
+        /* 现代极简：滚动条、输入框 Loading & 黑曜石单词点击胶囊 */
+        :host([data-skin="modern"]) #imt-content::-webkit-scrollbar-track,
+        :host([data-skin="modern"]) #imt-settings::-webkit-scrollbar-track,
+        :host([data-skin="modern"]) #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        :host([data-skin="modern"]) #imt-content::-webkit-scrollbar-thumb,
+        :host([data-skin="modern"]) #imt-settings::-webkit-scrollbar-thumb,
+        :host([data-skin="modern"]) #imt-quick-tooltip .imt-quick-content::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+
+        :host([data-skin="modern"]) #imt-input-loading {
+            background: var(--modern-accent-gradient);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+            box-shadow: 0 8px 20px var(--modern-accent-glow);
+            font-family: var(--aiu-font);
+            font-weight: 700;
+            text-shadow: none;
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule {
+            background: rgba(28, 31, 38, 0.96);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.36);
+            font-family: var(--aiu-font);
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-arrow {
+            border-bottom-color: #1c1f26;
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule.imt-flip-up .imt-capsule-arrow {
+            border-top-color: #1c1f26;
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-ai {
+            background: #19c8b9;
+            color: #ffffff;
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-ai:hover {
+            background: #14b8a6;
+            box-shadow: 0 0 10px rgba(25, 200, 185, 0.4);
+        }
 `;
     shadow.appendChild(style);
 
@@ -2440,7 +3150,8 @@
     function updateHighlightPopupStarUI(word) {
         const starred = vocabMap.has(normalizeWord(word));
         quickStarBtn.innerText = starred ? '★' : '☆';
-        quickStarBtn.style.color = starred ? '#d6a943' : '';
+        quickStarBtn.classList.toggle('imt-favorited', starred);
+        quickStarBtn.style.color = '';
     }
 
     function closeHighlightPopup() {
@@ -2737,6 +3448,23 @@
             <div class="imt-settings-panel">
                 <div class="imt-settings-title">选项设置</div>
                 <div class="imt-settings-group">
+                    <label for="imt-skin-select">界面视觉皮肤</label>
+                    <select class="form-input" id="imt-skin-select">
+                        <option value="modern" ${currentUiSkin === 'modern' ? 'selected' : ''}>现代极简 (深浅自适应)</option>
+                        <option value="animal_island" ${currentUiSkin === 'animal_island' ? 'selected' : ''}>动森经典</option>
+                    </select>
+                </div>
+
+                <div class="imt-settings-group" id="imt-color-mode-group" style="display: ${currentUiSkin === 'modern' ? 'block' : 'none'};">
+                    <label for="imt-color-mode-select">色彩外观</label>
+                    <select class="form-input" id="imt-color-mode-select">
+                        <option value="auto" ${currentModernColorMode === 'auto' ? 'selected' : ''}>跟随系统</option>
+                        <option value="light" ${currentModernColorMode === 'light' ? 'selected' : ''}>浅色模式</option>
+                        <option value="dark" ${currentModernColorMode === 'dark' ? 'selected' : ''}>深色模式</option>
+                    </select>
+                </div>
+
+                <div class="imt-settings-group">
                     <label for="imt-provider-select">AI 服务商</label>
                     <select class="form-input" id="imt-provider-select">
                         <option value="siliconflow" ${CONFIG.llmProvider === 'siliconflow' ? 'selected' : ''}>硅基流动</option>
@@ -2840,6 +3568,19 @@
                 </div>
             </div>
         `;
+
+        const skinSelect = settingsBox.querySelector('#imt-skin-select');
+        const colorModeSelect = settingsBox.querySelector('#imt-color-mode-select');
+        skinSelect?.addEventListener('change', () => {
+            const val = normalizeUiSkin(skinSelect.value);
+            GM_setValue('lexipro_ui_theme', val);
+            applyUISkin(val, undefined);
+        });
+        colorModeSelect?.addEventListener('change', () => {
+            const val = normalizeColorMode(colorModeSelect.value);
+            GM_setValue('lexipro_modern_color_mode', val);
+            applyUISkin(undefined, val);
+        });
 
         const providerSelect = settingsBox.querySelector('#imt-provider-select');
         const sfModelGroup = settingsBox.querySelector('#sf-model-group');
@@ -3099,11 +3840,13 @@
     function updateStarUI() {
         if (!currentTranslatedWord) {
             starBtn.style.display = 'none';
+            starBtn.classList.remove('imt-favorited');
             return;
         }
         starBtn.style.display = 'flex';
         starBtn.innerText = isStarred ? '★' : '☆';
-        starBtn.style.color = isStarred ? '#d6a943' : '';
+        starBtn.classList.toggle('imt-favorited', Boolean(isStarred));
+        starBtn.style.color = '';
     }
 
     // ================= 触发 AI 大语言模型详解 =================
@@ -4698,7 +5441,7 @@ CRITICAL RULES:
         // 3 种呈现模式：replace（中文阅读，默认）、underline（双语对照）、card（独立卡片）
         let siteTranslationStyle = GM_getValue('lexipro_site_translation_style', 'replace');
         let siteAutoTranslate = isCurrentSiteAutoTranslate();
-        let siteUITheme = GM_getValue('lexipro_ui_theme', 'market_desk');
+        let siteUITheme = normalizeUiSkin(GM_getValue('lexipro_ui_theme', 'modern'));
 
         // 多模型备用轮询与竞速池（SiliconFlow 高质模型梯队）
         const SF_FALLBACK_MODELS = [
@@ -4714,141 +5457,48 @@ CRITICAL RULES:
             return SF_FALLBACK_MODELS[Math.abs(seedIndex) % SF_FALLBACK_MODELS.length];
         }
 
-        // 注入 Market Desk 终端配色与高对比度规范 CSS（深浅自适应）
+        // 注入双皮肤宿主页沉浸式翻译控件与卡片 CSS（现代极简浅/深 + 动森经典）
         GM_addStyle(`
-            :root {
-                --lp-bg: #14171b;
-                --lp-surface: #191d22;
-                --lp-surface-subtle: #252a31;
-                --lp-text: #eef1f4;
-                --lp-text-secondary: #8b949f;
-                --lp-border: #262b31;
-                --lp-primary: #548afa;
-                --lp-on-primary: #ffffff;
-                --lp-success: #31c39a;
-                --lp-warning: #e9be70;
-                --lp-error: #ff9fa5;
-            }
-            @media (prefers-color-scheme: light) {
-                :root {
-                    --lp-bg: #f8fafc;
-                    --lp-surface: #ffffff;
-                    --lp-surface-subtle: #f1f5f9;
-                    --lp-text: #0f172a;
-                    --lp-text-secondary: #64748b;
-                    --lp-border: #cbd5e1;
-                    --lp-primary: #2563eb;
-                    --lp-on-primary: #ffffff;
-                    --lp-success: #10b981;
-                    --lp-warning: #8a5700;
-                    --lp-error: #b33e45;
-                }
-            }
-            [data-theme="light"] .lexipro-site-fab,
-            [data-color-mode="light"] .lexipro-site-fab,
-            body.theme-light .lexipro-site-fab {
-                background: rgba(255, 255, 255, 0.95) !important;
-                color: #0f172a !important;
-                border-color: #cbd5e1 !important;
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
-            }
-            [data-theme="light"] .lexipro-site-menu,
-            [data-color-mode="light"] .lexipro-site-menu,
-            body.theme-light .lexipro-site-menu {
-                background: #ffffff !important;
-                border-color: #cbd5e1 !important;
-                color: #0f172a !important;
-                box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15) !important;
-            }
-            [data-theme="light"] .lexipro-site-menu-btn:hover,
-            [data-color-mode="light"] .lexipro-site-menu-btn:hover,
-            body.theme-light .lexipro-site-menu-btn:hover {
-                background: #f1f5f9 !important;
-                border-color: #cbd5e1 !important;
-                color: #0f172a !important;
-            }
-            [data-theme="light"] .lexipro-style-group,
-            [data-color-mode="light"] .lexipro-style-group,
-            body.theme-light .lexipro-style-group {
-                background: #f8fafc !important;
-                border-color: #e2e8f0 !important;
-            }
-            [data-theme="light"] .lexipro-orig-toggle-btn,
-            [data-color-mode="light"] .lexipro-orig-toggle-btn,
-            body.theme-light .lexipro-orig-toggle-btn {
-                background: #f1f5f9 !important;
-                border-color: #cbd5e1 !important;
-                color: #334155 !important;
-            }
-            [data-theme="light"] .lexipro-orig-toggle-btn:hover,
-            [data-color-mode="light"] .lexipro-orig-toggle-btn:hover,
-            body.theme-light .lexipro-orig-toggle-btn:hover {
-                background: #e2e8f0 !important;
-                border-color: #94a3b8 !important;
-                color: #0f172a !important;
-            }
-            [data-theme="light"] .lexipro-orig-toggle-btn.showing-orig,
-            [data-color-mode="light"] .lexipro-orig-toggle-btn.showing-orig,
-            body.theme-light .lexipro-orig-toggle-btn.showing-orig {
-                background: rgba(37, 99, 235, 0.08) !important;
-                border-color: #93c5fd !important;
-                color: #2563eb !important;
-            }
-            [data-theme="light"] .lexipro-trans-underline,
-            [data-color-mode="light"] .lexipro-trans-underline,
-            body.theme-light .lexipro-trans-underline {
-                color: inherit !important;
-                font-weight: inherit !important;
-                border-bottom-color: rgba(37, 99, 235, 0.6) !important;
-            }
-            [data-theme="light"] .lexipro-trans-card,
-            [data-color-mode="light"] .lexipro-trans-card,
-            body.theme-light .lexipro-trans-card {
-                background: #ffffff !important;
-                border-color: #cbd5e1 !important;
-                border-left-color: #2563eb !important;
-                color: #0f172a !important;
-            }
-
             .lexipro-site-fab-container {
                 position: fixed;
                 z-index: 2147483646;
                 display: flex;
                 flex-direction: column;
                 align-items: flex-end;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+                font-family: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
                 user-select: none;
             }
             .lexipro-site-fab-toolbar {
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 6px;
             }
             .lexipro-site-fab {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                padding: 0 16px;
+                padding: 0 15px;
                 height: 44px;
                 min-height: 44px;
                 border-radius: 999px;
-                background: rgba(20, 23, 27, 0.94);
-                color: #eef1f4;
-                border: 1px solid #262b31;
-                box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.92);
+                color: #0f172a;
+                border: 1.5px solid rgba(0, 0, 0, 0.08);
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
                 cursor: pointer;
                 transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
                 box-sizing: border-box;
             }
             .lexipro-site-fab:hover {
-                background: #191d22;
-                border-color: #3b4552;
+                background: #ffffff;
+                border-color: rgba(79, 70, 229, 0.35);
                 transform: translateY(-1px);
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+                box-shadow: 0 14px 36px rgba(79, 70, 229, 0.18);
             }
             .lexipro-site-fab:active {
-                transform: translateY(0);
+                transform: translateY(1px);
             }
             .lexipro-site-fab.dragging {
                 opacity: 0.8;
@@ -4858,23 +5508,25 @@ CRITICAL RULES:
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                width: 38px;
+                width: 40px;
                 height: 44px;
                 min-height: 44px;
                 border-radius: 999px;
-                background: rgba(20, 23, 27, 0.94);
-                color: #8b949f;
-                border: 1px solid #262b31;
-                box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
-                backdrop-filter: blur(10px);
+                background: rgba(255, 255, 255, 0.92);
+                color: #475569;
+                border: 1.5px solid rgba(0, 0, 0, 0.08);
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
                 cursor: pointer;
                 transition: all 0.2s ease;
                 font-size: 14px;
+                box-sizing: border-box;
             }
             .lexipro-site-fab-more:hover {
-                background: #191d22;
-                color: #eef1f4;
-                border-color: #3b4552;
+                background: #ffffff;
+                color: #4f46e5;
+                border-color: rgba(79, 70, 229, 0.35);
             }
             .lexipro-site-fab-icon {
                 display: flex;
@@ -4883,11 +5535,18 @@ CRITICAL RULES:
                 font-size: 16px;
             }
             .lexipro-site-logo-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                border-radius: 7px;
+                background: linear-gradient(135deg, #4f46e5, #3b82f6);
+                color: #ffffff;
                 font-weight: 800;
-                font-size: 13px;
-                letter-spacing: -0.5px;
-                color: #548afa;
-                font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 12px;
+                line-height: 1;
+                box-shadow: 0 3px 10px rgba(79, 70, 229, 0.28);
             }
             .lexipro-site-spinner {
                 display: inline-block;
@@ -4906,28 +5565,30 @@ CRITICAL RULES:
             .lexipro-site-badge {
                 position: absolute;
                 top: -5px;
-                right: 36px;
-                background: #31c39a;
-                color: #0b0d10;
+                right: 38px;
+                background: linear-gradient(135deg, #4f46e5, #3b82f6);
+                color: #ffffff;
                 font-size: 10px;
-                font-weight: 750;
+                font-weight: 700;
                 padding: 1px 6px;
                 border-radius: 999px;
-                border: 2px solid #0b0d10;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+                border: 2px solid #ffffff;
+                box-shadow: 0 2px 8px rgba(79, 70, 229, 0.35);
             }
 
-            /* 悬浮菜单面板 */
+            /* 悬浮菜单面板（默认现代极简 Light） */
             .lexipro-site-menu {
                 display: none;
-                width: 256px;
-                background: #14171b;
-                border: 1px solid #262b31;
-                border-radius: 12px;
-                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+                width: 262px;
+                background: rgba(255, 255, 255, 0.96);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1.5px solid rgba(0, 0, 0, 0.08);
+                border-radius: 18px;
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
                 padding: 12px;
                 margin-bottom: 10px;
-                color: #eef1f4;
+                color: #0f172a;
                 font-size: 12.5px;
             }
             .lexipro-site-menu.show {
@@ -4939,10 +5600,20 @@ CRITICAL RULES:
                 justify-content: space-between;
                 padding-bottom: 8px;
                 margin-bottom: 8px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
                 font-size: 12px;
                 font-weight: 700;
-                color: #548afa;
+                color: #4f46e5;
+            }
+            .lexipro-site-status-pill {
+                font-size: 11px;
+                font-weight: 500;
+                color: #64748b;
+            }
+            .lexipro-menu-divider {
+                height: 1px;
+                background: rgba(0, 0, 0, 0.08);
+                margin: 6px 0;
             }
             .lexipro-site-menu-btn {
                 display: flex;
@@ -4950,52 +5621,60 @@ CRITICAL RULES:
                 gap: 8px;
                 width: 100%;
                 padding: 7px 10px;
-                border-radius: 7px;
+                border-radius: 10px;
                 border: 1px solid transparent;
                 background: transparent;
                 color: inherit;
                 font-size: 12px;
-                font-weight: 500;
+                font-weight: 600;
                 cursor: pointer;
                 text-align: left;
                 transition: all 0.15s ease;
             }
             .lexipro-site-menu-btn:hover {
-                background: #191d22;
-                border-color: #2b3036;
-                color: #f3f5f8;
+                background: rgba(79, 70, 229, 0.07);
+                border-color: rgba(79, 70, 229, 0.2);
+                color: #4f46e5;
+            }
+            .lexipro-theme-status-value {
+                margin-left: auto;
+                font-weight: 700;
+                color: #4f46e5;
             }
             .lexipro-style-group {
                 margin: 6px 0;
-                padding: 6px 8px;
-                background: #191d22;
-                border: 1px solid #20252b;
-                border-radius: 8px;
+                padding: 7px 8px;
+                background: #f8fafc;
+                border: 1px solid rgba(0, 0, 0, 0.06);
+                border-radius: 12px;
             }
             .lexipro-style-title {
                 font-size: 11px;
-                color: #8b949f;
+                color: #64748b;
                 margin-bottom: 4px;
+                font-weight: 600;
             }
             .lexipro-style-option {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 4px 6px;
-                border-radius: 6px;
+                padding: 5px 8px;
+                border-radius: 8px;
+                border: 1px solid transparent;
                 font-size: 12px;
                 cursor: pointer;
-                color: #aeb7c0;
+                color: #475569;
+                transition: all 0.15s ease;
             }
             .lexipro-style-option:hover {
-                background: #252a31;
-                color: #eef1f4;
+                background: rgba(79, 70, 229, 0.06);
+                color: #0f172a;
             }
             .lexipro-style-option.active {
-                background: #1a202a;
-                border: 1px solid #2e3b50;
-                color: #9fb9e5;
-                font-weight: 600;
+                background: rgba(79, 70, 229, 0.1);
+                border-color: rgba(79, 70, 229, 0.28);
+                color: #4f46e5;
+                font-weight: 700;
             }
 
             /* 原文/中文 切换微型胶囊按钮 */
@@ -5007,29 +5686,29 @@ CRITICAL RULES:
                 padding: 2px 7px;
                 font-size: 11px;
                 line-height: 16px;
-                border-radius: 6px;
-                border: 1px solid #2b3036;
-                background: #191d22;
-                color: #aeb7c0;
+                border-radius: 7px;
+                border: 1px solid rgba(0, 0, 0, 0.1);
+                background: #f1f5f9;
+                color: #475569;
                 cursor: pointer;
                 vertical-align: middle;
                 transition: all 0.16s ease;
                 user-select: none;
                 font-family: ui-monospace, "SFMono-Regular", Consolas, -apple-system, sans-serif;
-                font-weight: 500;
+                font-weight: 600;
                 box-sizing: border-box;
                 white-space: nowrap;
             }
             .lexipro-orig-toggle-btn:hover {
-                background: #252a31;
-                border-color: #3b4552;
-                color: #eef1f4;
+                background: #e2e8f0;
+                border-color: rgba(79, 70, 229, 0.3);
+                color: #4f46e5;
                 transform: translateY(-1px);
             }
             .lexipro-orig-toggle-btn.showing-orig {
-                background: #1a202a;
-                border-color: #2e3b50;
-                color: #75a5ff;
+                background: rgba(79, 70, 229, 0.1);
+                border-color: rgba(79, 70, 229, 0.35);
+                color: #4f46e5;
             }
             .lexipro-orig-toggle-icon {
                 font-size: 11px;
@@ -5040,7 +5719,7 @@ CRITICAL RULES:
             .lexipro-trans-underline {
                 margin-top: 6px;
                 padding-bottom: 3px;
-                border-bottom: 1.5px dashed rgba(84, 138, 250, 0.75);
+                border-bottom: 1.5px dashed rgba(79, 70, 229, 0.65);
                 color: inherit !important;
                 font-family: inherit;
                 font-size: inherit;
@@ -5054,13 +5733,14 @@ CRITICAL RULES:
             .lexipro-trans-card {
                 margin: 8px 0 12px 0;
                 padding: 10px 14px;
-                background: #14171b;
-                border: 1px solid #262b31;
-                border-left: 3px solid #548afa;
-                border-radius: 8px;
+                background: rgba(255, 255, 255, 0.96);
+                border: 1px solid rgba(0, 0, 0, 0.08);
+                border-left: 3.5px solid #4f46e5;
+                border-radius: 12px;
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
                 font-size: 13.5px;
                 line-height: 1.62;
-                color: #eef1f4;
+                color: #0f172a;
                 clear: both;
             }
             .lexipro-trans-card-header {
@@ -5072,21 +5752,23 @@ CRITICAL RULES:
                 user-select: none;
             }
             .lexipro-trans-card-badge {
-                color: #548afa;
+                color: #4f46e5;
                 font-weight: 700;
             }
             .lexipro-trans-card-btn {
-                background: #191d22;
-                border: 1px solid #262b31;
+                background: #f1f5f9;
+                border: 1px solid rgba(0, 0, 0, 0.08);
                 font-size: 11px;
-                color: #8b949f;
+                color: #475569;
                 cursor: pointer;
-                padding: 2px 7px;
-                border-radius: 5px;
+                padding: 2px 8px;
+                border-radius: 6px;
+                font-weight: 600;
             }
             .lexipro-trans-card-btn:hover {
-                background: #252a31;
-                color: #eef1f4;
+                background: rgba(79, 70, 229, 0.1);
+                border-color: rgba(79, 70, 229, 0.3);
+                color: #4f46e5;
             }
 
             .lexipro-site-toast {
@@ -5094,14 +5776,16 @@ CRITICAL RULES:
                 bottom: 24px;
                 left: 50%;
                 transform: translateX(-50%) translateY(20px);
-                background: #14171b;
-                border: 1px solid #262b31;
-                color: #eef1f4;
+                background: rgba(15, 23, 42, 0.92);
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                color: #f8fafc;
                 padding: 8px 18px;
                 border-radius: 999px;
                 font-size: 12.5px;
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-                backdrop-filter: blur(8px);
+                font-weight: 600;
+                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
                 z-index: 2147483647;
                 opacity: 0;
                 pointer-events: none;
@@ -5110,6 +5794,274 @@ CRITICAL RULES:
             .lexipro-site-toast.show {
                 opacity: 1;
                 transform: translateX(-50%) translateY(0);
+            }
+
+            /* ================= 现代极简 · 黑夜模式 (html[data-lexipro-skin="modern"][data-lexipro-theme="dark"]) ================= */
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab,
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab-more {
+                background: rgba(28, 31, 38, 0.88);
+                color: #f3f4f6;
+                border-color: rgba(255, 255, 255, 0.1);
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:hover,
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab-more:hover {
+                background: rgba(34, 38, 47, 0.96);
+                border-color: rgba(99, 102, 241, 0.55);
+                color: #ffffff;
+                box-shadow: 0 14px 36px rgba(99, 102, 241, 0.25);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-logo-icon {
+                background: linear-gradient(135deg, #6366f1, #3b82f6);
+                box-shadow: 0 3px 10px rgba(99, 102, 241, 0.35);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu {
+                background: rgba(28, 31, 38, 0.94);
+                border-color: rgba(255, 255, 255, 0.1);
+                color: #f3f4f6;
+                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu-header {
+                border-bottom-color: rgba(255, 255, 255, 0.08);
+                color: #818cf8;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-status-pill {
+                color: #9ca3af;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-menu-divider {
+                background: rgba(255, 255, 255, 0.08);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-menu-btn:hover {
+                background: rgba(99, 102, 241, 0.16);
+                border-color: rgba(99, 102, 241, 0.32);
+                color: #ffffff;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-theme-status-value {
+                color: #818cf8;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-group {
+                background: rgba(18, 20, 24, 0.65);
+                border-color: rgba(255, 255, 255, 0.08);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-title {
+                color: #9ca3af;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option {
+                color: #9ca3af;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option:hover {
+                background: rgba(255, 255, 255, 0.07);
+                color: #f3f4f6;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-style-option.active {
+                background: rgba(99, 102, 241, 0.2);
+                border-color: rgba(99, 102, 241, 0.4);
+                color: #c7d2fe;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn {
+                background: rgba(28, 31, 38, 0.9);
+                border-color: rgba(255, 255, 255, 0.14);
+                color: #9ca3af;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn:hover {
+                background: rgba(99, 102, 241, 0.18);
+                border-color: rgba(99, 102, 241, 0.45);
+                color: #ffffff;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn.showing-orig {
+                background: rgba(99, 102, 241, 0.2);
+                border-color: rgba(99, 102, 241, 0.45);
+                color: #a5b4fc;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-underline {
+                border-bottom-color: rgba(99, 102, 241, 0.72);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card {
+                background: rgba(28, 31, 38, 0.92);
+                border-color: rgba(255, 255, 255, 0.1);
+                border-left-color: #6366f1;
+                color: #f3f4f6;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-badge {
+                color: #818cf8;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-btn {
+                background: rgba(255, 255, 255, 0.08);
+                border-color: rgba(255, 255, 255, 0.12);
+                color: #d1d5db;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-btn:hover {
+                background: rgba(99, 102, 241, 0.22);
+                border-color: rgba(99, 102, 241, 0.45);
+                color: #ffffff;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-toast {
+                background: rgba(28, 31, 38, 0.96);
+                border-color: rgba(255, 255, 255, 0.14);
+                color: #f3f4f6;
+                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            }
+
+            /* ================= 皮肤二：动森经典风格 (html[data-lexipro-skin="animal_island"]) ================= */
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-container {
+                font-family: "Nunito", "Noto Sans SC", "Trebuchet MS", "PingFang SC", "Microsoft YaHei", sans-serif;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab,
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more {
+                background:
+                    radial-gradient(circle, rgba(216, 200, 171, .35) 1.2px, transparent 1.4px) 0 0 / 14px 14px,
+                    linear-gradient(180deg, #fffdf3, #fff8e4);
+                color: #794f27;
+                border: 2px solid #d8c8ab;
+                border-bottom: 4px solid #bdae9d;
+                box-shadow: 0 8px 20px rgba(114, 93, 66, 0.24);
+                backdrop-filter: none;
+                font-weight: 800;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:hover,
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more:hover {
+                background: linear-gradient(180deg, #effdf8, #e8faf5);
+                border-color: #82d5bb;
+                border-bottom-color: #60bba5;
+                color: #0b8079;
+                box-shadow: 0 10px 24px rgba(18, 169, 157, 0.24);
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab:active,
+            html[data-lexipro-skin="animal_island"] .lexipro-site-fab-more:active {
+                transform: translateY(2px);
+                border-bottom-width: 2px;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-logo-icon {
+                background: linear-gradient(180deg, #ffe18d, #f7cd67);
+                color: #794f27;
+                border: 1.5px solid #d6a943;
+                border-radius: 8px;
+                box-shadow: 0 2px 0 #c69a37;
+                font-size: 13px;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-badge {
+                background: #19c8b9;
+                color: #ffffff;
+                border: 2px solid #fffdf3;
+                box-shadow: 0 2px 0 #12a99d;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-menu {
+                background:
+                    radial-gradient(circle, rgba(216, 200, 171, .35) 1.2px, transparent 1.4px) 0 0 / 16px 16px,
+                    linear-gradient(180deg, #fffdf3, #fff8e4);
+                border: 2px solid #d8c8ab;
+                border-radius: 22px;
+                color: #725d42;
+                box-shadow: 0 6px 0 #bdae9d, 0 18px 38px rgba(114, 93, 66, 0.25);
+                backdrop-filter: none;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-header {
+                border-bottom: 1.5px dashed #e2d5bd;
+                color: #794f27;
+                font-weight: 900;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-status-pill {
+                color: #9b8567;
+                font-weight: 700;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-menu-divider {
+                height: 0;
+                background: transparent;
+                border-top: 1.5px dashed #e2d5bd;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-btn {
+                border-radius: 12px;
+                color: #725d42;
+                font-weight: 700;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-menu-btn:hover {
+                background: #effdf8;
+                border-color: #82d5bb;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-theme-status-value {
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-style-group {
+                background: rgba(255, 253, 247, 0.85);
+                border: 1.5px dashed #d8c8ab;
+                border-radius: 14px;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-style-title {
+                color: #9b8567;
+                font-weight: 700;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-style-option {
+                color: #725d42;
+                border-radius: 10px;
+                font-weight: 600;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-style-option:hover {
+                background: #effdf8;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-style-option.active {
+                background: #e8faf5;
+                border-color: #82d5bb;
+                color: #0b8079;
+                box-shadow: 0 2px 0 rgba(18, 169, 157, 0.2);
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-orig-toggle-btn {
+                background: linear-gradient(180deg, #fffdf3, #fff1c8);
+                border: 1px solid #d8c8ab;
+                border-bottom: 2.5px solid #c4b89e;
+                border-radius: 999px;
+                color: #725d42;
+                font-weight: 700;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-orig-toggle-btn:hover {
+                background: #effdf8;
+                border-color: #82d5bb;
+                border-bottom-color: #60bba5;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-orig-toggle-btn.showing-orig {
+                background: #e8faf5;
+                border-color: #82d5bb;
+                border-bottom-color: #60bba5;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-trans-underline {
+                border-bottom-color: rgba(25, 200, 185, 0.72);
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-trans-card {
+                background:
+                    radial-gradient(circle, rgba(216, 200, 171, .28) 1.2px, transparent 1.4px) 0 0 / 14px 14px,
+                    #fffdf3;
+                border: 2px solid #d8c8ab;
+                border-left: 4px solid #19c8b9;
+                border-radius: 16px;
+                color: #725d42;
+                box-shadow: 0 3px 0 rgba(196, 184, 158, 0.48);
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-trans-card-badge {
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-trans-card-btn {
+                background: #fff8e4;
+                border: 1px solid #d8c8ab;
+                border-bottom: 2px solid #c4b89e;
+                border-radius: 999px;
+                color: #725d42;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-trans-card-btn:hover {
+                background: #e8faf5;
+                border-color: #82d5bb;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .lexipro-site-toast {
+                background: linear-gradient(180deg, #26d9c6, #19c8b9);
+                border: 2px solid #fff8e4;
+                border-bottom: 4px solid #12a99d;
+                color: #ffffff;
+                font-weight: 800;
+                box-shadow: 0 6px 20px rgba(18, 169, 157, 0.35);
             }
         `);
 
@@ -5753,7 +6705,7 @@ CRITICAL RULES:
                 <div class="lexipro-site-menu" id="lexipro-site-menu">
                     <div class="lexipro-site-menu-header">
                         <span>${siteConfig.name} 翻译增强</span>
-                        <span id="lexipro-site-status-text" style="font-size:11px;font-weight:normal;color:#8b949f;">就绪</span>
+                        <span id="lexipro-site-status-text" class="lexipro-site-status-pill">就绪</span>
                     </div>
                     <button class="lexipro-site-menu-btn" id="lps-btn-translate">🌐 一键翻译本页</button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-retry" style="display:none;color:#ff9fa5;">⚠️ 重试未完成段落</button>
@@ -5776,10 +6728,10 @@ CRITICAL RULES:
                         </div>
                     </div>
 
-                    <div style="height:1px;background:#262b31;margin:6px 0;"></div>
+                    <div class="lexipro-menu-divider"></div>
                     <button class="lexipro-site-menu-btn" id="lps-btn-theme-toggle">
                         <span>🎨 界面视觉皮肤:</span>
-                        <span id="lps-theme-status" style="margin-left:auto;font-weight:bold;color:#548afa;">${siteUITheme === 'animal_island' ? '动森经典' : 'Market Desk'}</span>
+                        <span id="lps-theme-status" class="lexipro-theme-status-value">${currentUiSkin === 'animal_island' ? '动森经典' : '现代极简'}</span>
                     </button>
                     <button class="lexipro-site-menu-btn" id="lps-btn-auto-toggle">
                         <span>⚡ 进站自动翻译:</span>
@@ -5790,7 +6742,7 @@ CRITICAL RULES:
                     <div class="lexipro-site-fab" id="lexipro-site-fab">
                         <div class="lexipro-site-fab-icon">
                             <span class="lexipro-site-spinner" style="display:none;">⏳</span>
-                            <span class="lexipro-site-logo-icon">MD</span>
+                            <span class="lexipro-site-logo-icon">${currentUiSkin === 'animal_island' ? '🍃' : '译'}</span>
                         </div>
                         <div class="lexipro-site-fab-label" id="lexipro-site-fab-label">${siteConfig.isGeneral ? '沉浸式翻译' : ('翻译' + siteConfig.name)}</div>
                     </div>
@@ -5810,6 +6762,7 @@ CRITICAL RULES:
             const btnNewItems = fabWrapper.querySelector('#lps-btn-new-items');
 
             updateStyleMenuUI();
+            applyUISkin();
 
             fab.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -5859,14 +6812,12 @@ CRITICAL RULES:
             });
 
             const btnThemeToggle = fabWrapper.querySelector('#lps-btn-theme-toggle');
-            const themeStatusText = fabWrapper.querySelector('#lps-theme-status');
             btnThemeToggle.addEventListener('click', () => {
-                siteUITheme = siteUITheme === 'animal_island' ? 'market_desk' : 'animal_island';
-                GM_setValue('lexipro_ui_theme', siteUITheme);
-                themeStatusText.innerText = siteUITheme === 'animal_island' ? '动森经典' : 'Market Desk';
-                const shadowHost = document.getElementById('imt-shadow-host');
-                if (shadowHost) shadowHost.setAttribute('data-theme', siteUITheme);
-                showSiteToast('已切换皮肤: ' + (siteUITheme === 'animal_island' ? '动森温馨经典' : 'Market Desk 金融终端高级质感'));
+                const nextTheme = currentUiSkin === 'animal_island' ? 'modern' : 'animal_island';
+                siteUITheme = nextTheme;
+                GM_setValue('lexipro_ui_theme', nextTheme);
+                applyUISkin(nextTheme);
+                showSiteToast('已切换皮肤: ' + (nextTheme === 'animal_island' ? '动森经典' : '现代极简'));
             });
 
             const btnAutoToggle = fabWrapper.querySelector('#lps-btn-auto-toggle');
@@ -5987,14 +6938,14 @@ CRITICAL RULES:
                 statusText.innerText = '翻译中...';
             } else if (isSiteShowingTranslation) {
                 spin.style.display = 'none';
-                logo.style.display = 'inline-block';
+                logo.style.display = 'inline-flex';
                 label.innerText = isShowingOrig ? `显示原文 (${siteTranslatedCount})` : `已翻译 (${siteTranslatedCount})`;
                 btnTrans.style.display = 'none';
                 btnRestore.style.display = 'flex';
                 statusText.innerText = '已翻译';
             } else {
                 spin.style.display = 'none';
-                logo.style.display = 'inline-block';
+                logo.style.display = 'inline-flex';
                 label.innerText = '翻译' + siteConfig.name;
                 btnTrans.style.display = 'flex';
                 btnRestore.style.display = 'none';
@@ -6128,11 +7079,14 @@ CRITICAL RULES:
             return !isShowingOrig;
         };
         window.__lexipro_set_display_mode = (mode) => setTranslationStyle(mode);
+        window.__lexipro_sync_site_theme = (skin) => {
+            siteUITheme = normalizeUiSkin(skin);
+        };
         window.__lexipro_set_theme = (theme) => {
-            siteUITheme = theme;
-            GM_setValue('lexipro_ui_theme', theme);
-            const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
-            if (themeStatusText) themeStatusText.innerText = theme === 'animal_island' ? '动森经典' : 'Market Desk';
+            const nextSkin = normalizeUiSkin(theme);
+            siteUITheme = nextSkin;
+            GM_setValue('lexipro_ui_theme', nextSkin);
+            applyUISkin(nextSkin);
         };
         window.__lexipro_update_auto_status = () => {
             if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
@@ -6154,9 +7108,8 @@ CRITICAL RULES:
             } else if (key === 'lexipro_auto_translate_sites') {
                 if (typeof updateAutoStatusUI === 'function') updateAutoStatusUI();
             } else if (key === 'lexipro_ui_theme' && value) {
-                siteUITheme = value;
-                const themeStatusText = fabWrapper?.querySelector('#lps-theme-status');
-                if (themeStatusText) themeStatusText.innerText = value === 'animal_island' ? '动森经典' : 'Market Desk';
+                siteUITheme = normalizeUiSkin(value);
+                applyUISkin(siteUITheme);
             }
         };
 
@@ -6203,7 +7156,7 @@ CRITICAL RULES:
                         isShowingOriginal: false,
                         displayMode: GM_getValue('lexipro_site_translation_style', 'replace'),
                         autoTranslate: isCurrentSiteAutoTranslate(),
-                        theme: GM_getValue('lexipro_ui_theme', 'market_desk')
+                        theme: currentUiSkin
                     });
                 }
                 return true;
@@ -6269,10 +7222,11 @@ CRITICAL RULES:
                 return true;
             }
             if (msg.type === 'SET_THEME') {
+                const nextSkin = normalizeUiSkin(msg.theme);
+                GM_setValue('lexipro_ui_theme', nextSkin);
+                applyUISkin(nextSkin);
                 if (typeof window.__lexipro_set_theme === 'function') {
-                    window.__lexipro_set_theme(msg.theme);
-                } else {
-                    GM_setValue('lexipro_ui_theme', msg.theme);
+                    window.__lexipro_set_theme(nextSkin);
                 }
                 sendResponse({ success: true });
                 return true;
@@ -6300,6 +7254,10 @@ CRITICAL RULES:
                         window.__lexipro_destroy_site_translator();
                     }
                 }
+            } else if (key === 'lexipro_ui_theme') {
+                applyUISkin(value, undefined);
+            } else if (key === 'lexipro_modern_color_mode') {
+                applyUISkin(undefined, value);
             } else if (key === 'lexipro_auto_pronounce') {
                 CONFIG.autoPronounce = Boolean(value);
             } else if (key === 'lexipro_tts_engine') {

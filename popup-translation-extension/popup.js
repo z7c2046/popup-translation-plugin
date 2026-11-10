@@ -33,32 +33,92 @@ document.addEventListener('DOMContentLoaded', async () => {
     return host === cleanPat || host.endsWith('.' + cleanPat);
   }
 
+  // 皮肤与配色模式归一化（兼容历史 market_desk 配置）
+  function normalizeUiSkin(val) {
+    if (val === 'animal_island') return 'animal_island';
+    return 'modern';
+  }
+
+  function normalizeColorMode(val) {
+    if (val === 'light' || val === 'dark') return val;
+    return 'auto';
+  }
+
+  const colorMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function resolveModernTheme(mode) {
+    if (mode === 'dark') return 'dark';
+    if (mode === 'light') return 'light';
+    return (colorMediaQuery && colorMediaQuery.matches) ? 'dark' : 'light';
+  }
+
   // 读取并初始化配置
   const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
-  const storedConfig = hasChromeStorage
-    ? await chrome.storage.local.get({
-        lexipro_ui_theme: 'market_desk',
-        lexipro_site_translation_style: 'replace',
-        lexipro_site_auto_translate: false,
-        lexipro_auto_translate_sites: [],
-        lexipro_immersion_sites: [],
-        lexipro_excluded_sites: []
-      })
-    : {
-        lexipro_ui_theme: 'market_desk',
-        lexipro_site_translation_style: 'replace',
-        lexipro_site_auto_translate: false,
-        lexipro_auto_translate_sites: [],
-        lexipro_immersion_sites: [],
-        lexipro_excluded_sites: []
-      };
+  const DEFAULT_POPUP_CFG = {
+    lexipro_ui_theme: 'modern',
+    lexipro_modern_color_mode: 'auto',
+    lexipro_animal_background: 'default',
+    lexipro_site_translation_style: 'replace',
+    lexipro_site_auto_translate: false,
+    lexipro_auto_translate_sites: [],
+    lexipro_immersion_sites: [],
+    lexipro_excluded_sites: []
+  };
+
+  let storedConfig = { ...DEFAULT_POPUP_CFG };
+  if (hasChromeStorage) {
+    storedConfig = await chrome.storage.local.get(DEFAULT_POPUP_CFG);
+  } else {
+    try {
+      for (const k of Object.keys(DEFAULT_POPUP_CFG)) {
+        const raw = localStorage.getItem(k);
+        if (raw !== null) storedConfig[k] = JSON.parse(raw);
+      }
+    } catch (e) {}
+  }
+
+  let currentSkin = normalizeUiSkin(storedConfig.lexipro_ui_theme);
+  let currentColorMode = normalizeColorMode(storedConfig.lexipro_modern_color_mode);
+  let currentAnimalBg = storedConfig.lexipro_animal_background || 'default';
+
+  function applyPopupSkin() {
+    const resolvedTheme = currentSkin === 'modern' ? resolveModernTheme(currentColorMode) : 'light';
+    document.body.setAttribute('data-skin', currentSkin);
+    document.body.setAttribute('data-theme', resolvedTheme);
+    if (currentSkin === 'animal_island') {
+      document.body.setAttribute('data-animal-bg', currentAnimalBg || 'default');
+    } else {
+      document.body.removeAttribute('data-animal-bg');
+    }
+  }
+
+  function savePopupPatch(patch) {
+    if (hasChromeStorage) {
+      return chrome.storage.local.set(patch).catch(() => {});
+    }
+    try {
+      for (const [k, v] of Object.entries(patch)) {
+        localStorage.setItem(k, JSON.stringify(v));
+      }
+    } catch (e) {}
+    return Promise.resolve();
+  }
+
+  applyPopupSkin();
+
+  colorMediaQuery?.addEventListener?.('change', () => {
+    if (currentSkin === 'modern' && currentColorMode === 'auto') {
+      applyPopupSkin();
+    }
+  });
 
   if (quickThemeSelect) {
-    quickThemeSelect.value = storedConfig.lexipro_ui_theme || 'market_desk';
+    quickThemeSelect.value = currentSkin;
     quickThemeSelect.addEventListener('change', async (e) => {
-      const val = e.target.value;
-      await chrome.storage.local.set({ lexipro_ui_theme: val });
-      if (activeTab?.id) {
+      const val = normalizeUiSkin(e.target.value);
+      currentSkin = val;
+      applyPopupSkin();
+      await savePopupPatch({ lexipro_ui_theme: val });
+      if (activeTab?.id && typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.sendMessage(activeTab.id, { type: 'SET_THEME', theme: val }).catch(() => {});
       }
     });
@@ -68,10 +128,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     quickStyleSelect.value = storedConfig.lexipro_site_translation_style || 'replace';
     quickStyleSelect.addEventListener('change', async (e) => {
       const val = e.target.value;
-      await chrome.storage.local.set({ lexipro_site_translation_style: val });
-      if (activeTab?.id) {
+      await savePopupPatch({ lexipro_site_translation_style: val });
+      if (activeTab?.id && typeof chrome !== 'undefined' && chrome.tabs) {
         chrome.tabs.sendMessage(activeTab.id, { type: 'SET_DISPLAY_MODE', mode: val }).catch(() => {});
       }
+    });
+  }
+
+  if (hasChromeStorage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      let dirty = false;
+      if (changes.lexipro_ui_theme) {
+        currentSkin = normalizeUiSkin(changes.lexipro_ui_theme.newValue);
+        if (quickThemeSelect) quickThemeSelect.value = currentSkin;
+        dirty = true;
+      }
+      if (changes.lexipro_modern_color_mode) {
+        currentColorMode = normalizeColorMode(changes.lexipro_modern_color_mode.newValue);
+        dirty = true;
+      }
+      if (changes.lexipro_animal_background) {
+        currentAnimalBg = changes.lexipro_animal_background.newValue || 'default';
+        dirty = true;
+      }
+      if (dirty) applyPopupSkin();
     });
   }
 

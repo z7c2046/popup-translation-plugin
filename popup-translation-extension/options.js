@@ -4,7 +4,9 @@
  */
 
 const DEFAULT_CONFIG = {
-  lexipro_ui_theme: 'market_desk',
+  lexipro_ui_theme: 'modern',
+  lexipro_modern_color_mode: 'auto',
+  lexipro_animal_background: 'default',
   lexipro_sf_model: 'Qwen/Qwen2.5-7B-Instruct',
   lexipro_sf_api_key: '',
   lexipro_disable_thinking: true,
@@ -20,6 +22,44 @@ const DEFAULT_CONFIG = {
   lexipro_kokoro_voice: 'af_heart',
   lexipro_local_tts_url: 'http://127.0.0.1:18080'
 };
+
+// guokaigdg/animal-island-ui 官方 19 种 Background 定义
+const ANIMAL_BACKGROUNDS = [
+  { id: 'default', cn: '奶油色波点', color: '#725d42', wide: false },
+  { id: 'grid', cn: '网格', color: '#725d42', wide: false },
+  { id: 'dots-dark-green', cn: '深绿波点', color: '#3a6b3a', wide: false },
+  { id: 'sprinkles', cn: '彩色针糖', color: '#725d42', wide: true },
+  { id: 'sweet-corner', cn: '甜点街角', color: '#725d42', wide: true },
+  { id: 'coffee-break', cn: '咖啡时光', color: '#725d42', wide: true },
+  { id: 'dots-pink', cn: '应用粉', color: '#a85565', wide: false },
+  { id: 'dots-purple', cn: '紫色', color: '#6a3a9a', wide: false },
+  { id: 'dots-blue', cn: '应用蓝', color: '#4a5a8a', wide: false },
+  { id: 'dots-yellow', cn: '应用黄', color: '#7a6528', wide: false },
+  { id: 'dots-orange', cn: '应用橙', color: '#8a4a2a', wide: false },
+  { id: 'dots-teal', cn: '应用青', color: '#2a6b5a', wide: false },
+  { id: 'dots-green', cn: '应用绿', color: '#3a6b3a', wide: false },
+  { id: 'dots-red', cn: '应用红', color: '#9a3a3a', wide: false },
+  { id: 'dots-lime-green', cn: '青柠绿', color: '#5a6b28', wide: false },
+  { id: 'dots-yellow-green', cn: '黄绿色', color: '#6a5a28', wide: false },
+  { id: 'dots-brown', cn: '棕色', color: '#5a4a2a', wide: false },
+  { id: 'dots-warm-peach-pink', cn: '暖桃粉', color: '#8a4a2a', wide: false },
+  { id: 'dots-gray', cn: '浅灰波点', color: '#5a5a5a', wide: false }
+];
+
+function normalizeUiSkin(val) {
+  if (val === 'animal_island') return 'animal_island';
+  if (val === 'market_desk' || val === 'modern' || !val) return 'modern';
+  return 'modern';
+}
+
+function normalizeColorMode(val) {
+  if (val === 'light' || val === 'dark') return val;
+  return 'auto';
+}
+
+function normalizeAnimalBg(val) {
+  return ANIMAL_BACKGROUNDS.some(bg => bg.id === val) ? val : 'default';
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeSelect = document.getElementById('ui-theme-select');
@@ -57,11 +97,128 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnReset = document.getElementById('btn-reset');
   const saveMsg = document.getElementById('save-msg');
   const previewBox = document.getElementById('preview-box');
+  const pageBackdrop = document.querySelector('.page-backdrop');
+  const modernColorModeGroup = document.getElementById('modern-color-mode-group');
+  const modernColorIndicator = document.getElementById('modern-color-indicator');
+  const modernColorButtons = Array.from(document.querySelectorAll('#modern-color-mode-control .segmented-tab-btn'));
+  const animalBgGroup = document.getElementById('animal-bg-group');
+  const animalBgGrid = document.getElementById('animal-bg-grid');
+  const animalBgCurrentBadge = document.getElementById('animal-bg-current-badge');
   const activePanelTitle = document.getElementById('active-panel-title');
   const panelSubtitle = document.getElementById('panel-subtitle');
   const adminShell = document.querySelector('.admin-shell');
   const navTabs = Array.from(document.querySelectorAll('.sidebar-nav .nav-item'));
   const settingsPanels = Array.from(document.querySelectorAll('.settings-panel'));
+
+  let currentColorMode = 'auto';
+  let currentAnimalBg = 'default';
+
+  const colorMediaQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  function resolveModernTheme(mode) {
+    if (mode === 'dark') return 'dark';
+    if (mode === 'light') return 'light';
+    return (colorMediaQuery && colorMediaQuery.matches) ? 'dark' : 'light';
+  }
+
+  function saveStoragePatch(patch) {
+    if (hasChromeStorage) {
+      return chrome.storage.local.set(patch).catch(() => {});
+    }
+    try {
+      for (const [k, v] of Object.entries(patch)) {
+        localStorage.setItem(k, JSON.stringify(v));
+      }
+    } catch (e) {}
+    return Promise.resolve();
+  }
+
+  function renderAnimalBgPicker() {
+    if (!animalBgGrid) return;
+    animalBgGrid.innerHTML = '';
+    ANIMAL_BACKGROUNDS.forEach((bg) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `aiu-bg-tile aiu-bg-${bg.id}${bg.wide ? ' is-wide' : ''}`;
+      btn.dataset.bg = bg.id;
+      btn.style.color = bg.color;
+      btn.setAttribute('role', 'radio');
+      btn.setAttribute('aria-checked', bg.id === currentAnimalBg ? 'true' : 'false');
+      if (bg.id === currentAnimalBg) {
+        btn.classList.add('is-selected');
+      }
+      btn.innerHTML = `
+        <span class="aiu-bg-tile-check" aria-hidden="true">✓</span>
+        <span class="aiu-bg-tile-cn">${bg.cn}</span>
+        <span class="aiu-bg-tile-id">${bg.id}</span>
+      `;
+      btn.addEventListener('mouseenter', () => {
+        if (normalizeUiSkin(themeSelect?.value) === 'animal_island' && pageBackdrop) {
+          pageBackdrop.setAttribute('data-animal-bg', bg.id);
+        }
+      });
+      btn.addEventListener('mouseleave', () => {
+        if (normalizeUiSkin(themeSelect?.value) === 'animal_island' && pageBackdrop) {
+          pageBackdrop.setAttribute('data-animal-bg', currentAnimalBg);
+        }
+      });
+      btn.addEventListener('click', async () => {
+        currentAnimalBg = normalizeAnimalBg(bg.id);
+        applySkinToDocument();
+        await saveStoragePatch({ lexipro_animal_background: currentAnimalBg });
+      });
+      animalBgGrid.appendChild(btn);
+    });
+  }
+
+  function syncSegmentedControl() {
+    const modes = ['auto', 'light', 'dark'];
+    const idx = Math.max(0, modes.indexOf(currentColorMode));
+    if (modernColorIndicator) {
+      modernColorIndicator.style.transform = `translateX(${idx * 100}%)`;
+    }
+    modernColorButtons.forEach((btn) => {
+      const isSelected = btn.dataset.mode === currentColorMode;
+      btn.classList.toggle('selected', isSelected);
+      btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+    });
+  }
+
+  function applySkinToDocument() {
+    const skin = normalizeUiSkin(themeSelect ? themeSelect.value : 'modern');
+    const resolvedTheme = skin === 'modern' ? resolveModernTheme(currentColorMode) : 'light';
+
+    document.body.setAttribute('data-skin', skin);
+    document.body.setAttribute('data-theme', resolvedTheme);
+
+    if (pageBackdrop) {
+      if (skin === 'animal_island') {
+        pageBackdrop.setAttribute('data-animal-bg', currentAnimalBg);
+      } else {
+        pageBackdrop.removeAttribute('data-animal-bg');
+      }
+    }
+
+    if (modernColorModeGroup) {
+      modernColorModeGroup.style.display = skin === 'modern' ? 'block' : 'none';
+    }
+    if (animalBgGroup) {
+      animalBgGroup.style.display = skin === 'animal_island' ? 'block' : 'none';
+    }
+
+    syncSegmentedControl();
+
+    if (animalBgGrid) {
+      const bgMeta = ANIMAL_BACKGROUNDS.find(b => b.id === currentAnimalBg) || ANIMAL_BACKGROUNDS[0];
+      if (animalBgCurrentBadge) {
+        animalBgCurrentBadge.textContent = bgMeta.cn;
+      }
+      animalBgGrid.querySelectorAll('.aiu-bg-tile').forEach((tile) => {
+        const isSel = tile.dataset.bg === currentAnimalBg;
+        tile.classList.toggle('is-selected', isSel);
+        tile.setAttribute('aria-checked', isSel ? 'true' : 'false');
+      });
+    }
+  }
 
   // 侧边栏分栏导航切换与 URL Hash 记忆
   function switchPanel(panelName, { updateHash = true } = {}) {
@@ -160,7 +317,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 读取配置
   const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
-  const stored = hasChromeStorage ? await chrome.storage.local.get(DEFAULT_CONFIG) : { ...DEFAULT_CONFIG };
+  let stored = { ...DEFAULT_CONFIG };
+  if (hasChromeStorage) {
+    stored = await chrome.storage.local.get(DEFAULT_CONFIG);
+  } else {
+    try {
+      for (const k of Object.keys(DEFAULT_CONFIG)) {
+        const raw = localStorage.getItem(k);
+        if (raw !== null) stored[k] = JSON.parse(raw);
+      }
+    } catch (e) {}
+  }
+
+  renderAnimalBgPicker();
   fillForm(stored);
   updatePreview();
 
@@ -182,7 +351,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updatePreview() {
     if (!previewBox) return;
     const style = siteStyleSelect.value || 'replace';
-    const isDark = (themeSelect.value === 'market_desk' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const skin = normalizeUiSkin(themeSelect ? themeSelect.value : 'modern');
+    const isAnimal = skin === 'animal_island';
+    const isDark = !isAnimal && resolveModernTheme(currentColorMode) === 'dark';
+
+    const origColor = isAnimal ? '#9b8567' : (isDark ? '#9ca3af' : '#475569');
+    const transColor = isAnimal ? '#725d42' : (isDark ? '#f3f4f6' : '#0f172a');
+    const accentColor = isAnimal ? '#0b8079' : (isDark ? '#818cf8' : '#4f46e5');
+    const cardBg = isAnimal ? '#fff8e4' : (isDark ? 'rgba(28, 31, 38, 0.9)' : '#ffffff');
+    const cardBorder = isAnimal ? '#d8c8ab' : (isDark ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)');
+    const leftAccent = isAnimal ? '#19c8b9' : (isDark ? '#6366f1' : '#4f46e5');
+    const pillBg = isAnimal ? '#e8faf5' : (isDark ? 'rgba(99, 102, 241, 0.16)' : '#ffffff');
+    const pillBorder = isAnimal ? '#82d5bb' : (isDark ? 'rgba(99, 102, 241, 0.35)' : '#cbd5e1');
 
     const items = [
       {
@@ -195,28 +375,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     ];
 
-    const dividerCss = `padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid ${isDark ? '#2E3540' : '#E3E8F0'};`;
+    const dividerCss = isAnimal
+      ? 'padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1.5px dashed #d8c8ab;'
+      : `padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#E3E8F0'};`;
 
     if (style === 'replace') {
       previewBox.innerHTML = items.map((it, idx) => `
-        <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px; line-height: 1.65; color: ${isDark ? '#E5EAF0' : '#111827'};">
+        <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px; line-height: 1.65; color: ${transColor};">
           <span>${it.trans}</span>
-          <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; font-size: 11px; border-radius: 5px; border: 1px solid ${isDark ? '#3B4551' : '#CBD5E1'}; background: ${isDark ? '#2A313A' : '#FFFFFF'}; color: ${isDark ? '#8DB4FF' : '#3154D1'}; cursor: pointer;">⇄ 原文</span>
+          <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 7px; font-size: 11px; border-radius: ${isAnimal ? '999px' : '6px'}; border: 1px solid ${pillBorder}; background: ${pillBg}; color: ${accentColor}; font-weight: 600; cursor: pointer;">⇄ 原文</span>
         </div>
       `).join('');
     } else if (style === 'underline') {
       previewBox.innerHTML = items.map((it, idx) => `
         <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px; line-height: 1.55;">
-          <div style="color: ${isDark ? '#AAB4C0' : '#334155'};">${it.orig}</div>
-          <div style="border-bottom: 1.5px dashed ${isDark ? '#8DB4FF' : '#3154D1'}; color: ${isDark ? '#E5EAF0' : '#111827'}; display: inline-block; padding-bottom: 2px; margin-top: 4px;">${it.trans}</div>
+          <div style="color: ${origColor};">${it.orig}</div>
+          <div style="border-bottom: 1.5px dashed ${leftAccent}; color: ${transColor}; display: inline-block; padding-bottom: 2px; margin-top: 4px;">${it.trans}</div>
         </div>
       `).join('');
     } else if (style === 'card') {
       previewBox.innerHTML = items.map((it, idx) => `
         <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px;">
-          <div style="color: ${isDark ? '#AAB4C0' : '#334155'}; margin-bottom: 5px;">${it.orig}</div>
-          <div style="background: ${isDark ? '#20252C' : '#FFFFFF'}; border: 1px solid ${isDark ? '#3B4551' : '#DCE2EC'}; border-left: 3px solid ${isDark ? '#8DB4FF' : '#3154D1'}; border-radius: 6px; padding: 6px 10px; color: ${isDark ? '#E5EAF0' : '#111827'};">
-            <span style="font-size: 10.5px; font-weight: bold; color: ${isDark ? '#8DB4FF' : '#3154D1'}; margin-right: 6px;">[译文]</span>${it.trans}
+          <div style="color: ${origColor}; margin-bottom: 5px;">${it.orig}</div>
+          <div style="background: ${cardBg}; border: 1px solid ${cardBorder}; border-left: 3.5px solid ${leftAccent}; border-radius: ${isAnimal ? '12px' : '8px'}; padding: 7px 11px; color: ${transColor};">
+            <span style="font-size: 10.5px; font-weight: bold; color: ${accentColor}; margin-right: 6px;">[译文]</span>${it.trans}
           </div>
         </div>
       `).join('');
@@ -224,7 +406,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   siteStyleSelect.addEventListener('change', updatePreview);
-  themeSelect.addEventListener('change', updatePreview);
+
+  themeSelect.addEventListener('change', async () => {
+    const chosenSkin = normalizeUiSkin(themeSelect.value);
+    themeSelect.value = chosenSkin;
+    applySkinToDocument();
+    updatePreview();
+    await saveStoragePatch({ lexipro_ui_theme: chosenSkin });
+  });
+
+  modernColorButtons.forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      currentColorMode = normalizeColorMode(btn.dataset.mode);
+      applySkinToDocument();
+      updatePreview();
+      await saveStoragePatch({ lexipro_modern_color_mode: currentColorMode });
+    });
+  });
+
+  colorMediaQuery?.addEventListener?.('change', () => {
+    if (normalizeUiSkin(themeSelect?.value) === 'modern' && currentColorMode === 'auto') {
+      applySkinToDocument();
+      updatePreview();
+    }
+  });
+
+  if (hasChromeStorage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      let skinDirty = false;
+      if (changes.lexipro_ui_theme) {
+        const nextSkin = normalizeUiSkin(changes.lexipro_ui_theme.newValue);
+        if (themeSelect && themeSelect.value !== nextSkin) {
+          themeSelect.value = nextSkin;
+          skinDirty = true;
+        }
+      }
+      if (changes.lexipro_modern_color_mode) {
+        currentColorMode = normalizeColorMode(changes.lexipro_modern_color_mode.newValue);
+        skinDirty = true;
+      }
+      if (changes.lexipro_animal_background) {
+        currentAnimalBg = normalizeAnimalBg(changes.lexipro_animal_background.newValue);
+        skinDirty = true;
+      }
+      if (skinDirty) {
+        applySkinToDocument();
+        updatePreview();
+      }
+    });
+  }
 
   // 语音引擎与伴侣服务状态联动
   function updateTtsUI() {
@@ -532,7 +763,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const toSave = {
-      lexipro_ui_theme: themeSelect ? themeSelect.value : 'market_desk',
+      lexipro_ui_theme: normalizeUiSkin(themeSelect ? themeSelect.value : 'modern'),
+      lexipro_modern_color_mode: currentColorMode,
+      lexipro_animal_background: currentAnimalBg,
       lexipro_sf_model: modelSelect.value,
       lexipro_sf_api_key: keyInput.value.trim(),
       lexipro_disable_thinking: thinkingCheck.checked,
@@ -548,7 +781,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       lexipro_local_tts_url: (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim()
     };
 
-    await chrome.storage.local.set(toSave);
+    await saveStoragePatch(toSave);
+    applySkinToDocument();
+    updatePreview();
     saveMsg.innerText = '● 已保存';
     saveMsg.className = 'save-msg text-success';
     setTimeout(() => { saveMsg.innerText = ''; }, 3000);
@@ -557,7 +792,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 恢复出厂默认配置
   btnReset.addEventListener('click', async () => {
     if (confirm('确定要恢复出厂默认设置吗？')) {
-      await chrome.storage.local.set(DEFAULT_CONFIG);
+      await saveStoragePatch(DEFAULT_CONFIG);
       fillForm(DEFAULT_CONFIG);
       updatePreview();
       saveMsg.innerText = '已恢复出厂默认设置';
@@ -567,7 +802,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   function fillForm(cfg) {
-    if (themeSelect) themeSelect.value = cfg.lexipro_ui_theme || 'market_desk';
+    if (themeSelect) themeSelect.value = normalizeUiSkin(cfg.lexipro_ui_theme);
+    currentColorMode = normalizeColorMode(cfg.lexipro_modern_color_mode);
+    currentAnimalBg = normalizeAnimalBg(cfg.lexipro_animal_background);
     modelSelect.value = cfg.lexipro_sf_model || DEFAULT_CONFIG.lexipro_sf_model;
     keyInput.value = cfg.lexipro_sf_api_key || '';
     thinkingCheck.checked = cfg.lexipro_disable_thinking !== false;
@@ -588,6 +825,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (ttsEngineSelect) ttsEngineSelect.value = savedEngine;
     if (kokoroVoiceSelect) kokoroVoiceSelect.value = cfg.lexipro_kokoro_voice || 'af_heart';
     if (localServiceUrlInput) localServiceUrlInput.value = cfg.lexipro_local_tts_url || 'http://127.0.0.1:18080';
+    applySkinToDocument();
     updateTtsUI();
   }
 });
