@@ -5,12 +5,11 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Net;
 using System.Media;
-using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
-namespace LexiProTTS
+namespace LocalTTSCompanion
 {
     static class Program
     {
@@ -21,13 +20,13 @@ namespace LexiProTTS
             Application.SetCompatibleTextRenderingDefault(false);
 
             bool isNewInstance;
-            using (Mutex mutex = new Mutex(true, "LexiPro_TTS_Companion_SingleInstance_Mutex_2026", out isNewInstance))
+            using (Mutex mutex = new Mutex(true, "PopupTranslation_TTS_SingleInstance_Mutex_2026", out isNewInstance))
             {
                 if (!isNewInstance)
                 {
                     MessageBox.Show(
-                        "LexiPro 本地原生发音伴侣已在运行中！\n\n请查看屏幕右下角任务栏通知区域（托盘小箭头）中的小喇叭图标。",
-                        "LexiPro TTS 已在运行",
+                        "本地原生语音服务已在运行中！\n\n请查看屏幕右下角任务栏通知区域（托盘小箭头）中的小喇叭图标。",
+                        "本地语音服务已在运行",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
                     return;
@@ -48,11 +47,12 @@ namespace LexiProTTS
         private ToolStripMenuItem autoStartMenuItem;
 
         private const string REG_RUN_KEY = @"Software\Microsoft\Windows\CurrentVersion\Run";
-        private const string APP_NAME = "LexiPro_TTS_Service";
+        private const string APP_NAME = "PopupTranslation_TTS_Service";
         private const int SERVICE_PORT = 18080;
 
         public TrayApplicationContext()
         {
+            CleanupLegacyAutoStart();
             KillExistingPortProcesses(SERVICE_PORT);
             StartBackendService();
 
@@ -63,9 +63,30 @@ namespace LexiProTTS
             // 首次启动时提示用户已进入托盘
             trayIcon.ShowBalloonTip(
                 2000,
-                "LexiPro 本地发音伴侣已启动",
-                "Kokoro-82M + MeloTTS 原生引擎已就绪，已自动收起在任务栏托盘中，浏览器划词随时可用。",
+                "本地语音服务已启动",
+                "Kokoro-82M + MeloTTS 原生引擎已就绪，已收起在任务栏托盘中，浏览器划词随时可用。",
                 ToolTipIcon.Info);
+        }
+
+        private void CleanupLegacyAutoStart()
+        {
+            try
+            {
+                using (RegistryKey key = Registry.CurrentUser.OpenSubKey(REG_RUN_KEY, true))
+                {
+                    if (key != null)
+                    {
+                        foreach (string valueName in key.GetValueNames())
+                        {
+                            if (valueName != APP_NAME && valueName.EndsWith("_TTS_Service", StringComparison.Ordinal))
+                            {
+                                key.DeleteValue(valueName, false);
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
         }
 
         private void InitializeTray()
@@ -74,7 +95,7 @@ namespace LexiProTTS
 
             trayMenu = new ContextMenuStrip();
 
-            ToolStripMenuItem titleItem = new ToolStripMenuItem("LexiPro 本地发音伴侣 (Kokoro + MeloTTS)");
+            ToolStripMenuItem titleItem = new ToolStripMenuItem("本地语音服务 (Kokoro + MeloTTS)");
             titleItem.Enabled = false;
             titleItem.Font = new Font(titleItem.Font, FontStyle.Bold);
             trayMenu.Items.Add(titleItem);
@@ -107,7 +128,7 @@ namespace LexiProTTS
             trayMenu.Items.Add(exitItem);
 
             trayIcon = new NotifyIcon();
-            trayIcon.Text = "LexiPro 本地原生发音伴侣 (Kokoro + MeloTTS)";
+            trayIcon.Text = "本地语音服务 (Kokoro + MeloTTS)";
             trayIcon.Icon = appIcon;
             trayIcon.ContextMenuStrip = trayMenu;
             trayIcon.Visible = true;
@@ -137,13 +158,13 @@ namespace LexiProTTS
 
             if (!Directory.Exists(serviceDir))
             {
-                serviceDir = baseDir; // 容错兼容
+                serviceDir = baseDir;
             }
 
             string serverScript = Path.Combine(serviceDir, "server.js");
             if (!File.Exists(serverScript))
             {
-                MessageBox.Show("未找到本地服务入口脚本: " + serverScript, "LexiPro TTS 启动失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("未找到本地服务入口脚本: " + serverScript, "本地语音服务启动失败", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -161,7 +182,7 @@ namespace LexiProTTS
             }
             catch (Exception ex)
             {
-                MessageBox.Show("启动 Node.js 原生伴侣服务失败: " + ex.Message + "\n请确认系统已安装 Node.js。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("启动 Node.js 本地语音服务失败: " + ex.Message + "\n请确认系统已安装 Node.js。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -218,12 +239,12 @@ namespace LexiProTTS
                     if (lang == "zh")
                     {
                         url = string.Format("http://127.0.0.1:{0}/tts?text={1}&speed=1.0",
-                            SERVICE_PORT, Uri.EscapeDataString("你好，欢迎使用LexiPro本地发音伴侣，这是MeloTTS中文发音。"));
+                            SERVICE_PORT, Uri.EscapeDataString("你好，欢迎使用本地原生语音服务，这是MeloTTS中文发音。"));
                     }
                     else
                     {
                         url = string.Format("http://127.0.0.1:{0}/tts?text={1}&voice=af_heart&speed=1.0",
-                            SERVICE_PORT, Uri.EscapeDataString("Welcome to LexiPro. Experience native neural speech with Kokoro."));
+                            SERVICE_PORT, Uri.EscapeDataString("Welcome! Experience native neural speech with Kokoro."));
                     }
 
                     using (WebClient wc = new WebClient())
@@ -245,7 +266,7 @@ namespace LexiProTTS
 
         private void CheckHealthAsync(object state)
         {
-            Thread.Sleep(2500); // 等待服务就绪
+            Thread.Sleep(2500);
             try
             {
                 using (WebClient wc = new WebClient())
@@ -301,6 +322,13 @@ namespace LexiProTTS
                 {
                     if (key != null)
                     {
+                        foreach (string valueName in key.GetValueNames())
+                        {
+                            if (valueName != APP_NAME && valueName.EndsWith("_TTS_Service", StringComparison.Ordinal))
+                            {
+                                key.DeleteValue(valueName, false);
+                            }
+                        }
                         if (enable)
                         {
                             string exePath = Application.ExecutablePath;
@@ -358,7 +386,6 @@ namespace LexiProTTS
                 {
                     g.SmoothingMode = SmoothingMode.AntiAlias;
 
-                    // 绘制圆形翡翠绿底色
                     using (Brush bgBrush = new LinearGradientBrush(
                         new Point(0, 0), new Point(32, 32),
                         Color.FromArgb(16, 185, 129), Color.FromArgb(5, 150, 105)))
@@ -366,13 +393,10 @@ namespace LexiProTTS
                         g.FillEllipse(bgBrush, 1, 1, 30, 30);
                     }
 
-                    // 绘制白色小喇叭图标
                     using (SolidBrush whiteBrush = new SolidBrush(Color.White))
                     {
-                        // 喇叭后方矩形
                         g.FillRectangle(whiteBrush, 8, 12, 5, 8);
 
-                        // 喇叭前方梯形
                         Point[] points = new Point[]
                         {
                             new Point(13, 12),
@@ -382,7 +406,6 @@ namespace LexiProTTS
                         };
                         g.FillPolygon(whiteBrush, points);
 
-                        // 声波弧线
                         using (Pen arcPen = new Pen(Color.White, 2f))
                         {
                             g.DrawArc(arcPen, 18, 11, 7, 10, -50, 100);
@@ -411,7 +434,7 @@ namespace LexiProTTS
 
         private void InitializeComponent()
         {
-            this.Text = "LexiPro TTS - 本地原生发音伴侣 (Kokoro + MeloTTS)";
+            this.Text = "本地语音服务 (Kokoro + MeloTTS)";
             this.Size = new Size(460, 420);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -420,7 +443,6 @@ namespace LexiProTTS
             this.BackColor = Color.White;
             this.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
 
-            // 头部卡片
             Panel headerPanel = new Panel();
             headerPanel.Dock = DockStyle.Top;
             headerPanel.Height = 70;
@@ -428,7 +450,7 @@ namespace LexiProTTS
             this.Controls.Add(headerPanel);
 
             Label titleLabel = new Label();
-            titleLabel.Text = "🚀 LexiPro 本地原生发音伴侣";
+            titleLabel.Text = "🚀 本地原生语音服务";
             titleLabel.Font = new Font("Microsoft YaHei", 12.5f, FontStyle.Bold);
             titleLabel.ForeColor = Color.FromArgb(22, 101, 52);
             titleLabel.Location = new Point(16, 12);
@@ -436,14 +458,13 @@ namespace LexiProTTS
             headerPanel.Controls.Add(titleLabel);
 
             Label subTitleLabel = new Label();
-            subTitleLabel.Text = "NextAI 同款 Sherpa-ONNX 原生 C++ 架构 · 零浏览器显存占用";
+            subTitleLabel.Text = "Sherpa-ONNX 原生 C++ 架构 · 零浏览器显存占用";
             subTitleLabel.Font = new Font("Microsoft YaHei", 8.5f, FontStyle.Regular);
             subTitleLabel.ForeColor = Color.FromArgb(21, 128, 61);
             subTitleLabel.Location = new Point(18, 40);
             subTitleLabel.AutoSize = true;
             headerPanel.Controls.Add(subTitleLabel);
 
-            // 内容区域
             GroupBox infoGroup = new GroupBox();
             infoGroup.Text = "服务与引擎状态";
             infoGroup.Font = new Font("Microsoft YaHei", 9f, FontStyle.Bold);
@@ -470,7 +491,6 @@ namespace LexiProTTS
             engineInfo.Size = new Size(380, 95);
             infoGroup.Controls.Add(engineInfo);
 
-            // 试听测试按钮
             Button btnTestEn = new Button();
             btnTestEn.Text = "🔊 试听英文 (Kokoro)";
             btnTestEn.Font = new Font("Microsoft YaHei", 9f, FontStyle.Regular);
@@ -489,7 +509,6 @@ namespace LexiProTTS
             btnTestZh.Click += (s, e) => appCtx.PlayTestAudio("zh");
             this.Controls.Add(btnTestZh);
 
-            // 开机自启动复选框
             autoStartCheck = new CheckBox();
             autoStartCheck.Text = "随 Windows 开机自动在后台常驻 (静默运行，无黑窗口)";
             autoStartCheck.Font = new Font("Microsoft YaHei", 9f, FontStyle.Regular);
@@ -500,7 +519,6 @@ namespace LexiProTTS
             autoStartCheck.CheckedChanged += (s, e) => appCtx.SetAutoStart(autoStartCheck.Checked);
             this.Controls.Add(autoStartCheck);
 
-            // 底部操作按钮
             Button btnHide = new Button();
             btnHide.Text = "收起到任务栏托盘";
             btnHide.Font = new Font("Microsoft YaHei", 9f, FontStyle.Bold);
@@ -531,7 +549,6 @@ namespace LexiProTTS
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
-            // 用户点击窗口右上角叉号【X】，自动收起到系统托盘，不杀掉后台服务！
             if (e.CloseReason == CloseReason.UserClosing)
             {
                 e.Cancel = true;

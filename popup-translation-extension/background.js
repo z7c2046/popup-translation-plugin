@@ -1,5 +1,5 @@
 /**
- * LexiPro - Background Service Worker (Manifest V3)
+ * Popup Translation - Background Service Worker (Manifest V3)
  * 处理扩展存储初始化、跨域网络请求代理（突破页面 CSP 与 CORS 限制）
  * 遵循 GEMINI_TRANSLATION_UX_BLUEPRINT 规范：请求全覆盖超时、全生命周期取消与隔离管理
  */
@@ -7,21 +7,22 @@
 // 活跃中的 HTTP 请求映射 (requestId -> AbortController)
 const activeHttpRequests = new Map();
 
-// Offscreen 离线宿主页单例管理 Promise 与闲置回收定时器
+// Offscreen 宿主页单例管理 Promise 与闲置回收定时器
 let creatingOffscreenPromise = null;
 let offscreenIdleTimer = null;
+let activeLocalTtsAbort = null;
+let localTtsEpoch = 0;
 
 function resetOffscreenIdleTimer() {
   if (offscreenIdleTimer) {
     clearTimeout(offscreenIdleTimer);
     offscreenIdleTimer = null;
   }
-  // 30 秒无任何发音交互，自动销毁 Offscreen 页面，彻底释放数百兆浏览器内存
+  // 30 秒无任何发音交互，自动销毁 Offscreen 页面，彻底释放浏览器内存
   offscreenIdleTimer = setTimeout(async () => {
     if (typeof chrome !== 'undefined' && chrome.offscreen && await chrome.offscreen.hasDocument()) {
       try {
         await chrome.offscreen.closeDocument();
-        console.log('[LexiPro TTS] 离线发音文档已自动销毁，内存已全额归还操作系统。');
       } catch (e) {}
     }
   }, 30000);
@@ -40,16 +41,64 @@ async function ensureOffscreenDocument() {
     creatingOffscreenPromise = chrome.offscreen.createDocument({
       url: 'offscreen.html',
       reasons: ['AUDIO_PLAYBACK', 'WORKERS'],
-      justification: 'Synthesize speech via Kokoro-82M neural TTS locally'
+      justification: 'Play synthesized local TTS audio reliably across HTTPS sites'
     });
     await creatingOffscreenPromise;
     creatingOffscreenPromise = null;
   }
 }
 
+async function handleLocalTtsPlay(url) {
+  if (!url) return { success: false };
+  const myEpoch = ++localTtsEpoch;
+  if (activeLocalTtsAbort) {
+    try { activeLocalTtsAbort.abort('superseded'); } catch (e) {}
+    activeLocalTtsAbort = null;
+  }
+
+  const controller = new AbortController();
+  activeLocalTtsAbort = controller;
+  const timer = setTimeout(() => {
+    try { controller.abort('timeout'); } catch (e) {}
+  }, 5000);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) return { success: false };
+    const blob = await res.blob();
+    const dataUrl = await blobToBase64(blob);
+    if (controller.signal.aborted || myEpoch !== localTtsEpoch) {
+      return { success: false, aborted: true };
+    }
+
+    await ensureOffscreenDocument();
+    if (myEpoch !== localTtsEpoch) {
+      return { success: false, aborted: true };
+    }
+    const playRes = await chrome.runtime.sendMessage({
+      type: 'LOCAL_AUDIO_PLAY',
+      target: 'offscreen',
+      dataUrl,
+      epoch: myEpoch
+    });
+    resetOffscreenIdleTimer();
+    return playRes && playRes.success ? { success: true } : { success: false };
+  } catch (err) {
+    return {
+      success: false,
+      aborted: Boolean((controller.signal.aborted && controller.signal.reason !== 'timeout') || myEpoch !== localTtsEpoch)
+    };
+  } finally {
+    clearTimeout(timer);
+    if (activeLocalTtsAbort === controller) {
+      activeLocalTtsAbort = null;
+    }
+  }
+}
+
 // 扩展安装或更新时的初始化
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('[LexiPro] Background Service Worker 已就绪。');
+  console.log('[Popup Translation] Background Service Worker 已就绪。');
 });
 
 // 监听来自 content script 或 popup 的消息
@@ -59,7 +108,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     handleXhrRequest(message.details)
       .then(res => sendResponse({ success: true, response: res }))
       .catch(err => sendResponse({ success: false, error: err.message || String(err) }));
-    return true; // 保持异步消息通道
+    return true;
   }
 
   // 1.1 主动中止网络代理请求
@@ -99,11 +148,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(res || { success: true });
       })
       .catch(err => {
-        console.warn('[LexiPro TTS] 转发离线 TTS 指令失败:', err);
         resetOffscreenIdleTimer();
         sendResponse({ success: false, error: err?.message || String(err) });
       });
-    return true; // 异步响应
+    return true;
+  }
+
+  // 4. 本地原生伴侣发音服务代理（绕过网页 Mixed Content / PNA / CSP 限制）
+  if (message.type === 'LOCAL_TTS_PLAY') {
+    handleLocalTtsPlay(message.url)
+      .then(res => sendResponse(res))
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
+
+  if (message.type === 'LOCAL_TTS_STOP') {
+    const stopEpoch = ++localTtsEpoch;
+    if (activeLocalTtsAbort) {
+      try { activeLocalTtsAbort.abort('stopped'); } catch (e) {}
+      activeLocalTtsAbort = null;
+    }
+    if (typeof chrome !== 'undefined' && chrome.offscreen && typeof chrome.offscreen.hasDocument === 'function') {
+      chrome.offscreen.hasDocument()
+        .then(has => {
+          if (has && stopEpoch === localTtsEpoch) {
+            return chrome.runtime.sendMessage({ type: 'LOCAL_AUDIO_STOP', target: 'offscreen', epoch: stopEpoch }).catch(() => {});
+          }
+        })
+        .catch(() => {})
+        .finally(() => sendResponse({ success: true }));
+    } else {
+      sendResponse({ success: true });
+    }
+    return true;
   }
 });
 
@@ -150,7 +227,6 @@ async function handleXhrRequest(details) {
       responseData = await res.text();
     }
 
-    // 收集响应头
     const respHeaders = {};
     if (res.headers && typeof res.headers.forEach === 'function') {
       res.headers.forEach((value, key) => {
@@ -174,7 +250,6 @@ async function handleXhrRequest(details) {
     }
     throw err;
   } finally {
-    // 关键修正：确保在响应体完全读取完毕或抛出异常后才清除计时器并释放引用
     if (timer) {
       clearTimeout(timer);
     }

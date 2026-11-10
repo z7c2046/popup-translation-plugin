@@ -1,7 +1,7 @@
 {
-  "name": "lexipro-local-tts-service",
+  "name": "local-tts-service",
   "version": "1.0.0",
-  "description": "LexiPro 划词翻译本地原生 C++ 离线神经网络 TTS 伴侣服务 (Sherpa-ONNX / Kokoro)",
+  "description": "Popup Translation 本地原生 C++ 离线神经网络 TTS 服务 (Sherpa-ONNX / Kokoro + MeloTTS)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

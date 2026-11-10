@@ -1,7 +1,6 @@
 /**
- * LexiPro - Kokoro TTS Offscreen Audio & Neural Synthesis Worker
- * 遵循 Chrome MV3 架构标准：在独立 Offscreen Document 中运行神经网络推理与 Web Audio 播放
- * 采用按需懒加载与 IndexedDB 离线持久化机制，零侵入宿主网页内存
+ * Popup Translation - Offscreen Audio & Neural Synthesis Worker
+ * 遵循 Chrome MV3 架构标准：在独立 Offscreen Document 中稳定播放本地音频与离线发音
  */
 
 import { KokoroTTS, env } from './lib/kokoro.web.js';
@@ -10,9 +9,7 @@ import { KokoroTTS, env } from './lib/kokoro.web.js';
 if (env && typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
   try {
     env.wasmPaths = chrome.runtime.getURL('lib/');
-  } catch (e) {
-    console.warn('[LexiPro TTS] 设置 env.wasmPaths 失败:', e);
-  }
+  } catch (e) {}
 }
 
 // 当前运行状态
@@ -25,6 +22,7 @@ let lastErrorMsg = '';
 // 音频播放控制
 let currentAudio = null;
 let currentAudioUrl = null;
+let currentAudioEpoch = 0;
 
 function stopCurrentAudio() {
   if (currentAudio) {
@@ -36,13 +34,14 @@ function stopCurrentAudio() {
   }
   if (currentAudioUrl) {
     try {
-      URL.revokeObjectURL(currentAudioUrl);
+      if (currentAudioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(currentAudioUrl);
+      }
     } catch (e) {}
     currentAudioUrl = null;
   }
 }
 
-// 向 background 与活跃页面广播当前下载/加载状态
 function broadcastStatus(extra = {}) {
   try {
     chrome.runtime.sendMessage({
@@ -55,9 +54,52 @@ function broadcastStatus(extra = {}) {
   } catch (e) {}
 }
 
-/**
- * 确保 Kokoro-82M 模型初始化（首次使用自动从 Hugging Face 下载并缓存至 IndexedDB）
- */
+async function playAudioDataUrl(dataUrl) {
+  if (!dataUrl) return { success: false, error: 'Empty audio data' };
+  stopCurrentAudio();
+
+  const audioEl = new Audio(dataUrl);
+  currentAudio = audioEl;
+  currentAudioUrl = dataUrl;
+
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (res) => {
+      if (!settled) {
+        settled = true;
+        resolve(res);
+      }
+    };
+
+    audioEl.onended = () => {
+      if (currentAudio === audioEl) {
+        stopCurrentAudio();
+      }
+      finish({ success: true });
+    };
+    audioEl.onerror = () => {
+      if (currentAudio === audioEl) {
+        stopCurrentAudio();
+      }
+      finish({ success: false });
+    };
+
+    const playPromise = audioEl.play();
+    if (playPromise && typeof playPromise.then === 'function') {
+      playPromise
+        .then(() => finish({ success: true }))
+        .catch(() => {
+          if (currentAudio === audioEl) {
+            stopCurrentAudio();
+          }
+          finish({ success: false });
+        });
+    } else {
+      finish({ success: true });
+    }
+  });
+}
+
 async function ensureTTS() {
   if (ttsInstance) {
     return ttsInstance;
@@ -79,10 +121,7 @@ async function ensureTTS() {
         } catch (e) {}
       }
 
-      // 优先采用纯 CPU WASM 多线程推理，彻底规避 Windows WebGPU 算子不兼容引发的显存-内存频繁拷贝与桌面渲染掉帧
       const primaryDevice = 'wasm';
-      console.log(`[LexiPro TTS] 正在初始化 Kokoro-82M 离线模型 (采用纯 CPU WASM 稳定低开销模式)...`);
-
       const handleProgress = (p) => {
         if (p && typeof p.progress === 'number') {
           loadProgress = Math.min(100, Math.max(0, Math.round(p.progress)));
@@ -96,36 +135,20 @@ async function ensureTTS() {
         }
       };
 
-      let tts;
-      try {
-        tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-          dtype: 'q8',
-          device: primaryDevice,
-          progress_callback: handleProgress
-        });
-      } catch (devErr) {
-        if (primaryDevice !== 'wasm') {
-          console.warn('[LexiPro TTS] WebGPU 初始化异常，自动降级至 wasm (CPU):', devErr);
-          tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
-            dtype: 'q8',
-            device: 'wasm',
-            progress_callback: handleProgress
-          });
-        } else {
-          throw devErr;
-        }
-      }
+      const tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', {
+        dtype: 'q8',
+        device: primaryDevice,
+        progress_callback: handleProgress
+      });
 
       ttsInstance = tts;
       modelState = 'ready';
       loadProgress = 100;
-      console.log('[LexiPro TTS] Kokoro-82M 离线语音模型已成功加载就绪！');
       broadcastStatus({ state: 'ready', progress: 100 });
       return tts;
     } catch (err) {
       modelState = 'error';
       lastErrorMsg = err?.message || String(err);
-      console.error('[LexiPro TTS] Kokoro 模型初始化失败:', err);
       broadcastStatus({ state: 'error', error: lastErrorMsg });
       ttsInitPromise = null;
       throw err;
@@ -135,16 +158,12 @@ async function ensureTTS() {
   return ttsInitPromise;
 }
 
-/**
- * 合成并播放语音
- */
 async function playSpeech(text, voice = 'af_heart', speed = 1.0) {
   if (!text || !text.trim()) return { success: false, error: 'Empty text' };
 
   stopCurrentAudio();
   const tts = await ensureTTS();
 
-  console.log(`[LexiPro TTS] 正在合成语音: "${text.slice(0, 30)}..." [音色: ${voice}, 语速: ${speed}]`);
   const audio = await tts.generate(text, {
     voice: voice || 'af_heart',
     speed: typeof speed === 'number' ? speed : 1.0
@@ -171,7 +190,6 @@ async function playSpeech(text, voice = 'af_heart', speed = 1.0) {
     if (playPromise && typeof playPromise.catch === 'function') {
       playPromise.catch((err) => {
         stopCurrentAudio();
-        // 若受浏览器用户交互策略或快速切换中断，优雅处理
         if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
           resolve({ success: true, interrupted: true });
         } else {
@@ -188,12 +206,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  // 0. 播放本地原生伴侣服务音频 Data URL
+  if (message.type === 'LOCAL_AUDIO_PLAY') {
+    if (typeof message.epoch === 'number') {
+      if (message.epoch < currentAudioEpoch) {
+        sendResponse({ success: false, aborted: true });
+        return true;
+      }
+      currentAudioEpoch = message.epoch;
+    }
+    playAudioDataUrl(message.dataUrl)
+      .then(res => sendResponse(res))
+      .catch(() => sendResponse({ success: false }));
+    return true;
+  }
+
+  if (message.type === 'LOCAL_AUDIO_STOP') {
+    if (typeof message.epoch === 'number' && message.epoch < currentAudioEpoch) {
+      sendResponse({ success: true, ignored: true });
+      return true;
+    }
+    if (typeof message.epoch === 'number') {
+      currentAudioEpoch = message.epoch;
+    }
+    stopCurrentAudio();
+    sendResponse({ success: true });
+    return true;
+  }
+
   // 1. 发音合成播放指令
   if (message.type === 'KOKORO_PLAY') {
     playSpeech(message.text, message.voice, message.speed)
       .then(res => sendResponse({ success: true, ...res }))
       .catch(err => sendResponse({ success: false, error: err?.message || String(err) }));
-    return true; // 异步响应
+    return true;
   }
 
   // 2. 停止当前发音
@@ -224,4 +270,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return false;
 });
-

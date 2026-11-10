@@ -1,5 +1,5 @@
 /**
- * LexiPro - 本地原生离线发音伴侣服务 (Sherpa-ONNX / Kokoro-82M + MeloTTS 双引擎)
+ * Popup Translation - 本地原生离线语音服务 (Sherpa-ONNX / Kokoro-82M + MeloTTS 双引擎)
  * 采用原生 C++ 推理库 sherpa-onnx，与 NextAI Translator 相同内核架构
  * 英文：Kokoro-82M 离线神经网络语音 (11 种自然男女声)
  * 中文/双语：MeloTTS (MyShell 开源自然变调高保真语音)
@@ -100,7 +100,7 @@ function downloadAndExtract(urls, targetDir, archiveName) {
           const file = fs.createWriteStream(archivePath);
           function get(u) {
             const client = u.startsWith('https') ? https : http;
-            client.get(u, { headers: { 'User-Agent': 'Mozilla/5.0 LexiProLocalTTS' } }, (res) => {
+            client.get(u, { headers: { 'User-Agent': 'Mozilla/5.0 LocalTTSService' } }, (res) => {
               if ([301, 302, 307, 308].includes(res.statusCode) && res.headers.location) {
                 return get(new URL(res.headers.location, u).href);
               }
@@ -336,7 +336,7 @@ async function startServer() {
           autoLanguageRouting: true
         },
         kokoroVoices: Object.keys(KOKORO_VOICES).filter(v => v.startsWith('af_') || v.startsWith('am_') || v.startsWith('bf_') || v.startsWith('bm_')),
-        message: 'LexiPro 本地原生发音服务运行中 · Kokoro + MeloTTS 双引擎就绪 · 零浏览器内存占用'
+        message: '本地原生发音服务运行中 · Kokoro + MeloTTS 双引擎就绪 · 零浏览器内存占用'
       }, null, 2));
       return;
     }
@@ -442,7 +442,7 @@ async function startServer() {
 
   server.listen(PORT, HOST, () => {
     console.log(`\n============================================================`);
-    console.log(`🚀 LexiPro 本地原生离线发音伴侣服务已就绪！`);
+    console.log(`🚀 本地原生离线语音服务已就绪！`);
     console.log(`📍 监听地址: http://${HOST}:${PORT}`);
     console.log(`🎙️ 英文引擎: Kokoro-82M (11 种男女音色 · 拟真度断层领先)`);
     console.log(`🇨🇳 中文引擎: MeloTTS (自然连续变调 · 44.1kHz 高保真)`);

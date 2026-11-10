@@ -31,7 +31,7 @@ if (tailMatch !== -1) {
 }
 
 const header = `// ==UserScript==
-// @name         硅基流动 & Notion - LexiPro 划词翻译与生词高亮融合版
+// @name         Popup Translation - AI 划词翻译与生词高亮
 // @namespace    http://tampermonkey.net/
 // @version      ${version}
 // @description  完整未压缩源码版。包含 SWR 本地直出与 Notion 增量同步算法。移植 animal-island-ui 原生效果：小圆点点击泡泡破裂、AI 翻译打字机渐显、生词高亮 island 不规则气泡。支持硅基流动与 Kimi 网页免费版。
@@ -46,6 +46,8 @@ const header = `// ==UserScript==
 // @connect      kimi.moonshot.cn
 // @connect      dict.youdao.com
 // @connect      api.notion.com
+// @connect      127.0.0.1
+// @connect      localhost
 // ==/UserScript==
 
 (function() {

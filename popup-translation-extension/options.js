@@ -1,5 +1,5 @@
 /**
- * LexiPro - Options Script
+ * Popup Translation - Options Script
  * 遵循 GEMINI_TRANSLATION_UX_BLUEPRINT 规范：真实保存语义、静态排版预览、深浅自适应与请求连通性测试
  */
 
@@ -201,7 +201,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       localServiceStatusBadge.style.background = '#FEF2F2';
       localServiceStatusBadge.style.color = '#DC2626';
       if (isManual) {
-        alert('未检测到本地原生发音服务。\n\n请双击项目根目录的「LexiPro TTS.exe」启动。');
+        alert('未检测到本地原生发音服务。\n\n请双击项目根目录的「本地语音服务.exe」启动。');
       }
       return false;
     }
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnTestLocalService?.addEventListener('click', async () => {
     const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
     const voice = kokoroVoiceSelect?.value || 'af_heart';
-    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('Welcome to LexiPro. Experience native neural speech with Kokoro.')}&voice=${encodeURIComponent(voice)}&speed=1.0`;
+    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('Welcome! Experience native neural speech with Kokoro.')}&voice=${encodeURIComponent(voice)}&speed=1.0`;
 
     try {
       const audio = new Audio(testUrl);
@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   btnTestLocalMelo?.addEventListener('click', async () => {
     const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
-    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('你好，欢迎使用本地原生发音伴侣，这是MeloTTS中文发音。')}&speed=1.0`;
+    const testUrl = `${baseUrl}/tts?text=${encodeURIComponent('你好，欢迎使用本地原生语音服务，这是MeloTTS中文发音。')}&speed=1.0`;
 
     try {
       const audio = new Audio(testUrl);
@@ -311,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const res = await chrome.runtime.sendMessage({
         type: 'KOKORO_TTS_PLAY',
-        text: 'Welcome to LexiPro. Experience natural neural speech with Kokoro.',
+        text: 'Welcome! Experience natural neural speech with Kokoro.',
         voice: voice
       });
       if (res && res.success) {

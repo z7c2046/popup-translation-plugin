@@ -1380,7 +1380,7 @@
             border-bottom: 2px solid #c4b89e;
         }
 
-        /* ===== LexiPro Settings Panel styles ===== */
+        /* ===== Settings Panel styles ===== */
         .imt-settings-panel {
             display: flex;
             flex-direction: column;
@@ -1920,6 +1920,10 @@
     }
 
     // ================= 语音播放模块 =================
+    let localTtsPlayToken = 0;
+    let currentAudioSource = null;
+    let sharedAudioCtx = null;
+
     if (window.speechSynthesis) {
         window.speechSynthesis.getVoices();
         window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
@@ -1930,7 +1934,13 @@
     }
 
     function stopCurrentAudio() {
+        localTtsPlayToken++;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (currentAudioSource) {
+            try { currentAudioSource.stop(); } catch (e) {}
+            try { currentAudioSource.disconnect(); } catch (e) {}
+            currentAudioSource = null;
+        }
         if (currentAudio) {
             currentAudio.pause();
             currentAudio.currentTime = 0;
@@ -1939,6 +1949,7 @@
         }
         if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
             try {
+                chrome.runtime.sendMessage({ type: 'LOCAL_TTS_STOP' }).catch(() => {});
                 chrome.runtime.sendMessage({ type: 'KOKORO_TTS_STOP' }).catch(() => {});
             } catch (e) {}
         }
@@ -1977,17 +1988,83 @@
         const url = `${baseUrl}/tts?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice)}&speed=1.0`;
 
         stopCurrentAudio();
+        const requestToken = localTtsPlayToken;
+
+        // 1. Chrome 扩展环境：通过后台与 Offscreen 代理拉取并播放，彻底绕过 HTTPS 网站 (如 Reuters/Reddit) 的 Mixed Content、PNA 与 CSP 限制
+        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+            try {
+                chrome.runtime.sendMessage({ type: 'LOCAL_TTS_PLAY', url }, (response) => {
+                    if (requestToken !== localTtsPlayToken) return;
+                    if (response && response.aborted) return;
+                    if (chrome.runtime.lastError || !response || response.success === false) {
+                        playYoudaoTTS(text);
+                    }
+                });
+                return;
+            } catch (e) {
+                playYoudaoTTS(text);
+                return;
+            }
+        }
+
+        // 2. 油猴脚本环境：优先经 GM_xmlhttpRequest + Web Audio 解码播放
+        if (typeof GM_xmlhttpRequest === 'function' && (window.AudioContext || window.webkitAudioContext)) {
+            try {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: url,
+                    responseType: 'arraybuffer',
+                    timeout: 5000,
+                    onload: (res) => {
+                        if (requestToken !== localTtsPlayToken) return;
+                        if (res.status >= 200 && res.status < 300 && res.response) {
+                            try {
+                                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                                if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+                                    sharedAudioCtx = new AudioCtx();
+                                }
+                                if (sharedAudioCtx.state === 'suspended') {
+                                    sharedAudioCtx.resume().catch(() => {});
+                                }
+                                sharedAudioCtx.decodeAudioData(res.response.slice(0), (audioBuffer) => {
+                                    if (requestToken !== localTtsPlayToken) return;
+                                    const source = sharedAudioCtx.createBufferSource();
+                                    source.buffer = audioBuffer;
+                                    source.connect(sharedAudioCtx.destination);
+                                    currentAudioSource = source;
+                                    source.onended = () => {
+                                        if (currentAudioSource === source) currentAudioSource = null;
+                                    };
+                                    source.start(0);
+                                }, () => {
+                                    if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
+                                });
+                                return;
+                            } catch (audioErr) {}
+                        }
+                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
+                    },
+                    onerror: () => {
+                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
+                    },
+                    ontimeout: () => {
+                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
+                    }
+                });
+                return;
+            } catch (e) {}
+        }
+
         const audio = new Audio(url);
         currentAudio = audio;
 
         const playPromise = audio.play();
         if (playPromise && typeof playPromise.catch === 'function') {
             playPromise.catch(err => {
+                if (requestToken !== localTtsPlayToken) return;
                 if (err && (err.name === 'NotAllowedError' || err.name === 'AbortError')) {
                     return;
                 }
-                console.warn('[LexiPro TTS] 本地原生伴侣软件未连接 (请运行根目录 LexiPro TTS.exe)，平滑降级至在线语音:', err);
-                // 优雅降级至有道发音
                 playYoudaoTTS(text);
             });
         }
@@ -2003,13 +2080,11 @@
                     speed: 1.0
                 }, (response) => {
                     if (chrome.runtime.lastError || !response || response.success === false) {
-                        console.warn('[LexiPro TTS] Kokoro 播放失败，平滑降级至有道/系统语音:', chrome.runtime.lastError?.message || response?.error);
                         playYoudaoTTS(text);
                     }
                 });
                 return;
             } catch (e) {
-                console.warn('[LexiPro TTS] 发送 Kokoro 指令异常，回退有道:', e);
                 playYoudaoTTS(text);
                 return;
             }
@@ -2131,14 +2206,14 @@
                 observeDynamicContent(globalRegex);
             }
 
-            console.log(`[LexiPro] ⚡ 极速加载缓存完成: ${vocabMap.size} 词。开始后台增量检查...`);
+            console.log(`[Popup Translation] ⚡ 极速加载缓存完成: ${vocabMap.size} 词。开始后台增量检查...`);
 
             // 2. 异步触发后台增量拉取，不阻塞当前页面
             fetchDeltaUpdates(lastSyncTime, cachedWords);
 
         } else {
             // 没有缓存时，首次全量拉取
-            console.log('[LexiPro] ⏳ 首次使用或无缓存，全量拉取 Notion 数据...');
+            console.log('[Popup Translation] ⏳ 首次使用或无缓存，全量拉取 Notion 数据...');
             const allWords = await fetchFromNotion(null);
             updateLocalState(allWords);
         }
@@ -2156,7 +2231,7 @@
             const updatedWords = await fetchFromNotion(filter);
 
             if (updatedWords.length > 0) {
-                console.log(`[LexiPro] 🔄 后台增量发现 ${updatedWords.length} 个新变动。`);
+                console.log(`[Popup Translation] 🔄 后台增量发现 ${updatedWords.length} 个新变动。`);
 
                 // 将新变动的数据合入内存 Map
                 updatedWords.forEach(item => vocabMap.set(item.word, item));
@@ -2178,7 +2253,7 @@
                 GM_setValue(CACHE_KEYS.syncTime, Date.now());
             }
         } catch(e) {
-            console.error('[LexiPro] ⚠️ 后台增量同步失败', e);
+            console.error('[Popup Translation] ⚠️ 后台增量同步失败', e);
         }
     }
 
@@ -2714,7 +2789,7 @@
         const isKimi = CONFIG.llmProvider === 'kimi_free';
         settingsBox.innerHTML = `
             <div class="imt-settings-panel">
-                <div class="imt-settings-title">LexiPro 选项设置</div>
+                <div class="imt-settings-title">选项设置</div>
                 <div class="imt-settings-group">
                     <label for="imt-provider-select">AI 服务商</label>
                     <select class="form-input" id="imt-provider-select">
@@ -3043,7 +3118,7 @@
             updateStarUI();
             updateHighlightPopupStarUI(quickTooltip.dataset.word || currentTranslatedWord);
         } catch (e) {
-            console.error('[LexiPro] 同步到 Notion 失败', e);
+            console.error('[Popup Translation] 同步到 Notion 失败', e);
             alert('同步到 Notion 失败，请检查开发者控制台网络请求。');
         } finally {
             starBtn.style.opacity = '1';
@@ -3067,7 +3142,7 @@
                 updateStarUI();
             }
         } catch (e) {
-            console.error('[LexiPro] 同步到 Notion 失败', e);
+            console.error('[Popup Translation] 同步到 Notion 失败', e);
             alert('同步到 Notion 失败，请检查开发者控制台网络请求。');
         } finally {
             quickStarBtn.style.opacity = '1';
@@ -3459,7 +3534,6 @@
 
             showWordActionCapsule(span, extracted.word);
         } catch (err) {
-            console.warn('[LexiPro] 包裹高亮单词失败:', err);
             clearActiveWordHighlight();
         }
     }, true);
@@ -3606,7 +3680,7 @@
     // ================= 硅基流动 AI 大语言模型翻译系统 =================
 
     // 给 LLM 的 System Prompt 指令
-    const SYSTEM_PROMPT = `You are LexiPro, a professional bilingual English-Chinese dictionary and translation engine.
+    const SYSTEM_PROMPT = `You are a professional bilingual English-Chinese dictionary and translation engine.
 
 You must first classify the input:
 Mode 1: Single English Word
@@ -4067,7 +4141,7 @@ Formatting requirements: Output valid JSON only.`;
                 url: 'https://kimi.moonshot.cn/api/chat',
                 headers: getKimiHeaders(accessToken),
                 data: JSON.stringify({
-                    name: 'LexiPro Translation',
+                    name: 'Popup Translation',
                     is_example: false
                 }),
                 timeout: 20000,
@@ -4529,7 +4603,7 @@ CRITICAL RULES:
                 }
             }
         } catch (e) {
-            console.error('[LexiPro] execCommand 替换失败，采用原生赋值兜底:', e);
+            console.error('[Popup Translation] execCommand 替换失败，采用原生赋值兜底:', e);
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
                 setNativeInputValue(target, newText);
             } else if (target.isContentEditable) {
@@ -4596,7 +4670,7 @@ CRITICAL RULES:
                 replaceElementContent(editable, translated);
             }
         } catch (err) {
-            console.error('[LexiPro] 连续空格键自动翻译出错:', err);
+            console.error('[Popup Translation] 连续空格键自动翻译出错:', err);
             // 发生异常时清理刚才输入的连续空格
             replaceElementContent(editable, textToTranslate);
         } finally {
@@ -4635,7 +4709,6 @@ CRITICAL RULES:
         initSiteSpecificTranslator();
 
         if (!CONFIG.notionToken || !CONFIG.notionDatabaseId) {
-            console.warn('[LexiPro & Notion] 未配置 Notion Token 或 Database ID');
             return;
         }
 
@@ -5519,7 +5592,7 @@ CRITICAL RULES:
                     showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
                 }
             } catch (e) {
-                console.error('[LexiPro] 网页全文翻译出错:', e);
+                console.error('[Popup Translation] 网页全文翻译出错:', e);
                 showSiteToast('⚠️ 翻译中断: ' + (e.message || e));
             } finally {
                 if (thisGen === siteGeneration) {

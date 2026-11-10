@@ -1,5 +1,5 @@
 /**
- * LexiPro - Popup Script
+ * Popup Translation - Popup Script
  * 按网站独立控制沉浸式翻译与自动翻译，保持极简界面交互
  */
 

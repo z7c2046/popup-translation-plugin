@@ -129,6 +129,52 @@ test('Kokoro TTS: Content script and userscript audio routing and graceful fallb
         assert.match(code, /imt-example-num/, `${name} must isolate numbers with imt-example-num`);
         assert.match(code, /imt-example-body/, `${name} must wrap text with imt-example-body so wrapped lines align`);
         assert.match(code, /imt-speaker\s+imt-ex-speaker/, `${name} must provide example pronunciation speaker`);
+
+        // local TTS proxy & Web Audio / silent fallback
+        assert.match(code, /type:\s*['"]LOCAL_TTS_PLAY['"]/, `${name} must proxy local TTS playback via LOCAL_TTS_PLAY`);
+        assert.match(code, /type:\s*['"]LOCAL_TTS_STOP['"]/, `${name} must stop local TTS playback via LOCAL_TTS_STOP`);
+        const localFnMatch = code.match(/function playLocalServiceTTS\(text\)\s*\{[\s\S]*?\n\s*\}\r?\n\r?\n\s*function playKokoroTTS/);
+        assert.ok(localFnMatch, `${name} must contain playLocalServiceTTS block`);
+        assert.doesNotMatch(localFnMatch[0], /console\.warn|console\.error/, `${name} playLocalServiceTTS must fall back silently without console warnings`);
+    }
+
+    const userscriptCode = targets[1].code;
+    assert.match(userscriptCode, /@connect\s+127\.0\.0\.1/, 'userscript metadata must whitelist 127.0.0.1 for local TTS');
+    assert.match(userscriptCode, /@connect\s+localhost/, 'userscript metadata must whitelist localhost for local TTS');
+});
+
+test('Local TTS & Branding: Offscreen local audio proxy and complete removal of LexiPro branding', () => {
+    const bgContent = fs.readFileSync(backgroundJsPath, 'utf8');
+    const offContent = fs.readFileSync(offscreenJsPath, 'utf8');
+    assert.match(bgContent, /LOCAL_TTS_PLAY/, 'background.js must handle LOCAL_TTS_PLAY');
+    assert.match(bgContent, /LOCAL_TTS_STOP/, 'background.js must handle LOCAL_TTS_STOP');
+    assert.match(bgContent, /LOCAL_AUDIO_PLAY/, 'background.js must send LOCAL_AUDIO_PLAY to offscreen');
+    assert.match(offContent, /LOCAL_AUDIO_PLAY/, 'offscreen.js must handle LOCAL_AUDIO_PLAY');
+    assert.match(offContent, /LOCAL_AUDIO_STOP/, 'offscreen.js must handle LOCAL_AUDIO_STOP');
+
+    const rootDir = path.resolve(__dirname, '..');
+    assert.ok(fs.existsSync(path.join(rootDir, '本地语音服务.exe')), '本地语音服务.exe must exist in repository root');
+    assert.ok(!fs.existsSync(path.join(rootDir, 'LexiPro TTS.exe')), 'legacy LexiPro TTS.exe must be deleted');
+
+    const filesToCheck = [
+        backgroundJsPath,
+        offscreenJsPath,
+        offscreenHtmlPath,
+        path.resolve(__dirname, '../popup-translation-extension/popup.html'),
+        path.resolve(__dirname, '../popup-translation-extension/popup.js'),
+        optionsHtmlPath,
+        optionsJsPath,
+        contentJsPath,
+        userscriptPath,
+        path.resolve(__dirname, '../scripts/local-tts-service/server.js'),
+        path.resolve(__dirname, '../scripts/local-tts-service/TrayApp/Program.cs'),
+        path.resolve(__dirname, '../scripts/local-tts-service/package.json'),
+        path.resolve(__dirname, '../scripts/local-tts-service/README.md')
+    ];
+
+    for (const filePath of filesToCheck) {
+        const text = fs.readFileSync(filePath, 'utf8');
+        assert.doesNotMatch(text, /LexiPro|Lexi Pro/, `${path.basename(filePath)} must not contain unauthorized LexiPro branding`);
     }
 });
 
