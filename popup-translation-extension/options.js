@@ -58,6 +58,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveMsg = document.getElementById('save-msg');
   const previewBox = document.getElementById('preview-box');
   const activePanelTitle = document.getElementById('active-panel-title');
+  const panelSubtitle = document.getElementById('panel-subtitle');
+  const adminShell = document.querySelector('.admin-shell');
   const navTabs = Array.from(document.querySelectorAll('.sidebar-nav .nav-item'));
   const settingsPanels = Array.from(document.querySelectorAll('.settings-panel'));
 
@@ -79,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (activePanelTitle) {
       activePanelTitle.textContent = targetPanel.dataset.title || targetTab.textContent.trim();
+    }
+    if (panelSubtitle) {
+      panelSubtitle.textContent = targetPanel.dataset.subtitle || '';
     }
 
     if (updateHash && window.location.hash !== `#${panelName}`) {
@@ -111,6 +116,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const initialPanel = window.location.hash.replace(/^#/, '');
   if (initialPanel && document.getElementById(`panel-${initialPanel}`)) {
     switchPanel(initialPanel, { updateHash: false });
+  }
+  if (adminShell) {
+    void adminShell.offsetHeight;
+    requestAnimationFrame(() => {
+      adminShell.classList.add('is-ready');
+    });
   }
 
   // 支持 Ctrl+S / Cmd+S 快捷保存
@@ -153,14 +164,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   fillForm(stored);
   updatePreview();
 
+  const EYE_OPEN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const EYE_OFF_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
   // 密码显示/隐藏切换
   btnToggleKey.addEventListener('click', () => {
     if (keyInput.type === 'password') {
       keyInput.type = 'text';
-      btnToggleKey.innerText = '🔒';
+      btnToggleKey.innerHTML = EYE_OFF_SVG;
     } else {
       keyInput.type = 'password';
-      btnToggleKey.innerText = '👁️';
+      btnToggleKey.innerHTML = EYE_OPEN_SVG;
     }
   });
 
@@ -181,26 +195,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     ];
 
+    const dividerCss = `padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid ${isDark ? '#2E3540' : '#E3E8F0'};`;
+
     if (style === 'replace') {
       previewBox.innerHTML = items.map((it, idx) => `
-        <div style="margin-bottom: 10px; font-size: 14px; line-height: 1.6; color: ${isDark ? '#E5EAF0' : '#20252B'};">
+        <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px; line-height: 1.65; color: ${isDark ? '#E5EAF0' : '#111827'};">
           <span>${it.trans}</span>
-          <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; font-size: 11px; border-radius: 5px; border: 1px solid ${isDark ? '#3B4551' : '#CBD5E1'}; background: ${isDark ? '#2A313A' : '#EEF2F6'}; color: ${isDark ? '#8DB4FF' : '#285FBA'}; cursor: pointer;">⇄ 原文</span>
+          <span style="display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 6px; font-size: 11px; border-radius: 5px; border: 1px solid ${isDark ? '#3B4551' : '#CBD5E1'}; background: ${isDark ? '#2A313A' : '#FFFFFF'}; color: ${isDark ? '#8DB4FF' : '#3154D1'}; cursor: pointer;">⇄ 原文</span>
         </div>
       `).join('');
     } else if (style === 'underline') {
       previewBox.innerHTML = items.map((it, idx) => `
-        <div style="margin-bottom: 12px; font-size: 14px; line-height: 1.5;">
-          <div style="color: ${isDark ? '#AAB4C0' : '#4B5563'};">${it.orig}</div>
-          <div style="border-bottom: 1.5px dashed ${isDark ? '#8DB4FF' : '#285FBA'}; color: ${isDark ? '#E5EAF0' : '#20252B'}; padding-bottom: 2px; margin-top: 3px;">${it.trans}</div>
+        <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px; line-height: 1.55;">
+          <div style="color: ${isDark ? '#AAB4C0' : '#334155'};">${it.orig}</div>
+          <div style="border-bottom: 1.5px dashed ${isDark ? '#8DB4FF' : '#3154D1'}; color: ${isDark ? '#E5EAF0' : '#111827'}; display: inline-block; padding-bottom: 2px; margin-top: 4px;">${it.trans}</div>
         </div>
       `).join('');
     } else if (style === 'card') {
       previewBox.innerHTML = items.map((it, idx) => `
-        <div style="margin-bottom: 12px; font-size: 13.5px;">
-          <div style="color: ${isDark ? '#AAB4C0' : '#4B5563'}; margin-bottom: 4px;">${it.orig}</div>
-          <div style="background: ${isDark ? '#20252C' : '#FFFFFF'}; border: 1px solid ${isDark ? '#3B4551' : '#DCE2E9'}; border-left: 3px solid ${isDark ? '#8DB4FF' : '#285FBA'}; border-radius: 6px; padding: 6px 10px; color: ${isDark ? '#E5EAF0' : '#20252B'};">
-            <span style="font-size: 10.5px; font-weight: bold; color: ${isDark ? '#8DB4FF' : '#285FBA'}; margin-right: 6px;">[译文]</span>${it.trans}
+        <div style="${idx < items.length - 1 ? dividerCss : ''} font-size: 13.5px;">
+          <div style="color: ${isDark ? '#AAB4C0' : '#334155'}; margin-bottom: 5px;">${it.orig}</div>
+          <div style="background: ${isDark ? '#20252C' : '#FFFFFF'}; border: 1px solid ${isDark ? '#3B4551' : '#DCE2EC'}; border-left: 3px solid ${isDark ? '#8DB4FF' : '#3154D1'}; border-radius: 6px; padding: 6px 10px; color: ${isDark ? '#E5EAF0' : '#111827'};">
+            <span style="font-size: 10.5px; font-weight: bold; color: ${isDark ? '#8DB4FF' : '#3154D1'}; margin-right: 6px;">[译文]</span>${it.trans}
           </div>
         </div>
       `).join('');
@@ -233,9 +249,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function checkLocalServiceStatus(isManual = false) {
     if (!localServiceStatusBadge) return;
     const baseUrl = (localServiceUrlInput?.value || 'http://127.0.0.1:18080').trim().replace(/\/+$/, '');
-    localServiceStatusBadge.innerText = '⏳ 检测中...';
-    localServiceStatusBadge.style.background = '#EFF6FF';
-    localServiceStatusBadge.style.color = '#2563EB';
+    localServiceStatusBadge.innerText = '○ 检测中...';
+    localServiceStatusBadge.style.background = '#ECF0FE';
+    localServiceStatusBadge.style.color = '#3154D1';
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2000);
@@ -252,9 +268,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         else if (hasKokoro) featText = 'Kokoro 在线';
         else if (hasMelo) featText = 'MeloTTS 在线';
 
-        localServiceStatusBadge.innerText = `✅ ${featText}`;
-        localServiceStatusBadge.style.background = '#ECFDF5';
-        localServiceStatusBadge.style.color = '#059669';
+        localServiceStatusBadge.innerText = `● ${featText}`;
+        localServiceStatusBadge.style.background = '#E6F7EE';
+        localServiceStatusBadge.style.color = '#0F7652';
         return true;
       } else {
         throw new Error(`HTTP ${res.status}`);
@@ -424,13 +440,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (res && res.success && res.response?.status >= 200 && res.response?.status < 300) {
         const json = JSON.parse(res.response.responseText);
         const trans = json.choices?.[0]?.message?.content || '';
-        testSfResult.innerText = `✅ 连接成功！模型响应: "${trans.trim()}"`;
+        testSfResult.innerText = `● 连接成功！模型响应: "${trans.trim()}"`;
         testSfResult.className = 'test-result text-success';
       } else {
         throw new Error(res?.response?.responseText || res?.error || '请求失败');
       }
     } catch (err) {
-      testSfResult.innerText = `❌ 连接失败: ${err.message || err}`;
+      testSfResult.innerText = `○ 连接失败: ${err.message || err}`;
       testSfResult.className = 'test-result text-error';
     }
   });
@@ -439,10 +455,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnToggleNotionToken?.addEventListener('click', () => {
     if (notionTokenInput.type === 'password') {
       notionTokenInput.type = 'text';
-      btnToggleNotionToken.innerText = '🔒';
+      btnToggleNotionToken.innerHTML = EYE_OFF_SVG;
     } else {
       notionTokenInput.type = 'password';
-      btnToggleNotionToken.innerText = '👁️';
+      btnToggleNotionToken.innerHTML = EYE_OPEN_SVG;
     }
   });
 
@@ -453,7 +469,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     notionDbInput.value = rawDb;
 
     if (!rawToken || !rawDb) {
-      testNotionResult.innerText = '⚠️ 请先填写完整的 Notion Token 与 Database ID';
+      testNotionResult.innerText = '○ 请先填写完整的 Notion Token 与 Database ID';
       testNotionResult.className = 'test-result text-error';
       return;
     }
@@ -482,7 +498,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           const titleArr = json.title || [];
           dbTitle = titleArr.map(t => t.plain_text).join('') || '未命名生词库';
         } catch (e) {}
-        testNotionResult.innerText = `✅ 连接成功！已连通知识库: 「${dbTitle}」`;
+        testNotionResult.innerText = `● 连接成功！已连通知识库: 「${dbTitle}」`;
         testNotionResult.className = 'test-result text-success';
       } else {
         const status = res?.response?.status;
@@ -495,7 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         throw new Error(errMsg);
       }
     } catch (err) {
-      testNotionResult.innerText = `❌ ${err.message || err}`;
+      testNotionResult.innerText = `○ ${err.message || err}`;
       testNotionResult.className = 'test-result text-error';
     }
   });
@@ -533,7 +549,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     await chrome.storage.local.set(toSave);
-    saveMsg.innerText = '✅ 已保存';
+    saveMsg.innerText = '● 已保存';
     saveMsg.className = 'save-msg text-success';
     setTimeout(() => { saveMsg.innerText = ''; }, 3000);
   });

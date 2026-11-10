@@ -3,277 +3,363 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Popup Translation - 设置中心</title>
+  <title>Popup Translation - 选项页</title>
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
-  <div class="admin-shell">
-    <!-- 左侧固定导航侧边栏 -->
-    <aside class="sidebar" aria-label="设置导航">
-      <div class="sidebar-brand">
-        <span class="brand-icon">译</span>
-        <div class="brand-info">
-          <h1>Popup Translation</h1>
-          <span class="brand-tag">设置中心</span>
+  <div class="page-backdrop">
+    <div class="admin-shell">
+      <!-- 左侧导航侧边栏 -->
+      <aside class="sidebar" aria-label="设置导航">
+        <div class="sidebar-brand">
+          <span class="brand-icon">译</span>
+          <div class="brand-info">
+            <h1>Popup Translation</h1>
+          </div>
         </div>
-      </div>
 
-      <nav class="sidebar-nav" role="tablist" aria-orientation="vertical">
-        <button type="button" class="nav-item is-active" role="tab" id="tab-reading" data-panel="reading" aria-selected="true" aria-controls="panel-reading">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-            <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-          </svg>
-          <span>阅读与外观</span>
-        </button>
+        <nav class="sidebar-nav" role="tablist" aria-orientation="vertical">
+          <button type="button" class="nav-item is-active" role="tab" id="tab-reading" data-panel="reading" aria-selected="true" aria-controls="panel-reading">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+            </svg>
+            <span>阅读与外观</span>
+          </button>
 
-        <button type="button" class="nav-item" role="tab" id="tab-speech" data-panel="speech" aria-selected="false" aria-controls="panel-speech">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-          </svg>
-          <span>语音与朗读</span>
-        </button>
+          <button type="button" class="nav-item" role="tab" id="tab-speech" data-panel="speech" aria-selected="false" aria-controls="panel-speech">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+              <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            </svg>
+            <span>语音与朗读</span>
+          </button>
 
-        <button type="button" class="nav-item" role="tab" id="tab-sites" data-panel="sites" aria-selected="false" aria-controls="panel-sites">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="2" y1="12" x2="22" y2="12"/>
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-          </svg>
-          <span>站点规则</span>
-        </button>
+          <button type="button" class="nav-item" role="tab" id="tab-sites" data-panel="sites" aria-selected="false" aria-controls="panel-sites">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"/>
+              <line x1="2" y1="12" x2="22" y2="12"/>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+            <span>站点规则</span>
+          </button>
 
-        <button type="button" class="nav-item" role="tab" id="tab-ai" data-panel="ai" aria-selected="false" aria-controls="panel-ai">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <rect x="4" y="4" width="16" height="16" rx="2"/>
-            <rect x="9" y="9" width="6" height="6"/>
-            <line x1="9" y1="1" x2="9" y2="4"/>
-            <line x1="15" y1="1" x2="15" y2="4"/>
-            <line x1="9" y1="20" x2="9" y2="23"/>
-            <line x1="15" y1="20" x2="15" y2="23"/>
-            <line x1="20" y1="9" x2="23" y2="9"/>
-            <line x1="20" y1="14" x2="23" y2="14"/>
-            <line x1="1" y1="9" x2="4" y2="9"/>
-            <line x1="1" y1="14" x2="4" y2="14"/>
-          </svg>
-          <span>AI 翻译引擎</span>
-        </button>
+          <button type="button" class="nav-item" role="tab" id="tab-ai" data-panel="ai" aria-selected="false" aria-controls="panel-ai">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="4" y="4" width="16" height="16" rx="2"/>
+              <rect x="9" y="9" width="6" height="6"/>
+              <line x1="9" y1="1" x2="9" y2="4"/>
+              <line x1="15" y1="1" x2="15" y2="4"/>
+              <line x1="9" y1="20" x2="9" y2="23"/>
+              <line x1="15" y1="20" x2="15" y2="23"/>
+              <line x1="20" y1="9" x2="23" y2="9"/>
+              <line x1="20" y1="14" x2="23" y2="14"/>
+              <line x1="1" y1="9" x2="4" y2="9"/>
+              <line x1="1" y1="14" x2="4" y2="14"/>
+            </svg>
+            <span>AI 翻译引擎</span>
+          </button>
 
-        <button type="button" class="nav-item" role="tab" id="tab-notion" data-panel="notion" aria-selected="false" aria-controls="panel-notion">
-          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-          </svg>
-          <span>Notion 同步</span>
-        </button>
-      </nav>
+          <button type="button" class="nav-item" role="tab" id="tab-notion" data-panel="notion" aria-selected="false" aria-controls="panel-notion">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+            <span>Notion 同步</span>
+          </button>
+        </nav>
 
-      <div class="sidebar-footer">
-        <span class="version-pill">v4.12.0</span>
-        <button type="button" id="btn-reset" class="btn-reset-link">恢复出厂配置</button>
-      </div>
-    </aside>
+        <div class="sidebar-footer">
+          <span class="version-pill">v4.12.0</span>
+          <button type="button" id="btn-reset" class="btn-reset-link">恢复出厂配置</button>
+        </div>
+      </aside>
 
-    <!-- 右侧主内容工作区 -->
-    <div class="workspace">
-      <header class="workspace-topbar">
-        <div class="topbar-inner">
-          <h2 id="active-panel-title" class="topbar-title">阅读与外观</h2>
+      <!-- 右侧纯白主内容工作区 -->
+      <div class="workspace">
+        <header class="workspace-topbar">
+          <div class="topbar-heading">
+            <h2 id="active-panel-title" class="topbar-title">阅读与外观</h2>
+            <p id="panel-subtitle" class="topbar-subtitle">设置译文的呈现方式、排版样式与界面外观。</p>
+          </div>
           <div class="topbar-actions">
             <span id="save-msg" class="save-msg" aria-live="polite"></span>
-            <button type="button" id="btn-save" class="btn btn-primary">💾 保存全部设置</button>
+            <button type="button" id="btn-save" class="btn btn-primary">
+              <svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                <polyline points="17 21 17 13 7 13 7 21"/>
+                <polyline points="7 3 7 8 15 8"/>
+              </svg>
+              <span>保存全部设置</span>
+            </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main class="workspace-body">
-        <!-- 1. 阅读与外观 -->
-        <section class="settings-panel is-active" id="panel-reading" role="tabpanel" aria-labelledby="tab-reading" data-title="阅读与外观">
-          <div class="card">
-            <h3 class="card-title">📖 阅读呈现与排版</h3>
+        <main class="workspace-body">
+          <!-- 1. 阅读与外观 -->
+          <section class="settings-panel is-active" id="panel-reading" role="tabpanel" aria-labelledby="tab-reading" data-title="阅读与外观" data-subtitle="设置译文的呈现方式、排版样式与界面外观。">
+            <div class="card">
+              <div class="card-section">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                  </svg>
+                  <span>阅读呈现与排版</span>
+                </h3>
 
-            <div class="form-grid-2">
-              <div class="form-group">
-                <label for="site-style-select">呈现模式</label>
-                <select id="site-style-select" class="form-control">
-                  <option value="replace">中文阅读 (原生排版)</option>
-                  <option value="underline">双语对照</option>
-                  <option value="card">译文卡片</option>
-                </select>
-              </div>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <label for="site-style-select">呈现模式</label>
+                    <select id="site-style-select" class="form-control">
+                      <option value="replace">中文阅读 (原生排版)</option>
+                      <option value="underline">双语对照</option>
+                      <option value="card">译文卡片</option>
+                    </select>
+                  </div>
 
-              <div class="form-group">
-                <label for="ui-theme-select">🎨 界面视觉皮肤</label>
-                <select id="ui-theme-select" class="form-control">
-                  <option value="market_desk">Market Desk (深浅自适应)</option>
-                  <option value="animal_island">动森经典</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label>👀 排版预览</label>
-              <div class="preview-box" id="preview-box">
-                <div class="preview-item" id="preview-item-1">
-                  <div class="preview-orig" id="preview-orig-1">Revenue for the third quarter may rise by 5% amid robust data center demand.</div>
-                  <div class="preview-trans" id="preview-trans-1">得益于数据中心强劲的需求，第三季度营收可能增长 5%。</div>
-                </div>
-                <div class="preview-item" id="preview-item-2" style="margin-top: 12px;">
-                  <div class="preview-orig" id="preview-orig-2">I keep holding my shares because the chip supply cycle is clearly turning upward.</div>
-                  <div class="preview-trans" id="preview-trans-2">我继续持有股票，因为芯片供应周期显然正在向上反转。</div>
+                  <div class="form-group">
+                    <label for="ui-theme-select">界面视觉皮肤</label>
+                    <select id="ui-theme-select" class="form-control">
+                      <option value="market_desk">Market Desk (深浅自适应)</option>
+                      <option value="animal_island">动森经典</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </section>
 
-        <!-- 2. 语音与朗读 -->
-        <section class="settings-panel" id="panel-speech" role="tabpanel" aria-labelledby="tab-speech" data-title="语音与朗读">
-          <div class="card">
-            <h3 class="card-title">🔊 朗读与发音引擎</h3>
+              <div class="card-divider"></div>
 
-            <div class="form-group">
-              <div class="switch-row">
-                <div class="switch-title">🔊 查词时自动朗读发音</div>
-                <label class="switch">
-                  <input type="checkbox" id="auto-pronounce-check">
-                  <span class="slider"></span>
-                </label>
+              <div class="card-section">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="6" cy="15" r="4"/>
+                    <circle cx="18" cy="15" r="4"/>
+                    <path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/>
+                    <path d="M2.5 13 5 7c.7-1.3 1.4-2 3-2"/>
+                    <path d="M21.5 13 19 7c-.7-1.3-1.5-2-3-2"/>
+                  </svg>
+                  <span>排版预览</span>
+                </h3>
+                <div class="preview-box" id="preview-box">
+                  <div class="preview-item" id="preview-item-1">
+                    <div class="preview-orig" id="preview-orig-1">Revenue for the third quarter may rise by 5% amid robust data center demand.</div>
+                    <div class="preview-trans" id="preview-trans-1">得益于数据中心强劲的需求，第三季度营收可能增长 5%。</div>
+                  </div>
+                  <div class="preview-item" id="preview-item-2" style="margin-top: 12px;">
+                    <div class="preview-orig" id="preview-orig-2">I keep holding my shares because the chip supply cycle is clearly turning upward.</div>
+                    <div class="preview-trans" id="preview-trans-2">我继续持有股票，因为芯片供应周期显然正在向上反转。</div>
+                  </div>
+                </div>
               </div>
             </div>
+          </section>
 
-            <div class="form-group">
-              <label for="tts-engine-select">🎙️ 语音发音引擎</label>
-              <select id="tts-engine-select" class="form-control">
-                <option value="local_service">🚀 本地原生服务 (Kokoro + MeloTTS · 推荐)</option>
-                <option value="youdao">有道词典在线发音</option>
-                <option value="edge">Edge 浏览器自然发音</option>
-              </select>
+          <!-- 2. 语音与朗读 -->
+          <section class="settings-panel" id="panel-speech" role="tabpanel" aria-labelledby="tab-speech" data-title="语音与朗读" data-subtitle="配置查词自动发音、本地双引擎语音服务与音色选择。">
+            <div class="card">
+              <div class="card-section">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                  </svg>
+                  <span>朗读与发音引擎</span>
+                </h3>
+
+                <div class="form-group">
+                  <div class="switch-row">
+                    <div class="switch-title">查词时自动朗读发音</div>
+                    <label class="switch">
+                      <input type="checkbox" id="auto-pronounce-check">
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="tts-engine-select">语音发音引擎</label>
+                  <select id="tts-engine-select" class="form-control">
+                    <option value="local_service">本地原生服务 (Kokoro + MeloTTS · 推荐)</option>
+                    <option value="youdao">有道词典在线发音</option>
+                    <option value="edge">Edge 浏览器自然发音</option>
+                  </select>
+                </div>
+
+                <!-- 本地原生服务配置面板 -->
+                <div class="local-service-card" id="local-service-group" style="display: none;">
+                  <div class="local-service-header">
+                    <label for="local-service-url" class="local-service-title">本地原生服务 (Kokoro + MeloTTS)</label>
+                    <span id="local-service-status-badge" class="status-badge">未检测</span>
+                  </div>
+
+                  <div class="input-with-button" style="margin-bottom: 14px;">
+                    <input type="text" id="local-service-url" class="form-control mono-input" placeholder="http://127.0.0.1:18080" value="http://127.0.0.1:18080">
+                    <button type="button" id="btn-check-local-service" class="btn btn-secondary btn-compact">检测连接</button>
+                  </div>
+
+                  <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="kokoro-voice-select" class="local-sub-label">Kokoro 音色</label>
+                    <select id="kokoro-voice-select" class="form-control">
+                      <option value="af_heart">Heart (美音女声 · 推荐)</option>
+                      <option value="am_adam">Adam (美音男声)</option>
+                      <option value="bf_alice">Alice (英音女声)</option>
+                      <option value="bm_george">George (英音男声)</option>
+                      <option value="af_bella">Bella (美音女声)</option>
+                      <option value="am_michael">Michael (美音男声)</option>
+                    </select>
+                  </div>
+
+                  <div class="button-group" style="margin-top: 0;">
+                    <button type="button" id="btn-test-local-service" class="btn btn-secondary btn-compact">试听英文 (Kokoro)</button>
+                    <button type="button" id="btn-test-local-melo" class="btn btn-secondary btn-compact">试听中文 (MeloTTS)</button>
+                  </div>
+                </div>
+              </div>
             </div>
+          </section>
 
-            <!-- 本地原生伴侣服务配置面板 -->
-            <div class="local-service-card" id="local-service-group" style="display: none;">
-              <div class="local-service-header">
-                <label for="local-service-url" class="local-service-title">🚀 本地原生服务 (Kokoro + MeloTTS)</label>
-                <span id="local-service-status-badge" class="status-badge">未检测</span>
+          <!-- 3. 站点规则 -->
+          <section class="settings-panel" id="panel-sites" role="tabpanel" aria-labelledby="tab-sites" data-title="站点规则" data-subtitle="管理进站自动翻译域名白名单与生词高亮排除名单。">
+            <div class="panel-grid-2">
+              <div class="card">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                  <span>进站自动翻译名单</span>
+                </h3>
+                <div class="form-group">
+                  <label for="auto-translate-sites-input">自动翻译域名</label>
+                  <textarea id="auto-translate-sites-input" class="form-control mono-textarea" rows="8" placeholder="每行一个域名，如 reuters.com"></textarea>
+                </div>
               </div>
 
-              <div class="input-with-button" style="margin-bottom: 14px;">
-                <input type="text" id="local-service-url" class="form-control mono-input" placeholder="http://127.0.0.1:18080" value="http://127.0.0.1:18080">
-                <button type="button" id="btn-check-local-service" class="btn btn-secondary btn-compact">🔍 检测连接</button>
+              <div class="card">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"/>
+                    <line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/>
+                  </svg>
+                  <span>生词高亮排除名单</span>
+                </h3>
+                <div class="form-group">
+                  <label for="excluded-sites-input">排除域名</label>
+                  <textarea id="excluded-sites-input" class="form-control mono-textarea" rows="8" placeholder="每行一个域名，如 tradingview.com"></textarea>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- 4. AI 翻译引擎 -->
+          <section class="settings-panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" data-title="AI 翻译引擎" data-subtitle="配置大模型翻译服务、API 密钥与快速响应模式。">
+            <div class="card">
+              <div class="card-section">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="4" y="4" width="16" height="16" rx="2"/>
+                    <rect x="9" y="9" width="6" height="6"/>
+                    <line x1="9" y1="1" x2="9" y2="4"/>
+                    <line x1="15" y1="1" x2="15" y2="4"/>
+                    <line x1="9" y1="20" x2="9" y2="23"/>
+                    <line x1="15" y1="20" x2="15" y2="23"/>
+                    <line x1="20" y1="9" x2="23" y2="9"/>
+                    <line x1="20" y1="14" x2="23" y2="14"/>
+                    <line x1="1" y1="9" x2="4" y2="9"/>
+                    <line x1="1" y1="14" x2="4" y2="14"/>
+                  </svg>
+                  <span>SiliconFlow AI 配置</span>
+                </h3>
+
+                <div class="form-group">
+                  <label for="sf-model-select">翻译模型</label>
+                  <select id="sf-model-select" class="form-control">
+                    <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (推荐)</option>
+                    <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B</option>
+                    <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B</option>
+                    <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="sf-key-input">API Key</label>
+                  <div class="input-with-button">
+                    <input type="password" id="sf-key-input" class="form-control mono-input" placeholder="sk-...">
+                    <button type="button" id="btn-toggle-sf-key" class="btn-toggle-eye" title="显示/隐藏 API Key" aria-label="显示/隐藏 API Key">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="switch-row">
+                    <div class="switch-title">快速响应模式</div>
+                    <label class="switch">
+                      <input type="checkbox" id="disable-thinking-check" checked>
+                      <span class="slider"></span>
+                    </label>
+                  </div>
+                </div>
               </div>
 
-              <div class="form-group" style="margin-bottom: 12px;">
-                <label for="kokoro-voice-select" class="local-sub-label">🎙️ Kokoro 音色</label>
-                <select id="kokoro-voice-select" class="form-control">
-                  <option value="af_heart">Heart (美音女声 · 推荐)</option>
-                  <option value="am_adam">Adam (美音男声)</option>
-                  <option value="bf_alice">Alice (英音女声)</option>
-                  <option value="bm_george">George (英音男声)</option>
-                  <option value="af_bella">Bella (美音女声)</option>
-                  <option value="am_michael">Michael (美音男声)</option>
-                </select>
-              </div>
+              <div class="card-divider"></div>
 
               <div class="button-group" style="margin-top: 0;">
-                <button type="button" id="btn-test-local-service" class="btn btn-secondary btn-compact">🔊 试听英文 (Kokoro)</button>
-                <button type="button" id="btn-test-local-melo" class="btn btn-secondary btn-compact">🔊 试听中文 (MeloTTS)</button>
+                <button type="button" id="btn-test-sf" class="btn btn-secondary">测试 AI 翻译连通性</button>
+                <span id="test-sf-result" class="test-result"></span>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <!-- 3. 站点规则 -->
-        <section class="settings-panel" id="panel-sites" role="tabpanel" aria-labelledby="tab-sites" data-title="站点规则">
-          <div class="panel-grid-2">
+          <!-- 5. Notion 同步 -->
+          <section class="settings-panel" id="panel-notion" role="tabpanel" aria-labelledby="tab-notion" data-title="Notion 同步" data-subtitle="连接 Notion 生词本数据库以启用增量同步与页面高亮。">
             <div class="card">
-              <h3 class="card-title">⚡ 进站自动翻译名单</h3>
-              <div class="form-group">
-                <label for="auto-translate-sites-input">自动翻译域名</label>
-                <textarea id="auto-translate-sites-input" class="form-control mono-textarea" rows="8" placeholder="每行一个域名，如 reuters.com"></textarea>
+              <div class="card-section">
+                <h3 class="card-title">
+                  <svg class="title-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                  </svg>
+                  <span>Notion 生词本同步</span>
+                </h3>
+
+                <div class="form-group">
+                  <div class="label-between">
+                    <label for="notion-token-input">Notion Token</label>
+                    <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" class="external-link">Integrations ↗</a>
+                  </div>
+                  <div class="input-with-button">
+                    <input type="password" id="notion-token-input" class="form-control mono-input" placeholder="ntn_... 或 secret_...">
+                    <button type="button" id="btn-toggle-notion-token" class="btn-toggle-eye" title="显示/隐藏 Token" aria-label="显示/隐藏 Token">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="notion-db-input">Notion Database ID</label>
+                  <input type="text" id="notion-db-input" class="form-control mono-input" placeholder="32 位 Database ID 或完整 URL">
+                </div>
+              </div>
+
+              <div class="card-divider"></div>
+
+              <div class="button-group" style="margin-top: 0;">
+                <button type="button" id="btn-test-notion" class="btn btn-secondary">测试 Notion 知识库连通性</button>
+                <span id="test-notion-result" class="test-result"></span>
               </div>
             </div>
-
-            <div class="card">
-              <h3 class="card-title">🚫 生词高亮排除名单</h3>
-              <div class="form-group">
-                <label for="excluded-sites-input">排除域名</label>
-                <textarea id="excluded-sites-input" class="form-control mono-textarea" rows="8" placeholder="每行一个域名，如 tradingview.com"></textarea>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 4. AI 翻译引擎 -->
-        <section class="settings-panel" id="panel-ai" role="tabpanel" aria-labelledby="tab-ai" data-title="AI 翻译引擎">
-          <div class="card">
-            <h3 class="card-title">🤖 SiliconFlow AI 配置</h3>
-
-            <div class="form-group">
-              <label for="sf-model-select">翻译模型</label>
-              <select id="sf-model-select" class="form-control">
-                <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct (推荐)</option>
-                <option value="Qwen/Qwen3.5-4B">Qwen/Qwen3.5-4B</option>
-                <option value="Qwen/Qwen3-8B">Qwen/Qwen3-8B</option>
-                <option value="THUDM/GLM-4-9B-0414">THUDM/GLM-4-9B-0414</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="sf-key-input">API Key</label>
-              <div class="input-with-button">
-                <input type="password" id="sf-key-input" class="form-control mono-input" placeholder="sk-...">
-                <button type="button" id="btn-toggle-sf-key" class="btn-toggle-eye" title="显示/隐藏 API Key">👁️</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <div class="switch-row">
-                <div class="switch-title">⚡ 快速响应模式</div>
-                <label class="switch">
-                  <input type="checkbox" id="disable-thinking-check" checked>
-                  <span class="slider"></span>
-                </label>
-              </div>
-            </div>
-
-            <div class="button-group">
-              <button type="button" id="btn-test-sf" class="btn btn-secondary">⚡ 测试 AI 翻译连通性</button>
-              <span id="test-sf-result" class="test-result"></span>
-            </div>
-          </div>
-        </section>
-
-        <!-- 5. Notion 同步 -->
-        <section class="settings-panel" id="panel-notion" role="tabpanel" aria-labelledby="tab-notion" data-title="Notion 同步">
-          <div class="card">
-            <h3 class="card-title">📓 Notion 生词本同步</h3>
-
-            <div class="form-group">
-              <div class="label-between">
-                <label for="notion-token-input">Notion Token</label>
-                <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" class="external-link">Integrations ↗</a>
-              </div>
-              <div class="input-with-button">
-                <input type="password" id="notion-token-input" class="form-control mono-input" placeholder="ntn_... 或 secret_...">
-                <button type="button" id="btn-toggle-notion-token" class="btn-toggle-eye" title="显示/隐藏 Token">👁️</button>
-              </div>
-            </div>
-
-            <div class="form-group">
-              <label for="notion-db-input">Notion Database ID</label>
-              <input type="text" id="notion-db-input" class="form-control mono-input" placeholder="32 位 Database ID 或完整 URL">
-            </div>
-
-            <div class="button-group">
-              <button type="button" id="btn-test-notion" class="btn btn-secondary">⚡ 测试 Notion 知识库连通性</button>
-              <span id="test-notion-result" class="test-result"></span>
-            </div>
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
   </div>
 

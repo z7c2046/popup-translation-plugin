@@ -111,6 +111,9 @@ function section(source, start, end) {
     assert.ok(optionsCss.includes('.admin-shell'), 'options.css must define two-column .admin-shell layout');
     assert.ok(optionsCss.includes('.nav-item.is-active'), 'options.css must style active sidebar nav item');
     assert.ok(popupCss.includes('--lp-text-secondary: #5D6672'), 'popup.css must use WCAG-compliant high-contrast secondary text');
+    assert.ok(optionsHtml.includes('id="panel-subtitle"'), 'options.html must define workspace topbar subtitle');
+    assert.ok(optionsSrc.includes('panelSubtitle'), 'options.js must sync workspace topbar subtitle on tab switch');
+    assert.ok(!optionsHtml.includes('👁️') && !optionsSrc.includes('👁️'), 'options UI must use monochrome SVG eye icons instead of emoji');
 
     for (const panel of ['reading', 'speech', 'sites', 'ai', 'notion']) {
       assert.ok(optionsHtml.includes(`id="tab-${panel}"`), `options.html must define sidebar tab-${panel}`);

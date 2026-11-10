@@ -34,14 +34,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 读取并初始化配置
-  const storedConfig = await chrome.storage.local.get({
-    lexipro_ui_theme: 'market_desk',
-    lexipro_site_translation_style: 'replace',
-    lexipro_site_auto_translate: false,
-    lexipro_auto_translate_sites: [],
-    lexipro_immersion_sites: [],
-    lexipro_excluded_sites: []
-  });
+  const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+  const storedConfig = hasChromeStorage
+    ? await chrome.storage.local.get({
+        lexipro_ui_theme: 'market_desk',
+        lexipro_site_translation_style: 'replace',
+        lexipro_site_auto_translate: false,
+        lexipro_auto_translate_sites: [],
+        lexipro_immersion_sites: [],
+        lexipro_excluded_sites: []
+      })
+    : {
+        lexipro_ui_theme: 'market_desk',
+        lexipro_site_translation_style: 'replace',
+        lexipro_site_auto_translate: false,
+        lexipro_auto_translate_sites: [],
+        lexipro_immersion_sites: [],
+        lexipro_excluded_sites: []
+      };
 
   if (quickThemeSelect) {
     quickThemeSelect.value = storedConfig.lexipro_ui_theme || 'market_desk';
