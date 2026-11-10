@@ -1023,45 +1023,62 @@
         .imt-speaker {
             width: 28px;
             height: 28px;
+            padding: 0;
             margin-left: 8px;
             border: 1px solid #82d5bb;
-            border-bottom: 3px solid #60bba5;
-            border-radius: 50%;
+            border-bottom-width: 3px;
+            border-radius: 999px;
             background: linear-gradient(180deg, #f5fffb, var(--aiu-primary-soft));
+            box-shadow: 0 2px 0 rgba(18, 169, 157, .16);
             color: #0b8079;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 15px;
-            opacity: .95;
-            transition: transform .12s ease, box-shadow .12s ease, opacity .22s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-size: 14px;
+            line-height: 1;
+            opacity: 1;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
             user-select: none;
         }
 
-        .imt-speaker.imt-speaker-pending {
-            opacity: 0 !important;
-            transform: scale(0.35) !important;
-            pointer-events: none !important;
-            transition: none !important;
+        @keyframes imt-speaker-reveal {
+            0% {
+                opacity: 0;
+                transform: scale(0.35);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .imt-speaker.imt-speaker-pending,
+        .imt-speaker.imt-ex-speaker.imt-speaker-pending {
+            opacity: 0;
+            transform: scale(0.35);
+            pointer-events: none;
+            transition: none;
         }
 
         .imt-speaker.imt-speaker-visible {
-            opacity: .95 !important;
-            transform: scale(1) !important;
-            pointer-events: auto !important;
-            transition: opacity 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+            opacity: 1;
+            pointer-events: auto;
+            animation: imt-speaker-reveal .22s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         .imt-speaker:hover {
-            opacity: 1;
-            transform: translateY(-1px) scale(1.06);
-            box-shadow: 0 4px 0 rgba(18, 169, 157, .22);
+            background: linear-gradient(180deg, #e7fcf5, #cef7eb);
+            border-color: #4cc2ad;
+            color: #096f69;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(18, 169, 157, .28);
         }
 
         .imt-speaker:active {
-            transform: translateY(1px) scale(0.96);
-            box-shadow: 0 1px 0 rgba(18, 169, 157, .22);
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(18, 169, 157, .12);
         }
 
         .imt-quick-exp {
@@ -1159,30 +1176,36 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
+            padding: 0;
             margin-left: 4px;
             font-size: 11px;
+            line-height: 1;
             border: 1px solid #82d5bb;
-            border-bottom: 2px solid #60bba5;
-            border-radius: 50%;
+            border-bottom-width: 3px;
+            border-radius: 999px;
             background: linear-gradient(180deg, #f5fffb, var(--aiu-primary-soft));
+            box-shadow: 0 2px 0 rgba(18, 169, 157, .16);
             color: #0b8079;
             cursor: pointer;
             user-select: none;
-            opacity: 0.85;
-            transition: opacity 0.2s ease, transform 0.15s ease;
+            opacity: 1;
+            transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
         }
 
         .imt-speaker.imt-ex-speaker:hover {
-            opacity: 1;
-            transform: translateY(-1px) scale(1.1);
-            box-shadow: 0 2px 0 rgba(18, 169, 157, .22);
+            background: linear-gradient(180deg, #e7fcf5, #cef7eb);
+            border-color: #4cc2ad;
+            color: #096f69;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(18, 169, 157, .28);
         }
 
         .imt-speaker.imt-ex-speaker:active {
-            transform: translateY(1px) scale(0.95);
-            box-shadow: 0 0 0 rgba(18, 169, 157, .22);
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(18, 169, 157, .12);
         }
 
         .imt-ex-tgt {

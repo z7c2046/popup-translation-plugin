@@ -4,6 +4,8 @@ const path = require('node:path');
 
 const sourcePath = path.resolve(__dirname, '..', '划词翻译+生词高亮.txt');
 const source = fs.readFileSync(sourcePath, 'utf8');
+const contentJsPath = path.resolve(__dirname, '..', 'popup-translation-extension', 'content.js');
+const contentJs = fs.readFileSync(contentJsPath, 'utf8');
 
 // 1. Check DOM structure and style definitions
 assert.match(source, /id="imt-settings"/, 'Tooltip HTML must include #imt-settings element');
@@ -23,6 +25,15 @@ assert.match(source, /\.imt-speaker\.imt-speaker-visible/, 'CSS must define .imt
 assert.match(source, /function collectTypewriterItems/, 'collectTypewriterItems must be implemented');
 assert.match(source, /type:\s*['"]speaker['"]/, 'collectTypewriterItems must identify speaker items in document order');
 assert.match(source, /isAscii\s*\?\s*Math\.min\(3,\s*remaining\)\s*:\s*1/, 'typewriterReveal must use adaptive step sizing for snappy English sentences');
+
+// 3.2 Verify speaker buttons match .imt-action-btn hover & press-down tactile physics in both extension and userscript
+for (const [name, code] of [['extension', contentJs], ['userscript', source]]) {
+    assert.doesNotMatch(code, /\.imt-speaker\.imt-speaker-visible\s*\{[^}]*!important/, `${name}: .imt-speaker-visible must not use !important that blocks :hover/:active transforms`);
+    assert.match(code, /\.imt-speaker:hover\s*\{[\s\S]*?transform:\s*translateY\(-1px\)/, `${name}: .imt-speaker:hover must match .imt-action-btn lift`);
+    assert.match(code, /\.imt-speaker:active\s*\{[\s\S]*?transform:\s*translateY\(2px\);\s*border-bottom-width:\s*1px;/, `${name}: .imt-speaker:active must match .imt-action-btn press`);
+    assert.match(code, /\.imt-speaker\.imt-ex-speaker:hover\s*\{[\s\S]*?transform:\s*translateY\(-1px\)/, `${name}: .imt-ex-speaker:hover must match .imt-action-btn lift`);
+    assert.match(code, /\.imt-speaker\.imt-ex-speaker:active\s*\{[\s\S]*?transform:\s*translateY\(2px\);\s*border-bottom-width:\s*1px;/, `${name}: .imt-ex-speaker:active must match .imt-action-btn press`);
+}
 
 // 4. Simulate DOM & Typewriter behavior in isolation
 class MockDOMNode {
