@@ -94,7 +94,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let currentImmersionSites = Array.isArray(storedConfig.lexipro_immersion_sites) ? storedConfig.lexipro_immersion_sites : [];
   let isUserImmersion = Boolean(hostname && currentImmersionSites.some(pat => matchesPattern(hostname, pat)));
-  let isImmersionActive = isReddit || isReuters || isUserImmersion;
+  let isImmersionActive = !isCurrentExcluded && (isReddit || isReuters || isUserImmersion);
 
   let currentAutoTranslateSites = Array.isArray(storedConfig.lexipro_auto_translate_sites) ? storedConfig.lexipro_auto_translate_sites : [];
   let isCurrentAutoTranslate = Boolean(hostname && currentAutoTranslateSites.some(pat => matchesPattern(hostname, pat)));
@@ -108,11 +108,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // 生词高亮排除开关处理
+  // 生词高亮与沉浸式排除开关处理
   if (quickExcludeCheck) {
     quickExcludeCheck.checked = isCurrentExcluded;
     if (quickExcludeLabel) {
-      quickExcludeLabel.innerText = isCurrentExcluded ? '已排除高亮' : '未排除';
+      quickExcludeLabel.innerText = isCurrentExcluded ? '已排除高亮与胶囊' : '未排除';
       quickExcludeLabel.style.color = isCurrentExcluded ? '#B33E45' : '#475569';
     }
     quickExcludeCheck.addEventListener('change', async (e) => {
@@ -124,13 +124,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!currentExcludedSites.some(p => matchesPattern(hostname, p))) {
           currentExcludedSites.push(hostname);
         }
+        // 排除当前网页时，若其之前被加入沉浸式名单，则同步清理，彻底移除右下角悬浮按钮
+        currentImmersionSites = currentImmersionSites.filter(p => !matchesPattern(hostname, p));
+        await chrome.storage.local.set({ lexipro_excluded_sites: currentExcludedSites, lexipro_immersion_sites: currentImmersionSites });
+        isUserImmersion = false;
+        isImmersionActive = false;
+        if (activeTab?.id) {
+          chrome.tabs.sendMessage(activeTab.id, { type: 'DISABLE_IMMERSION_FOR_SITE' }).catch(() => {});
+        }
       } else {
         currentExcludedSites = currentExcludedSites.filter(p => !matchesPattern(hostname, p));
+        await chrome.storage.local.set({ lexipro_excluded_sites: currentExcludedSites });
+        isImmersionActive = isReddit || isReuters || isUserImmersion;
       }
 
-      await chrome.storage.local.set({ lexipro_excluded_sites: currentExcludedSites });
       if (quickExcludeLabel) {
-        quickExcludeLabel.innerText = isChecked ? '已排除高亮' : '未排除';
+        quickExcludeLabel.innerText = isChecked ? '已排除高亮与胶囊' : '未排除';
         quickExcludeLabel.style.color = isChecked ? '#B33E45' : '#475569';
       }
       renderPageState();
@@ -195,9 +204,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function renderPageState() {
     if (isCurrentExcluded) {
-      envBadge.innerText = '已排除生词高亮';
+      envBadge.innerText = '已排除当前网站';
       envBadge.className = 'badge badge-gray';
-      envHint.innerText = '当前网站在生词高亮黑名单中，不会在页面上标注生词。';
+      envHint.innerText = '当前网站已处于排除名单中，生词高亮与右下角沉浸式按钮均已彻底禁用，保持页面原生干净。';
+      specialBox.style.display = 'none';
+      if (generalImmersionBox) generalImmersionBox.style.display = 'none';
+      connStatusMsg.style.display = 'none';
+      return;
     } else if (isReddit) {
       envBadge.innerText = 'Reddit (专属增强)';
       envBadge.className = 'badge badge-orange';

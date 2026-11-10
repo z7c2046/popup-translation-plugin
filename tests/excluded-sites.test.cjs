@@ -93,11 +93,13 @@ test('Excluded Sites: popup.html & popup.js quick toggle integration', () => {
     assert.match(popupHtml, /id="quick-exclude-check"/);
     assert.match(popupHtml, /排除此网站生词高亮/);
 
-    // popup.js 存在域名提取、排除判定与状态切换
+    // popup.js 存在域名提取、排除判定与状态切换，并在排除时隐藏沉浸式面板、销毁悬浮按钮
     assert.match(popupJs, /lexipro_excluded_sites:\s*\[\]/);
     assert.match(popupJs, /matchesPattern\(hostname,\s*pat\)/);
     assert.match(popupJs, /chrome\.storage\.local\.set\(\{\s*lexipro_excluded_sites/);
     assert.match(popupJs, /已排除高亮/);
+    assert.match(popupJs, /let isImmersionActive = !isCurrentExcluded/);
+    assert.match(popupJs, /type:\s*['"]DISABLE_IMMERSION_FOR_SITE['"]/);
 });
 
 test('Excluded Sites: content.js & userscript guard highlights and immersion translation completely', () => {
@@ -115,14 +117,16 @@ test('Excluded Sites: content.js & userscript guard highlights and immersion tra
         assert.match(code, /async function syncVocabData\(\) \{\s+if \(isCurrentSiteExcluded\(\)\) \{\s+clearPageHighlights\(\);/, `${name} syncVocabData must guard when site excluded`);
         assert.match(code, /function scanPage\(regex,\s*root\s*=\s*document\.body\)\s*\{\s+if \(isCurrentSiteExcluded\(\)\) return;/, `${name} scanPage must guard when site excluded`);
         assert.match(code, /function observeDynamicContent\(regex\)\s*\{\s+if \(isCurrentSiteExcluded\(\)\) return;/, `${name} observeDynamicContent must guard when site excluded`);
-        // 4. 沉浸式翻译按需门控
+        // 4. 沉浸式翻译按需门控与排除黑名单最高优先级阻断
         assert.match(code, /function isCurrentSiteImmersionEnabled/, `${name} must include isCurrentSiteImmersionEnabled`);
+        assert.match(code, /function isCurrentSiteImmersionEnabled\(\) \{[\s\S]{0,200}isCurrentSiteExcluded\(\)/, `${name} isCurrentSiteImmersionEnabled must guard when site is excluded`);
         assert.match(code, /if\s*\(typeof isCurrentSiteImmersionEnabled === 'function'\s*&&\s*!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return false;\s*\}/, `${name} isGlobalImmersionTranslationPage must guard when immersion not enabled`);
         assert.match(code, /if\s*\(!isCurrentSiteImmersionEnabled\(\)\)\s*\{\s*return;\s*\}/, `${name} initSiteSpecificTranslator must guard when immersion not enabled`);
         // 5. 排除网站统一由浏览器扩展栏 Popup 控制中心收拢，页面查词设置面板内不冗余展示排除开关
         assert.doesNotMatch(code, /id="imt-exclude-switch"/, `${name} must not redundantly include exclude switch in in-page dictionary settings UI`);
-        // 6. 热更新派发与响应
+        // 6. 热更新派发与响应（彻底销毁沉浸式悬浮胶囊）
         assert.match(code, /handleExcludedSitesChange/, `${name} must include handleExcludedSitesChange`);
+        assert.match(code, /function handleExcludedSitesChange[\s\S]*__lexipro_destroy_site_translator/, `${name} handleExcludedSitesChange must destroy floating immersion FAB when excluded`);
         assert.match(code, /key === 'lexipro_excluded_sites'/, `${name} must handle excluded sites change in storage`);
     }
 });

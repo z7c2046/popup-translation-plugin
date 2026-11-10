@@ -298,6 +298,10 @@
     // 判定当前网页是否应该启用沉浸式双语翻译与单字点击查词（仅限 Reddit、路透社、用户白名单、会话中主动开启或正在呈现译文）
     function isCurrentSiteImmersionEnabled() {
         try {
+            // 最高优先级防线：若当前网站处于排除名单中，绝对禁用沉浸式双语翻译与右下角悬浮胶囊！
+            if (typeof isCurrentSiteExcluded === 'function' && isCurrentSiteExcluded()) {
+                return false;
+            }
             if (
                 (typeof window !== 'undefined' && (window.__lexipro_site_showing_translation || window.__lexipro_site_translating)) ||
                 (typeof document !== 'undefined' && (document.querySelector('[data-lexipro-site-id]') || document.querySelector('#lexipro-site-fab-root')))
@@ -320,6 +324,9 @@
     // 判定当前网页是否处于进站自动翻译白名单中（默认绝对不自动翻译，只有用户显式添加到白名单才生效）
     function isCurrentSiteAutoTranslate() {
         try {
+            if (typeof isCurrentSiteExcluded === 'function' && isCurrentSiteExcluded()) {
+                return false;
+            }
             const host = (window.location && window.location.hostname ? window.location.hostname : '').toLowerCase();
             if (!host) return false;
             const list = Array.isArray(CONFIG.autoTranslateSites) ? CONFIG.autoTranslateSites : [];
@@ -348,17 +355,29 @@
         });
     }
 
-    // 处理排除名单变更（支持热更新：专职负责生词高亮的开启与排除）
+    // 处理排除名单变更（支持热更新：专职负责生词高亮与右下角沉浸式胶囊的彻底排除）
     function handleExcludedSitesChange(newExcludedSites) {
         CONFIG.excludedSites = Array.isArray(newExcludedSites) ? newExcludedSites : [];
         const isExcluded = isCurrentSiteExcluded();
         if (isExcluded) {
-            // 清除页面生词高亮与动态监听
+            // 1. 清除页面生词高亮与动态监听
             clearPageHighlights();
+            // 2. 彻底销毁并移除右下角沉浸式翻译悬浮胶囊与页面监听
+            if (typeof window.__lexipro_destroy_site_translator === 'function') {
+                window.__lexipro_destroy_site_translator();
+            } else {
+                const fabRoot = document.getElementById('lexipro-site-fab-root');
+                if (fabRoot) fabRoot.remove();
+            }
+            CONFIG.isSessionImmersionEnabled = false;
         } else {
             // 恢复正常生词高亮
             if (CONFIG.notionToken && CONFIG.notionDatabaseId) {
                 syncVocabData();
+            }
+            // 若原本配置了沉浸式翻译，重新唤醒
+            if (isCurrentSiteImmersionEnabled() && !window.__lexipro_site_initialized) {
+                initSiteSpecificTranslator();
             }
         }
     }
@@ -5718,6 +5737,7 @@ CRITICAL RULES:
         // 悬浮 UI 构建（双按钮设计：主操作 + 更多选项）
         let fabWrapper = null;
         function buildSiteFab() {
+            if (isCurrentSiteExcluded() || !isCurrentSiteImmersionEnabled()) return;
             if (document.getElementById('lexipro-site-fab-root')) return;
 
             fabWrapper = document.createElement('div');
@@ -6193,6 +6213,10 @@ CRITICAL RULES:
                 return true;
             }
             if (msg.type === 'ENABLE_IMMERSION_FOR_SITE') {
+                if (isCurrentSiteExcluded()) {
+                    sendResponse({ success: false, excluded: true });
+                    return true;
+                }
                 CONFIG.isSessionImmersionEnabled = true;
                 if (!window.__lexipro_site_initialized) {
                     initSiteSpecificTranslator();
@@ -6209,6 +6233,10 @@ CRITICAL RULES:
                 return true;
             }
             if (msg.type === 'START_PAGE_TRANSLATION') {
+                if (isCurrentSiteExcluded()) {
+                    sendResponse({ success: false, excluded: true });
+                    return true;
+                }
                 CONFIG.isSessionImmersionEnabled = true;
                 if (!window.__lexipro_site_initialized) {
                     initSiteSpecificTranslator();
