@@ -22,7 +22,11 @@
 
     function GM_setValue(key, value) {
         __storageCache[key] = value;
-        chrome.storage.local.set({ [key]: value });
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local && typeof chrome.storage.local.set === 'function') {
+            try {
+                chrome.storage.local.set({ [key]: value });
+            } catch (e) {}
+        }
     }
 
     function GM_addStyle(css) {
@@ -35,45 +39,82 @@
     function GM_xmlhttpRequest(details) {
         let isAborted = false;
         const requestId = 'xhr_' + Math.random().toString(36).slice(2) + '_' + Date.now();
-        chrome.runtime.sendMessage({
-            type: 'GM_XHR',
-            details: {
-                requestId,
-                url: details.url,
-                method: details.method || 'GET',
-                headers: details.headers || {},
-                data: details.data,
-                timeout: details.timeout || 45000,
-                responseType: details.responseType
-            }
-        }, (res) => {
-            if (isAborted) return;
-            if (chrome.runtime.lastError || !res || !res.success) {
-                if (typeof details.onerror === 'function') {
-                    details.onerror(new Error(res?.error || chrome.runtime.lastError?.message || '请求失败'));
-                }
-                return;
-            }
 
-            const resp = res.response;
-            if (typeof details.onload === 'function') {
-                details.onload(resp);
+        const createRuntimeError = (rawMessage) => {
+            const msg = String(rawMessage || '');
+            const isInvalidated = /Extension context invalidated|Cannot read properties of undefined|receiving end does not exist|Could not establish connection/i.test(msg);
+            const err = new Error(isInvalidated ? '扩展已更新或连接已断开，请刷新当前网页后重试' : (msg || '请求失败'));
+            if (isInvalidated) {
+                err.isExtensionContextInvalidated = true;
             }
-        });
+            return err;
+        };
 
-        return {
+        const dispatchError = (err, asyncOnly) => {
+            const run = () => {
+                if (isAborted || typeof details.onerror !== 'function') return;
+                details.onerror(err);
+            };
+            if (asyncOnly) {
+                Promise.resolve().then(run);
+            } else {
+                run();
+            }
+        };
+
+        const handle = {
             abort: () => {
                 if (isAborted) return;
                 isAborted = true;
-                try {
-                    const p = chrome.runtime.sendMessage({ type: 'GM_XHR_ABORT', requestId });
-                    if (p && typeof p.catch === 'function') p.catch(() => {});
-                } catch (e) {}
+                if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+                    try {
+                        const p = chrome.runtime.sendMessage({ type: 'GM_XHR_ABORT', requestId });
+                        if (p && typeof p.catch === 'function') p.catch(() => {});
+                    } catch (e) {}
+                }
                 if (typeof details.onabort === 'function') {
                     details.onabort();
                 }
             }
         };
+
+        if (typeof chrome === 'undefined' || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') {
+            dispatchError(createRuntimeError('Extension context invalidated: chrome.runtime is unavailable'), true);
+            return handle;
+        }
+
+        try {
+            chrome.runtime.sendMessage({
+                type: 'GM_XHR',
+                details: {
+                    requestId,
+                    url: details.url,
+                    method: details.method || 'GET',
+                    headers: details.headers || {},
+                    data: details.data,
+                    timeout: details.timeout || 45000,
+                    responseType: details.responseType
+                }
+            }, (res) => {
+                if (isAborted) return;
+                const runtimeAvailable = typeof chrome !== 'undefined' && chrome.runtime;
+                const lastErr = runtimeAvailable ? chrome.runtime.lastError : null;
+                if (lastErr || !res || !res.success) {
+                    const rawMsg = res?.error || lastErr?.message || (!runtimeAvailable ? 'Extension context invalidated' : '请求失败');
+                    dispatchError(createRuntimeError(rawMsg), false);
+                    return;
+                }
+
+                const resp = res.response;
+                if (typeof details.onload === 'function') {
+                    details.onload(resp);
+                }
+            });
+        } catch (err) {
+            dispatchError(createRuntimeError(err?.message || 'Extension context invalidated'), true);
+        }
+
+        return handle;
     }
 
     // 存储变更监听与热更新支持
@@ -90,10 +131,18 @@
         });
     }
 
-    chrome.storage.local.get(null, (storedItems) => {
-        __storageCache = storedItems || {};
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local && typeof chrome.storage.local.get === 'function') {
+        try {
+            chrome.storage.local.get(null, (storedItems) => {
+                __storageCache = storedItems || {};
+                startPopupTranslation();
+            });
+        } catch (e) {
+            startPopupTranslation();
+        }
+    } else {
         startPopupTranslation();
-    });
+    }
 
     function startPopupTranslation() {
 
@@ -2775,6 +2824,79 @@
         return navigator.userAgent.includes("Edg/");
     }
 
+    function sendTtsRuntimeMessage(payload, requestToken, onFailure) {
+        if (!isChromeExtensionRuntime() || typeof chrome.runtime.sendMessage !== 'function') {
+            return false;
+        }
+        try {
+            chrome.runtime.sendMessage(payload, (response) => {
+                if (requestToken !== null && requestToken !== localTtsPlayToken) return;
+                if (response && response.aborted) return;
+                const lastError = (typeof chrome !== 'undefined' && chrome.runtime)
+                    ? chrome.runtime.lastError
+                    : { message: 'Extension context invalidated' };
+                if (lastError || !response || response.success === false) {
+                    if (typeof onFailure === 'function') onFailure();
+                }
+            });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function playAudioUrlViaGmXhr(url, requestToken, onFallback) {
+        if (typeof GM_xmlhttpRequest !== 'function' || !(window.AudioContext || window.webkitAudioContext)) {
+            return false;
+        }
+        try {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url,
+                responseType: 'arraybuffer',
+                timeout: 5000,
+                onload: (res) => {
+                    if (requestToken !== localTtsPlayToken) return;
+                    if (res.status >= 200 && res.status < 300 && res.response) {
+                        try {
+                            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                            if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+                                sharedAudioCtx = new AudioCtx();
+                            }
+                            if (sharedAudioCtx.state === 'suspended') {
+                                sharedAudioCtx.resume().catch(() => {});
+                            }
+                            sharedAudioCtx.decodeAudioData(res.response.slice(0), (audioBuffer) => {
+                                if (requestToken !== localTtsPlayToken) return;
+                                const source = sharedAudioCtx.createBufferSource();
+                                source.buffer = audioBuffer;
+                                source.connect(sharedAudioCtx.destination);
+                                currentAudioSource = source;
+                                source.onended = () => {
+                                    if (currentAudioSource === source) currentAudioSource = null;
+                                };
+                                source.start(0);
+                            }, () => {
+                                if (requestToken === localTtsPlayToken && typeof onFallback === 'function') onFallback();
+                            });
+                            return;
+                        } catch (audioErr) {}
+                    }
+                    if (requestToken === localTtsPlayToken && typeof onFallback === 'function') onFallback();
+                },
+                onerror: () => {
+                    if (requestToken === localTtsPlayToken && typeof onFallback === 'function') onFallback();
+                },
+                ontimeout: () => {
+                    if (requestToken === localTtsPlayToken && typeof onFallback === 'function') onFallback();
+                }
+            });
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
     function stopCurrentAudio() {
         localTtsPlayToken++;
         if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -2789,11 +2911,13 @@
             currentAudio.src = "";
             currentAudio = null;
         }
-        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
-            try {
-                chrome.runtime.sendMessage({ type: 'LOCAL_TTS_STOP' }).catch(() => {});
-                chrome.runtime.sendMessage({ type: 'KOKORO_TTS_STOP' }).catch(() => {});
-            } catch (e) {}
+        if (isChromeExtensionRuntime() && typeof chrome.runtime.sendMessage === 'function') {
+            for (const payload of [{ type: 'LOCAL_TTS_STOP' }, { type: 'KOKORO_TTS_STOP' }]) {
+                try {
+                    const p = chrome.runtime.sendMessage(payload);
+                    if (p && typeof p.catch === 'function') p.catch(() => {});
+                } catch (e) {}
+            }
         }
     }
 
@@ -2832,69 +2956,14 @@
         stopCurrentAudio();
         const requestToken = localTtsPlayToken;
 
-        // 1. Chrome 扩展环境：通过后台与 Offscreen 代理拉取并播放，彻底绕过 HTTPS 网站 (如 Reuters/Reddit) 的 Mixed Content、PNA 与 CSP 限制
-        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
-            try {
-                chrome.runtime.sendMessage({ type: 'LOCAL_TTS_PLAY', url }, (response) => {
-                    if (requestToken !== localTtsPlayToken) return;
-                    if (response && response.aborted) return;
-                    if (chrome.runtime.lastError || !response || response.success === false) {
-                        playYoudaoTTS(text);
-                    }
-                });
-                return;
-            } catch (e) {
-                playYoudaoTTS(text);
-                return;
-            }
+        // 1. Chrome 扩展环境：通过后台与 Offscreen 代理拉取并播放，彻底绕过 HTTPS 网站 (如 Reuters/Reddit/X) 的 Mixed Content、PNA 与 CSP 限制
+        if (sendTtsRuntimeMessage({ type: 'LOCAL_TTS_PLAY', url }, requestToken, () => playYoudaoTTS(text))) {
+            return;
         }
 
         // 2. 油猴脚本环境：优先经 GM_xmlhttpRequest + Web Audio 解码播放
-        if (typeof GM_xmlhttpRequest === 'function' && (window.AudioContext || window.webkitAudioContext)) {
-            try {
-                GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: url,
-                    responseType: 'arraybuffer',
-                    timeout: 5000,
-                    onload: (res) => {
-                        if (requestToken !== localTtsPlayToken) return;
-                        if (res.status >= 200 && res.status < 300 && res.response) {
-                            try {
-                                const AudioCtx = window.AudioContext || window.webkitAudioContext;
-                                if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
-                                    sharedAudioCtx = new AudioCtx();
-                                }
-                                if (sharedAudioCtx.state === 'suspended') {
-                                    sharedAudioCtx.resume().catch(() => {});
-                                }
-                                sharedAudioCtx.decodeAudioData(res.response.slice(0), (audioBuffer) => {
-                                    if (requestToken !== localTtsPlayToken) return;
-                                    const source = sharedAudioCtx.createBufferSource();
-                                    source.buffer = audioBuffer;
-                                    source.connect(sharedAudioCtx.destination);
-                                    currentAudioSource = source;
-                                    source.onended = () => {
-                                        if (currentAudioSource === source) currentAudioSource = null;
-                                    };
-                                    source.start(0);
-                                }, () => {
-                                    if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
-                                });
-                                return;
-                            } catch (audioErr) {}
-                        }
-                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
-                    },
-                    onerror: () => {
-                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
-                    },
-                    ontimeout: () => {
-                        if (requestToken === localTtsPlayToken) playYoudaoTTS(text);
-                    }
-                });
-                return;
-            } catch (e) {}
+        if (playAudioUrlViaGmXhr(url, requestToken, () => playYoudaoTTS(text))) {
+            return;
         }
 
         const audio = new Audio(url);
@@ -2913,31 +2982,34 @@
     }
 
     function playKokoroTTS(text) {
-        if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
-            try {
-                chrome.runtime.sendMessage({
-                    type: 'KOKORO_TTS_PLAY',
-                    text: text,
-                    voice: CONFIG.kokoroVoice || 'af_heart',
-                    speed: 1.0
-                }, (response) => {
-                    if (chrome.runtime.lastError || !response || response.success === false) {
-                        playYoudaoTTS(text);
-                    }
-                });
-                return;
-            } catch (e) {
-                playYoudaoTTS(text);
-                return;
-            }
+        const requestToken = localTtsPlayToken;
+        if (sendTtsRuntimeMessage({
+            type: 'KOKORO_TTS_PLAY',
+            text: text,
+            voice: CONFIG.kokoroVoice || 'af_heart',
+            speed: 1.0
+        }, requestToken, () => playYoudaoTTS(text))) {
+            return;
         }
         // 油猴脚本或无扩展宿主环境：回退到有道词典
         playYoudaoTTS(text);
     }
 
     function playYoudaoTTS(text) {
+        const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
+        const requestToken = localTtsPlayToken;
+
+        // 1. Chrome 扩展环境：走后台 + Offscreen 代理播放，彻底规避 X 等站点的 CSP media-src 拦截
+        if (sendTtsRuntimeMessage({ type: 'LOCAL_TTS_PLAY', url }, requestToken, () => fallbackSpeechSynthesis(text))) {
+            return;
+        }
+
+        // 2. 油猴脚本或扩展上下文失效时：经 GM_xmlhttpRequest + Web Audio 解码播放，失败则回退到 SpeechSynthesis
+        if (playAudioUrlViaGmXhr(url, requestToken, () => fallbackSpeechSynthesis(text))) {
+            return;
+        }
+
         try {
-            const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=2`;
             currentAudio = new Audio(url);
             const playPromise = currentAudio.play();
             if (playPromise && typeof playPromise.catch === 'function') {
@@ -3874,16 +3946,20 @@ ${legacyCredentialSectionsHtml}${extensionOptionsFooterHtml}
 
         const openExtOptionsBtn = settingsBox.querySelector('#imt-open-ext-options-btn');
         openExtOptionsBtn?.addEventListener('click', () => {
-            try {
-                chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' }, (res) => {
-                    if ((chrome.runtime.lastError || !res || !res.success) && typeof chrome.runtime.getURL === 'function') {
-                        window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
-                    }
-                });
-            } catch (e) {
-                if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
-                    window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
-                }
+            if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.sendMessage === 'function') {
+                try {
+                    chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' }, (res) => {
+                        const runtimeAvailable = typeof chrome !== 'undefined' && chrome.runtime;
+                        const lastError = runtimeAvailable ? chrome.runtime.lastError : null;
+                        if ((lastError || !res || !res.success) && runtimeAvailable && typeof chrome.runtime.getURL === 'function') {
+                            window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
+                        }
+                    });
+                    return;
+                } catch (e) {}
+            }
+            if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+                window.open(chrome.runtime.getURL('options.html'), '_blank', 'noopener');
             }
         });
 
@@ -5028,8 +5104,8 @@ Formatting requirements: Output valid JSON only.`;
                     } catch(e) {}
                     reject(new Error(`${errorMsg}，请在设置中重新填写最新 Token`));
                 },
-                onerror: function() {
-                    reject(new Error('Kimi Token 刷新网络连接出错'));
+                onerror: function(err) {
+                    reject(err?.isExtensionContextInvalidated && err?.message ? err : new Error('Kimi Token 刷新网络连接出错'));
                 },
                 ontimeout: function() {
                     reject(new Error('Kimi Token 刷新超时'));
@@ -5075,8 +5151,8 @@ Formatting requirements: Output valid JSON only.`;
                     const suffix = errorDetail ? `：${errorDetail}` : '';
                     resolve({ ok: false, status: response.status, error: `Kimi 创建会话失败 (HTTP ${response.status})${suffix}` });
                 },
-                onerror: function() {
-                    reject(new Error('Kimi 会话创建网络连接出错'));
+                onerror: function(err) {
+                    reject(err?.isExtensionContextInvalidated && err?.message ? err : new Error('Kimi 会话创建网络连接出错'));
                 },
                 ontimeout: function() {
                     reject(new Error('Kimi 会话创建超时'));
@@ -5203,8 +5279,8 @@ Formatting requirements: Output valid JSON only.`;
                         reject(new Error(`Kimi 翻译流请求失败 (HTTP ${response.status})${suffix}`));
                     }
                 },
-                onerror: function() {
-                    reject(new Error('Kimi 翻译请求网络连接异常'));
+                onerror: function(err) {
+                    reject(err?.isExtensionContextInvalidated && err?.message ? err : new Error('Kimi 翻译请求网络连接异常'));
                 },
                 ontimeout: function() {
                     reject(new Error(`Kimi 在 ${Math.round(timeout / 1000)} 秒内未完成响应，请稍后重试`));
@@ -5323,9 +5399,9 @@ Formatting requirements: Output valid JSON only.`;
                         reject(new Error(`${provider.name} API 请求失败（HTTP ${response.status}）${suffix}`));
                     }
                 },
-                onerror: function() {
+                onerror: function(err) {
                     cleanupReq();
-                    reject(new Error(`${provider.name} 网络连接出错`));
+                    reject(err?.isExtensionContextInvalidated && err?.message ? err : new Error(`${provider.name} 网络连接出错`));
                 },
                 ontimeout: function() {
                     cleanupReq();

@@ -162,8 +162,9 @@ test('Extension Options Architecture: AI Engine (SiliconFlow + Kimi) and Notion 
     );
     const { DEFAULT_CONFIG, normalizeLlmProvider } = ctx.__exports;
     assert.equal(DEFAULT_CONFIG.lexipro_llm_provider, 'siliconflow');
-    assert.ok(typeof DEFAULT_CONFIG.lexipro_kimi_refresh_token === 'string' && DEFAULT_CONFIG.lexipro_kimi_refresh_token.length > 20);
-    assert.ok(typeof DEFAULT_CONFIG.lexipro_kimi_access_token === 'string' && DEFAULT_CONFIG.lexipro_kimi_access_token.length > 20);
+    assert.equal(DEFAULT_CONFIG.lexipro_sf_api_key, '');
+    assert.equal(DEFAULT_CONFIG.lexipro_kimi_refresh_token, '');
+    assert.equal(DEFAULT_CONFIG.lexipro_kimi_access_token, '');
 
     assert.equal(normalizeLlmProvider('siliconflow'), 'siliconflow');
     assert.equal(normalizeLlmProvider('kimi_free'), 'kimi_free');
@@ -259,11 +260,16 @@ test('Startup Credential Initialization: preserves custom tokens, respects clear
                 ctx
             );
             assert.equal(ctx.__out.isExt, true, `${label} must detect Chrome extension runtime when chrome.runtime.id exists`);
+            assert.equal(ctx.__out.DEFAULT_SF_API_KEY, '', `${label} must not embed hardcoded SiliconFlow key`);
+            assert.equal(ctx.__out.DEFAULT_KIMI_REFRESH_TOKEN, '', `${label} must not embed hardcoded Kimi refresh token`);
+            assert.equal(ctx.__out.DEFAULT_KIMI_ACCESS_TOKEN, '', `${label} must not embed hardcoded Kimi access token`);
             assert.equal(ctx.__out.CONFIG.llmProviders.siliconflow.apiKey, ctx.__out.DEFAULT_SF_API_KEY);
             assert.equal(ctx.__out.CONFIG.llmProviders.kimi_free.refreshToken, ctx.__out.DEFAULT_KIMI_REFRESH_TOKEN);
             assert.equal(ctx.__out.CONFIG.llmProviders.kimi_free.accessToken, ctx.__out.DEFAULT_KIMI_ACCESS_TOKEN);
-            assert.ok(setCalls.some(([k]) => k === 'lexipro_kimi_refresh_token'));
-            assert.ok(setCalls.some(([k]) => k === 'lexipro_kimi_access_token'));
+            assert.ok(
+                !setCalls.some(([k]) => ['lexipro_sf_api_key', 'lexipro_kimi_refresh_token', 'lexipro_kimi_access_token'].includes(k)),
+                `${label} fresh install must not persist hardcoded credentials`
+            );
         }
 
         // Case B: User customized credentials -> never overwritten on startup

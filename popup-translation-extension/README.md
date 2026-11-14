@@ -60,7 +60,7 @@ chrome://extensions/
 
 ## ⚙️ 快捷配置与说明
 
-- 默认已内置硅基流动官方免费高速 Key（推荐 `Qwen/Qwen2.5-7B-Instruct` 极速直出）；
+- 开源公开版不再内置任何 API Key，安装后请先在扩展设置（AI 翻译引擎）中填入你自己的硅基流动 API Key（推荐 `Qwen/Qwen2.5-7B-Instruct`）或 Kimi Token；
 - 点击浏览器右上角扩展图标可查看当前网站适配状态，点击齿轮 ⚙️ 可进入设置页面配置专属 API Key 或 Notion Token；
 - 所有的网络请求均通过 Background Service Worker 代理，彻底规避任何页面的 CSP 内容安全策略限制。
 

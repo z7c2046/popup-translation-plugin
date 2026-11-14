@@ -53,6 +53,7 @@ for (const [name, code] of [['content.js', contentJs], ['userscript', userscript
     assert.ok(code.includes('getModelForBatch'), `${name} must support multi-model pool round-robin`);
     assert.ok(code.includes('initialNotionToken'), `${name} must dynamically read and sanitize notion token`);
     assert.ok(!code.includes("notionToken: 'REDACTED_LEGACY_NOTION_TOKEN'"), `${name} must not hardcode invalid legacy notion token`);
+    assert.ok(!/(?:sk-[A-Za-z0-9]{16,}|ntn_[A-Za-z0-9]{16,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})/.test(code), `${name} must not hardcode live API credentials or tokens`);
     assert.ok(code.includes('hasChinese'), `${name} must detect Chinese input for directional translation`);
     assert.ok(code.includes('do NOT answer the question'), `${name} must prevent model from answering questions instead of translating`);
     assert.ok(code.includes('setNativeInputValue'), `${name} must include React/controlled input native value setter`);
