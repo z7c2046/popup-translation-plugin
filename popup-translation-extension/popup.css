@@ -385,18 +385,18 @@ body[data-skin="modern"] {
 }
 
 body[data-skin="modern"][data-theme="light"] {
-  --bg-gradient: linear-gradient(135deg, #f1f5f9, #e2e8f0);
-  --card-bg: rgba(255, 255, 255, 0.88);
-  --card-border: rgba(0, 0, 0, 0.08);
+  --bg-gradient: #f6f8fc;
+  --card-bg: #ffffff;
+  --card-border: rgba(15, 23, 42, 0.08);
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #94a3b8;
   --accent-primary: #4f46e5;
   --accent-secondary: #3b82f6;
-  --accent-gradient: linear-gradient(135deg, #4f46e5, #3b82f6);
-  --accent-glow: rgba(79, 70, 229, 0.25);
-  --input-bg: rgba(255, 255, 255, 0.95);
-  --divider-color: rgba(0, 0, 0, 0.08);
+  --accent-gradient: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.2);
+  --input-bg: #ffffff;
+  --divider-color: rgba(15, 23, 42, 0.08);
   --success-bg: rgba(16, 185, 129, 0.12);
   --success-text: #059669;
   --error-bg: rgba(220, 38, 38, 0.12);
@@ -404,17 +404,17 @@ body[data-skin="modern"][data-theme="light"] {
 }
 
 body[data-skin="modern"][data-theme="dark"] {
-  --bg-gradient: linear-gradient(135deg, #1b1e25, #111215);
-  --card-bg: rgba(28, 31, 38, 0.82);
+  --bg-gradient: #14171f;
+  --card-bg: #1b1e25;
   --card-border: rgba(255, 255, 255, 0.08);
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
   --text-muted: #6b7280;
-  --accent-primary: #4f46e5;
+  --accent-primary: #6366f1;
   --accent-secondary: #3b82f6;
-  --accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
-  --accent-glow: rgba(99, 102, 241, 0.22);
-  --input-bg: rgba(18, 20, 24, 0.72);
+  --accent-gradient: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.24);
+  --input-bg: #151820;
   --divider-color: rgba(255, 255, 255, 0.08);
   --success-bg: rgba(16, 185, 129, 0.15);
   --success-text: #34d399;
@@ -424,15 +424,16 @@ body[data-skin="modern"][data-theme="dark"] {
 
 body[data-skin="modern"] .brand-icon {
   background: var(--accent-gradient);
-  box-shadow: 0 4px 14px var(--accent-glow);
+  box-shadow: 0 4px 12px var(--accent-glow);
   color: #ffffff;
   border-radius: 10px;
 }
 
 body[data-skin="modern"] .brand-name {
-  background: var(--accent-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text-primary);
 }
 
 body[data-skin="modern"] .brand-domain,

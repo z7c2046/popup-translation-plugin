@@ -1943,23 +1943,23 @@
         }
 
         :host([data-skin="modern"][data-theme="light"]) {
-            --aiu-bg: #f1f5f9;
-            --aiu-card: rgba(255, 255, 255, 0.94);
-            --aiu-card-soft: rgba(248, 250, 252, 0.96);
+            --aiu-bg: #f5f7fb;
+            --aiu-card: #ffffff;
+            --aiu-card-soft: #f8fafd;
             --aiu-text: #0f172a;
             --aiu-text-soft: #475569;
             --modern-text-muted: #94a3b8;
             --aiu-primary: #4f46e5;
-            --aiu-primary-dark: #3b82f6;
+            --aiu-primary-dark: #4338ca;
             --aiu-primary-soft: rgba(79, 70, 229, 0.1);
-            --aiu-border: rgba(0, 0, 0, 0.08);
-            --aiu-shadow: rgba(0, 0, 0, 0.1);
-            --modern-accent-gradient: linear-gradient(135deg, #4f46e5, #3b82f6);
-            --modern-accent-glow: rgba(79, 70, 229, 0.25);
-            --modern-input-bg: rgba(255, 255, 255, 0.95);
-            --modern-divider: rgba(0, 0, 0, 0.08);
-            --modern-card-border: rgba(0, 0, 0, 0.1);
-            --modern-header-bg: rgba(248, 250, 252, 0.9);
+            --aiu-border: rgba(15, 23, 42, 0.08);
+            --aiu-shadow: rgba(15, 23, 42, 0.1);
+            --modern-accent-gradient: #4f46e5;
+            --modern-accent-glow: rgba(79, 70, 229, 0.22);
+            --modern-input-bg: #ffffff;
+            --modern-divider: rgba(15, 23, 42, 0.08);
+            --modern-card-border: rgba(15, 23, 42, 0.1);
+            --modern-header-bg: #f8fafd;
             --modern-dict-box-bg: #f3f4f6;
             --modern-dict-accent: #b02a5f;
             --modern-dict-badge-bg: #0da175;
@@ -1968,28 +1968,28 @@
         }
 
         :host([data-skin="modern"][data-theme="dark"]) {
-            --aiu-bg: #111215;
-            --aiu-card: rgba(28, 31, 38, 0.92);
-            --aiu-card-soft: rgba(18, 20, 24, 0.85);
+            --aiu-bg: #12141a;
+            --aiu-card: #1b1e25;
+            --aiu-card-soft: #161920;
             --aiu-text: #f3f4f6;
             --aiu-text-soft: #9ca3af;
             --modern-text-muted: #6b7280;
             --aiu-primary: #6366f1;
-            --aiu-primary-dark: #3b82f6;
+            --aiu-primary-dark: #4f46e5;
             --aiu-primary-soft: rgba(99, 102, 241, 0.16);
             --aiu-border: rgba(255, 255, 255, 0.09);
             --aiu-shadow: rgba(0, 0, 0, 0.5);
-            --modern-accent-gradient: linear-gradient(135deg, #6366f1, #3b82f6);
-            --modern-accent-glow: rgba(99, 102, 241, 0.22);
-            --modern-input-bg: rgba(18, 20, 24, 0.72);
+            --modern-accent-gradient: #6366f1;
+            --modern-accent-glow: rgba(99, 102, 241, 0.24);
+            --modern-input-bg: #151820;
             --modern-divider: rgba(255, 255, 255, 0.08);
             --modern-card-border: rgba(255, 255, 255, 0.12);
-            --modern-header-bg: rgba(18, 20, 24, 0.78);
-            --modern-dict-box-bg: rgba(18, 20, 24, 0.65);
+            --modern-header-bg: #161920;
+            --modern-dict-box-bg: #151820;
             --modern-dict-accent: #f472b6;
             --modern-dict-badge-bg: #0d9488;
             --modern-dict-bullet: #f3f4f6;
-            --modern-arrow-bg: #1c1f26;
+            --modern-arrow-bg: #1b1e25;
         }
 
         :host([data-skin="modern"]) #imt-dot {
@@ -5971,12 +5971,12 @@ CRITICAL RULES:
                 width: 30px;
                 height: 30px;
                 border-radius: 999px;
-                background: linear-gradient(135deg, #4f46e5, #3b82f6);
+                background: #4f46e5;
                 color: #ffffff;
                 font-weight: 800;
                 font-size: 14.5px;
                 line-height: 1;
-                box-shadow: 0 2px 0 rgba(55, 48, 163, 0.45), 0 4px 12px rgba(79, 70, 229, 0.32);
+                box-shadow: 0 2px 0 #3730a3, 0 4px 12px rgba(79, 70, 229, 0.28);
                 transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
             }
             .lexipro-site-fab:hover .lexipro-site-logo-icon {
@@ -6004,14 +6004,14 @@ CRITICAL RULES:
                 position: absolute;
                 top: -4px;
                 right: 4px;
-                background: linear-gradient(135deg, #4f46e5, #3b82f6);
+                background: #4f46e5;
                 color: #ffffff;
                 font-size: 11px;
                 font-weight: 700;
                 padding: 2px 7px;
                 border-radius: 999px;
                 border: 2px solid #ffffff;
-                box-shadow: 0 2px 0 rgba(55, 48, 163, 0.45), 0 3px 10px rgba(79, 70, 229, 0.38);
+                box-shadow: 0 2px 0 #3730a3, 0 3px 10px rgba(79, 70, 229, 0.32);
                 cursor: pointer;
                 z-index: 2;
                 transition: transform 0.12s ease;
