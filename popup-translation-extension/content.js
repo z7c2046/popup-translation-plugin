@@ -2057,43 +2057,49 @@
         }
 
         :host([data-skin="modern"]) .imt-action-btn {
-            width: 30px;
-            height: 30px;
-            min-width: 30px;
-            border: 1px solid var(--modern-divider);
-            border-bottom-width: 1px;
-            border-radius: 10px;
-            background: var(--modern-input-bg);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+            width: 31px;
+            height: 31px;
+            min-width: 31px;
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 3px;
+            border-bottom-color: #94a3b8;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #ffffff, #f1f5f9);
+            box-shadow: 0 2px 0 rgba(71, 85, 105, 0.16);
             color: var(--aiu-text-soft);
-            font-weight: 700;
+            font-weight: 900;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+            border-color: rgba(255, 255, 255, 0.16);
+            border-bottom-color: rgba(0, 0, 0, 0.65);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
         }
 
         :host([data-skin="modern"]) .imt-action-btn:hover {
-            background: var(--aiu-primary-soft);
-            border-color: rgba(79, 70, 229, 0.35);
-            color: var(--aiu-primary);
+            background: linear-gradient(180deg, #eef2ff, #e0e7ff);
+            border-color: #818cf8;
+            border-bottom-color: #4f46e5;
+            color: #4338ca;
             transform: translateY(-1px);
-            box-shadow: 0 4px 10px var(--modern-accent-glow);
+            box-shadow: 0 4px 0 rgba(79, 70, 229, 0.24), 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.45);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.34), rgba(79, 70, 229, 0.22));
+            border-color: #818cf8;
+            border-bottom-color: #4338ca;
             color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(79, 70, 229, 0.32), 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"]) .imt-action-btn:active,
         :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn:active {
-            transform: translateY(1px) scale(0.95);
+            transform: translateY(2px);
             border-bottom-width: 1px;
-            box-shadow: none;
+            box-shadow: 0 1px 0 rgba(79, 70, 229, 0.14);
         }
 
         :host([data-skin="modern"]) #imt-star-btn:hover,
@@ -2103,23 +2109,41 @@
 
         :host([data-skin="modern"][data-theme="light"]) .imt-action-btn.imt-favorited {
             border: 1px solid #f59e0b;
+            border-bottom-width: 3px;
+            border-bottom-color: #d97706;
             background: linear-gradient(180deg, #fffbeb, #fef3c7);
             color: #d97706;
-            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
+            box-shadow: 0 2px 0 rgba(217, 119, 6, 0.22);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn.imt-favorited {
-            border: 1px solid rgba(250, 204, 21, 0.45);
+            border: 1px solid rgba(250, 204, 21, 0.5);
+            border-bottom-width: 3px;
+            border-bottom-color: #ca8a04;
             background: linear-gradient(180deg, #3a3016, #2b2310);
             color: #facc15;
-            box-shadow: 0 2px 10px rgba(250, 204, 21, 0.18);
+            box-shadow: 0 2px 0 rgba(202, 138, 4, 0.25);
+        }
+
+        :host([data-skin="modern"][data-theme="light"]) .imt-action-btn.imt-favorited:active,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-action-btn.imt-favorited:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(217, 119, 6, 0.15);
         }
 
         :host([data-skin="modern"]) .imt-pinned {
             background: var(--modern-accent-gradient) !important;
-            border-color: transparent !important;
+            border: 1px solid #4f46e5 !important;
+            border-bottom: 3px solid #3730a3 !important;
             color: #ffffff !important;
-            box-shadow: 0 4px 12px var(--modern-accent-glow) !important;
+            box-shadow: 0 2px 0 rgba(55, 48, 163, 0.35), 0 4px 12px var(--modern-accent-glow) !important;
+        }
+
+        :host([data-skin="modern"]) .imt-pinned:active {
+            transform: translateY(2px) !important;
+            border-bottom-width: 1px !important;
+            box-shadow: 0 1px 0 rgba(55, 48, 163, 0.25) !important;
         }
 
         :host([data-skin="modern"]) #imt-font-popover {
@@ -2141,40 +2165,47 @@
 
         :host([data-skin="modern"]) .imt-font-step-btn,
         :host([data-skin="modern"]) #imt-font-reset-btn {
-            border: 1px solid var(--modern-divider);
-            border-bottom-width: 1px;
-            border-radius: 10px;
-            background: var(--modern-input-bg);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 3px;
+            border-bottom-color: #94a3b8;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #ffffff, #f1f5f9);
+            box-shadow: 0 2px 0 rgba(71, 85, 105, 0.16);
             color: var(--aiu-text);
-            font-weight: 700;
+            font-weight: 900;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-font-step-btn,
         :host([data-skin="modern"][data-theme="dark"]) #imt-font-reset-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.12);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+            border-color: rgba(255, 255, 255, 0.16);
+            border-bottom-color: rgba(0, 0, 0, 0.65);
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
         }
 
         :host([data-skin="modern"]) .imt-font-step-btn:hover:not(:disabled):not(.imt-disabled),
         :host([data-skin="modern"]) #imt-font-reset-btn:hover:not(:disabled):not(.imt-disabled) {
-            background: var(--aiu-primary-soft);
-            border-color: rgba(79, 70, 229, 0.4);
-            color: var(--aiu-primary);
+            background: linear-gradient(180deg, #eef2ff, #e0e7ff);
+            border-color: #818cf8;
+            border-bottom-color: #4f46e5;
+            color: #4338ca;
             transform: translateY(-1px);
-            box-shadow: 0 4px 10px var(--modern-accent-glow);
+            box-shadow: 0 4px 0 rgba(79, 70, 229, 0.24), 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-font-step-btn:hover:not(:disabled):not(.imt-disabled),
         :host([data-skin="modern"][data-theme="dark"]) #imt-font-reset-btn:hover:not(:disabled):not(.imt-disabled) {
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.34), rgba(79, 70, 229, 0.22));
+            border-color: #818cf8;
+            border-bottom-color: #4338ca;
             color: #ffffff;
         }
 
         :host([data-skin="modern"]) .imt-font-step-btn:active:not(:disabled):not(.imt-disabled),
         :host([data-skin="modern"]) #imt-font-reset-btn:active:not(:disabled):not(.imt-disabled) {
-            transform: translateY(1px);
+            transform: translateY(2px);
             border-bottom-width: 1px;
-            box-shadow: none;
+            box-shadow: 0 1px 0 rgba(79, 70, 229, 0.14);
         }
 
         :host([data-skin="modern"]) #imt-content,
@@ -2211,76 +2242,92 @@
             color: #a5b4fc;
         }
 
-        /* 现代极简：喇叭发音按钮（与顶部工具栏 .imt-action-btn 保持完全一致的外观、悬浮光晕与按压反馈动效） */
+        /* 现代极简：喇叭发音按钮（与动森版及顶部工具栏 .imt-action-btn 完全一致的圆形 3D 凸起、悬浮抬升与按压下沉物理动效，仅切换极简配色） */
         :host([data-skin="modern"]) .imt-speaker,
         :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker {
-            border: 1px solid var(--modern-divider);
-            border-bottom-width: 1px;
-            border-radius: 9px;
-            background: var(--modern-input-bg);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-            color: var(--aiu-text-soft);
-            font-weight: 700;
+            border: 1px solid #a5b4fc;
+            border-bottom-width: 3px;
+            border-bottom-color: #6366f1;
+            border-radius: 999px;
+            background: linear-gradient(180deg, #ffffff, #eef2ff);
+            box-shadow: 0 2px 0 rgba(79, 70, 229, 0.16);
+            color: #4338ca;
+            font-weight: 900;
         }
 
         :host([data-skin="modern"]) .imt-speaker {
             width: 28px;
             height: 28px;
             min-width: 28px;
-            border-radius: 9px;
+            border-radius: 999px;
         }
 
         :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker {
-            width: 24px;
-            height: 24px;
-            min-width: 24px;
-            border-radius: 8px;
-            font-size: 12px;
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            border-radius: 999px;
+            font-size: 11px;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(255, 255, 255, 0.1);
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.22), rgba(79, 70, 229, 0.12));
+            border-color: rgba(129, 140, 248, 0.45);
+            border-bottom-color: #3730a3;
+            box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+            color: #c7d2fe;
         }
 
         :host([data-skin="modern"]) .imt-speaker:hover,
         :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:hover {
-            background: var(--aiu-primary-soft);
-            border-color: rgba(79, 70, 229, 0.35);
-            color: var(--aiu-primary);
+            background: linear-gradient(180deg, #eef2ff, #e0e7ff);
+            border-color: #818cf8;
+            border-bottom-color: #4f46e5;
+            color: #3730a3;
             transform: translateY(-1px);
-            box-shadow: 0 4px 10px var(--modern-accent-glow);
+            box-shadow: 0 4px 0 rgba(79, 70, 229, 0.28), 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker:hover,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.45);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.36), rgba(79, 70, 229, 0.24));
+            border-color: #818cf8;
+            border-bottom-color: #4338ca;
             color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(79, 70, 229, 0.34), 0 4px 10px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"]) .imt-speaker:active,
         :host([data-skin="modern"]) .imt-speaker.imt-ex-speaker:active,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker:active,
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.imt-ex-speaker:active {
-            transform: translateY(1px) scale(0.95);
+            transform: translateY(2px);
             border-bottom-width: 1px;
-            box-shadow: none;
+            box-shadow: 0 1px 0 rgba(79, 70, 229, 0.14);
         }
 
         :host([data-skin="modern"]) .imt-speaker.playing {
-            background: var(--aiu-primary-soft);
-            border-color: var(--aiu-primary);
-            color: var(--aiu-primary);
-            box-shadow: 0 0 0 2px var(--modern-accent-glow);
+            background: linear-gradient(180deg, #e0e7ff, #c7d2fe);
+            border-color: #6366f1;
+            border-bottom-color: #4338ca;
+            color: #3730a3;
+            box-shadow: 0 2px 0 rgba(79, 70, 229, 0.22), 0 0 0 2px var(--modern-accent-glow);
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.playing {
-            background: rgba(99, 102, 241, 0.24);
+            background: linear-gradient(180deg, rgba(99, 102, 241, 0.42), rgba(79, 70, 229, 0.28));
             border-color: #818cf8;
+            border-bottom-color: #3730a3;
             color: #ffffff;
+        }
+
+        :host([data-skin="modern"]) .imt-speaker.playing:active,
+        :host([data-skin="modern"][data-theme="dark"]) .imt-speaker.playing:active {
+            transform: translateY(2px);
+            border-bottom-width: 1px;
+            box-shadow: 0 1px 0 rgba(79, 70, 229, 0.14);
         }
 
         :host([data-skin="modern"]) .imt-section {
@@ -2333,11 +2380,16 @@
 
         :host([data-skin="modern"]) .imt-code {
             background: var(--modern-dict-box-bg);
-            border: 1px solid var(--modern-divider);
-            border-bottom-width: 1px;
-            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            border-bottom: 3px solid #94a3b8;
+            border-radius: 999px;
             color: var(--aiu-text);
-            font-weight: 600;
+            font-weight: 700;
+        }
+
+        :host([data-skin="modern"][data-theme="dark"]) .imt-code {
+            border-color: rgba(255, 255, 255, 0.16);
+            border-bottom-color: rgba(0, 0, 0, 0.6);
         }
 
         /* 现代极简：悬停生词速查卡（隐藏有机 SVG 轮廓，使用毛玻璃卡片与箭头） */
@@ -2439,30 +2491,40 @@
 
         :host([data-skin="modern"]) .imt-ext-settings-link-btn {
             background: var(--modern-input-bg);
-            border: 1px solid var(--modern-divider);
-            border-bottom-width: 1px;
-            border-radius: 10px;
+            border: 2px solid #cbd5e1;
+            border-bottom-width: 3px;
+            border-bottom-color: #94a3b8;
+            border-radius: 12px;
             color: var(--aiu-primary);
             font-family: var(--aiu-font);
-            font-weight: 600;
+            font-weight: 700;
             box-shadow: none;
         }
 
         :host([data-skin="modern"]) .imt-ext-settings-link-btn:hover {
             background: rgba(79, 70, 229, 0.08);
-            border-color: var(--aiu-primary);
+            border-color: #818cf8;
+            border-bottom-color: #4f46e5;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 0 rgba(79, 70, 229, 0.22);
+        }
+
+        :host([data-skin="modern"]) .imt-ext-settings-link-btn:active {
+            transform: translateY(1px);
+            border-bottom-width: 2px;
             box-shadow: none;
-            transform: none;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-ext-settings-link-btn {
-            border-color: rgba(255, 255, 255, 0.14);
-            color: #818cf8;
+            border-color: rgba(255, 255, 255, 0.16);
+            border-bottom-color: rgba(0, 0, 0, 0.6);
+            color: #a5b4fc;
         }
 
         :host([data-skin="modern"][data-theme="dark"]) .imt-ext-settings-link-btn:hover {
-            background: rgba(99, 102, 241, 0.16);
+            background: rgba(99, 102, 241, 0.18);
             border-color: #818cf8;
+            border-bottom-color: #4338ca;
         }
 
         :host([data-skin="modern"]) .imt-animal-switch {
@@ -2553,14 +2615,34 @@
             border-top-color: #1c1f26;
         }
 
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-audio {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-bottom: 2px solid rgba(0, 0, 0, 0.45);
+            color: #f8fafc;
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-audio:hover {
+            background: rgba(99, 102, 241, 0.28);
+            border-color: rgba(129, 140, 248, 0.55);
+            color: #ffffff;
+        }
+
         :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-ai {
-            background: #19c8b9;
+            background: linear-gradient(180deg, #6366f1, #4f46e5);
+            border: 1px solid #4338ca;
+            border-bottom: 2px solid #3730a3;
             color: #ffffff;
         }
 
         :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn-ai:hover {
-            background: #14b8a6;
-            box-shadow: 0 0 10px rgba(25, 200, 185, 0.4);
+            background: linear-gradient(180deg, #818cf8, #6366f1);
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.45);
+        }
+
+        :host([data-skin="modern"]) .imt-word-action-capsule .imt-capsule-btn:active {
+            transform: translateY(1px);
+            border-bottom-width: 1px;
         }
 `;
     shadow.appendChild(style);
@@ -4676,7 +4758,10 @@ Return this JSON structure:
     {
       "pos": "词性缩写, such as n./v./adj./adv.",
       "meaning": "中文核心释义",
-      "examples": [{"source": "English example sentence", "target": "Chinese translation"}]
+      "examples": [
+        {"source": "Natural English example sentence 1.", "target": "地道中文例句翻译 1。"},
+        {"source": "Natural English example sentence 2 in another context.", "target": "另一语境下的地道中文例句翻译 2。"}
+      ]
     }
   ]
 }
@@ -4690,7 +4775,10 @@ Return this JSON structure:
     {
       "pos": "中文词性",
       "translation": "English translation",
-      "examples": [{"source": "中文例句", "target": "English translation"}]
+      "examples": [
+        {"source": "自然中文例句 1。", "target": "Natural English translation 1."},
+        {"source": "不同语境中文例句 2。", "target": "Natural English translation 2."}
+      ]
     }
   ]
 }
@@ -4698,6 +4786,7 @@ Return this JSON structure:
 Vocabulary rules for Mode 1 & Mode 2:
 - Do NOT include synonyms, antonyms, or related words.
 - Only provide part of speech (pos), core definitions/meanings, and example sentences with translations.
+- For every entry in "entries", the "examples" array MUST contain at least 2 diverse, natural bilingual example sentences (up to 3 for common core senses) — never return only 1 example sentence.
 
 For Mode 3: Phrase or Sentence
 Return this JSON structure:
@@ -5786,38 +5875,43 @@ CRITICAL RULES:
                 min-height: 44px;
                 min-width: 172px;
                 border-radius: 999px;
-                background: rgba(255, 255, 255, 0.94);
+                background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.96));
                 color: #0f172a;
-                border: 1.5px solid rgba(15, 23, 42, 0.09);
-                box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+                border: 2px solid #cbd5e1;
+                border-bottom: 5px solid #94a3b8;
+                box-shadow: 0 10px 26px rgba(15, 23, 42, 0.14);
                 backdrop-filter: blur(16px);
                 -webkit-backdrop-filter: blur(16px);
                 cursor: pointer;
                 outline: none;
                 transition:
-                    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
                     box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
                     border-color 0.18s ease,
+                    border-bottom-width 0.1s ease,
                     background 0.18s ease,
                     color 0.18s ease;
                 box-sizing: border-box;
                 -webkit-tap-highlight-color: transparent;
             }
             .lexipro-site-fab:hover {
-                background: #ffffff;
-                border-color: rgba(79, 70, 229, 0.42);
+                background: linear-gradient(180deg, #ffffff, #eef2ff);
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #3730a3;
                 transform: translateY(-2px) scale(1.02);
-                box-shadow: 0 16px 38px rgba(79, 70, 229, 0.22), 0 4px 12px rgba(15, 23, 42, 0.08);
+                box-shadow: 0 14px 30px rgba(79, 70, 229, 0.24);
             }
             .lexipro-site-fab:not(.dragging):active {
-                transform: translateY(2px) scale(0.95);
-                border-color: rgba(79, 70, 229, 0.65);
-                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.18), inset 0 2px 6px rgba(15, 23, 42, 0.08);
+                transform: translateY(3px) scale(0.96);
+                border-bottom-width: 2px;
+                border-color: #6366f1;
+                box-shadow: 0 3px 8px rgba(79, 70, 229, 0.18);
                 transition-duration: 0.08s;
             }
             .lexipro-site-fab:focus-visible {
                 border-color: #4f46e5;
-                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.28), 0 12px 32px rgba(15, 23, 42, 0.12);
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.28), 0 10px 26px rgba(15, 23, 42, 0.14);
             }
             .lexipro-site-fab.dragging {
                 opacity: 0.82;
@@ -5830,7 +5924,7 @@ CRITICAL RULES:
             }
             @keyframes lexipro-fab-click-pop {
                 0% {
-                    transform: translateY(2px) scale(0.94);
+                    transform: translateY(3px) scale(0.94);
                 }
                 48% {
                     transform: translateY(-2px) scale(1.04);
@@ -5882,7 +5976,7 @@ CRITICAL RULES:
                 font-weight: 800;
                 font-size: 14.5px;
                 line-height: 1;
-                box-shadow: 0 4px 12px rgba(79, 70, 229, 0.32);
+                box-shadow: 0 2px 0 rgba(55, 48, 163, 0.45), 0 4px 12px rgba(79, 70, 229, 0.32);
                 transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
             }
             .lexipro-site-fab:hover .lexipro-site-logo-icon {
@@ -5917,47 +6011,349 @@ CRITICAL RULES:
                 padding: 2px 7px;
                 border-radius: 999px;
                 border: 2px solid #ffffff;
-                box-shadow: 0 3px 10px rgba(79, 70, 229, 0.38);
+                box-shadow: 0 2px 0 rgba(55, 48, 163, 0.45), 0 3px 10px rgba(79, 70, 229, 0.38);
                 cursor: pointer;
                 z-index: 2;
+                transition: transform 0.12s ease;
+            }
+            .lexipro-site-badge:active {
+                transform: translateY(1px) scale(0.95);
             }
 
-            /* 原文/中文 切换微型胶囊按钮 */
+            /* 原文/中文 切换微型胶囊按钮（现代极简与动森保持一致的 3D 圆形胶囊按钮手感和反馈） */
             .lexipro-orig-toggle-btn {
                 display: inline-flex;
                 align-items: center;
                 gap: 4px;
                 margin-left: 8px;
-                padding: 2px 7px;
+                padding: 2px 8px;
                 font-size: 11px;
                 line-height: 16px;
-                border-radius: 7px;
-                border: 1px solid rgba(0, 0, 0, 0.1);
-                background: #f1f5f9;
+                border-radius: 999px;
+                border: 1px solid #cbd5e1;
+                border-bottom: 2.5px solid #94a3b8;
+                background: linear-gradient(180deg, #ffffff, #f1f5f9);
                 color: #475569;
                 cursor: pointer;
                 vertical-align: middle;
-                transition: all 0.16s ease;
+                transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
                 user-select: none;
                 font-family: ui-monospace, "SFMono-Regular", Consolas, -apple-system, sans-serif;
-                font-weight: 600;
+                font-weight: 700;
                 box-sizing: border-box;
                 white-space: nowrap;
             }
             .lexipro-orig-toggle-btn:hover {
-                background: #e2e8f0;
-                border-color: rgba(79, 70, 229, 0.3);
-                color: #4f46e5;
+                background: #eef2ff;
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #4338ca;
                 transform: translateY(-1px);
             }
+            .lexipro-orig-toggle-btn:active {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
+            }
             .lexipro-orig-toggle-btn.showing-orig {
-                background: rgba(79, 70, 229, 0.1);
-                border-color: rgba(79, 70, 229, 0.35);
-                color: #4f46e5;
+                background: rgba(79, 70, 229, 0.12);
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #4338ca;
             }
             .lexipro-orig-toggle-icon {
                 font-size: 11px;
                 opacity: 0.85;
+            }
+
+            /* FluentRead 全文双语容器与排版安全约束 */
+            .fluent-read-bilingual-content {
+                display: block;
+                word-break: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+                max-width: 100%;
+            }
+            .fluent-read-source-line[data-fr-translation-segment="true"] {
+                display: inline-block;
+                width: 100%;
+                max-width: 100%;
+                vertical-align: top;
+            }
+            [data-fr-flow-contained="true"] {
+                contain: inline-size !important;
+                max-width: 100%;
+            }
+            .fr-preserved-inline-token {
+                font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                font-size: 0.9em;
+                padding: 0.08em 0.36em;
+                margin: 0 0.12em;
+                border-radius: 5px;
+                background: rgba(99, 102, 241, 0.1);
+                color: inherit;
+                word-break: break-all;
+            }
+
+            /* FluentRead 延迟加载指示器（180ms 防闪烁三点呼吸动效） */
+            .fluent-read-loading {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 2.5px !important;
+                width: 18px !important;
+                height: 14px !important;
+                margin: 0 0 0 6px !important;
+                padding: 0 !important;
+                vertical-align: -1px !important;
+                pointer-events: none !important;
+                user-select: none !important;
+            }
+            .fluent-read-loading > i {
+                display: block !important;
+                width: 3.5px !important;
+                height: 3.5px !important;
+                border-radius: 50% !important;
+                background: #6366f1 !important;
+                opacity: 0.45 !important;
+                animation: fluent-read-loading-dot 1.05s ease-in-out infinite !important;
+            }
+            .fluent-read-loading > i:nth-child(2) {
+                animation-delay: 0.14s !important;
+            }
+            .fluent-read-loading > i:nth-child(3) {
+                animation-delay: 0.28s !important;
+            }
+            @keyframes fluent-read-loading-dot {
+                0%, 80%, 100% {
+                    opacity: 0.35;
+                    transform: scale(0.8);
+                }
+                40% {
+                    opacity: 1;
+                    transform: scale(1.15);
+                }
+            }
+
+            /* FluentRead 失败重试局部胶囊控件 */
+            .fluent-read-retry-wrapper {
+                display: inline-flex !important;
+                max-width: 100% !important;
+                margin-inline-start: 6px !important;
+                align-items: center !important;
+                flex-wrap: wrap !important;
+                gap: 4px !important;
+                vertical-align: middle !important;
+                pointer-events: auto !important;
+            }
+            .fluent-read-failure-action {
+                box-sizing: border-box !important;
+                display: inline-flex !important;
+                min-height: 22px !important;
+                margin: 0 !important;
+                padding: 2px 9px !important;
+                border: 1px solid rgba(79, 70, 229, 0.32) !important;
+                border-bottom: 2.5px solid #4f46e5 !important;
+                align-items: center !important;
+                gap: 4px !important;
+                border-radius: 999px !important;
+                color: #4338ca !important;
+                background: linear-gradient(180deg, #ffffff, #eef2ff) !important;
+                font-family: inherit !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                line-height: 1.2 !important;
+                white-space: nowrap !important;
+                cursor: pointer !important;
+                user-select: none !important;
+                transition: transform 0.12s ease, border-bottom-width 0.12s ease, background 0.12s ease !important;
+            }
+            .fluent-read-failure-action:hover {
+                background: #e0e7ff !important;
+                transform: translateY(-1px) !important;
+            }
+            .fluent-read-failure-action:active {
+                transform: translateY(1px) !important;
+                border-bottom-width: 1px !important;
+            }
+
+            /* FluentRead 全文翻译浮动毛玻璃进度面板 (TranslationProgressPanel UI) */
+            .fr-translation-progress {
+                box-sizing: border-box;
+                position: fixed;
+                right: 32px;
+                bottom: 108px;
+                z-index: 2147483645;
+                display: grid;
+                grid-template-columns: 34px minmax(0, 1fr) 28px;
+                gap: 10px;
+                align-items: center;
+                width: min(296px, calc(100vw - 32px));
+                padding: 11px 10px 11px 12px;
+                border: 1.5px solid rgba(99, 102, 241, 0.24);
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.88);
+                box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14), 0 2px 8px rgba(79, 70, 229, 0.08);
+                color: #0f172a;
+                font-family: 'Plus Jakarta Sans', 'Noto Sans SC', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                font-size: 12px;
+                line-height: 1.38;
+                pointer-events: auto;
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+            }
+            .fr-translation-progress.fr-hidden {
+                opacity: 0;
+                pointer-events: none;
+                transform: translateY(8px) scale(0.97);
+            }
+            .fr-progress-indicator {
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+                gap: 3px;
+                width: 34px;
+                height: 34px;
+                padding: 8px 7px;
+                border-radius: 10px;
+                background: linear-gradient(145deg, #eef2ff, #e0e7ff);
+                color: #4f46e5;
+                box-sizing: border-box;
+            }
+            .fr-progress-indicator i {
+                display: block;
+                width: 4px;
+                height: 8px;
+                border-radius: 999px;
+                background: currentColor;
+                animation: fr-progress-pulse 0.72s ease-in-out infinite alternate;
+            }
+            .fr-progress-indicator i:nth-child(2) {
+                height: 14px;
+                animation-delay: 0.16s;
+            }
+            .fr-progress-indicator i:nth-child(3) {
+                height: 11px;
+                animation-delay: 0.32s;
+            }
+            .fr-translation-progress.fr-idle:not(.fr-failed) .fr-progress-indicator i {
+                animation: none;
+                opacity: 0.9;
+            }
+            .fr-progress-warning {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 34px;
+                height: 34px;
+                border-radius: 10px;
+                background: #fef3c7;
+                color: #d97706;
+                font-weight: 800;
+                font-size: 15px;
+            }
+            @keyframes fr-progress-pulse {
+                from { transform: scaleY(0.45); opacity: 0.48; }
+                to { transform: scaleY(1); opacity: 1; }
+            }
+            .fr-progress-copy {
+                display: flex;
+                min-width: 0;
+                flex-direction: column;
+                gap: 3px;
+            }
+            .fr-progress-copy strong {
+                color: #0f172a;
+                font-size: 13px;
+                font-weight: 700;
+                letter-spacing: 0.01em;
+            }
+            .fr-progress-counts {
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                color: #475569;
+                font-size: 11.5px;
+                white-space: nowrap;
+                flex-wrap: wrap;
+            }
+            .fr-progress-counts b {
+                color: #4f46e5;
+                font-variant-numeric: tabular-nums;
+                font-weight: 750;
+            }
+            .fr-progress-divider {
+                width: 1px;
+                height: 10px;
+                background: rgba(148, 163, 184, 0.45);
+            }
+            .fr-progress-actions {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                margin-top: 3px;
+            }
+            .fr-progress-action {
+                appearance: none;
+                border: 1px solid #cbd5e1;
+                border-bottom: 2.5px solid #94a3b8;
+                border-radius: 999px;
+                background: linear-gradient(180deg, #ffffff, #f1f5f9);
+                color: #334155;
+                padding: 2px 10px;
+                font-size: 11px;
+                font-weight: 700;
+                cursor: pointer;
+                transition: transform 0.12s ease, border-bottom-width 0.12s ease, background 0.12s ease, color 0.12s ease;
+            }
+            .fr-progress-action:hover:not(:disabled) {
+                background: #eef2ff;
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #4338ca;
+                transform: translateY(-1px);
+            }
+            .fr-progress-action:active:not(:disabled) {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
+            }
+            .fr-progress-dismiss {
+                display: grid;
+                width: 28px;
+                height: 28px;
+                margin: 0;
+                padding: 0;
+                place-items: center;
+                border: 1px solid #cbd5e1;
+                border-bottom: 2.5px solid #94a3b8;
+                border-radius: 999px;
+                background: linear-gradient(180deg, #ffffff, #f1f5f9);
+                color: #64748b;
+                cursor: pointer;
+                font-size: 13px;
+                font-weight: 700;
+                line-height: 1;
+                transition: transform 0.12s ease, border-bottom-width 0.12s ease, background 0.12s ease, color 0.12s ease;
+            }
+            .fr-progress-dismiss:hover {
+                background: #eef2ff;
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #4338ca;
+                transform: translateY(-1px);
+            }
+            .fr-progress-dismiss:active {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
+            }
+            @keyframes fr-locate-flash {
+                0% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.55); background-color: rgba(99, 102, 241, 0.16); }
+                70% { box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); background-color: rgba(99, 102, 241, 0.08); }
+                100% { box-shadow: none; background-color: transparent; }
+            }
+            .fr-locate-highlight {
+                animation: fr-locate-flash 1.6s ease-out;
+                border-radius: 6px;
             }
 
             /* 样式 2: 虚线下划线双语对照（颜色、字重、大小严格继承原文，保持视觉一致） */
@@ -6001,19 +6397,27 @@ CRITICAL RULES:
                 font-weight: 700;
             }
             .lexipro-trans-card-btn {
-                background: #f1f5f9;
-                border: 1px solid rgba(0, 0, 0, 0.08);
+                background: linear-gradient(180deg, #ffffff, #f1f5f9);
+                border: 1px solid #cbd5e1;
+                border-bottom: 2px solid #94a3b8;
                 font-size: 11px;
                 color: #475569;
                 cursor: pointer;
-                padding: 2px 8px;
-                border-radius: 6px;
-                font-weight: 600;
+                padding: 2px 10px;
+                border-radius: 999px;
+                font-weight: 700;
+                transition: transform 0.12s ease, border-bottom-width 0.12s ease, background 0.12s ease, color 0.12s ease;
             }
             .lexipro-trans-card-btn:hover {
-                background: rgba(79, 70, 229, 0.1);
-                border-color: rgba(79, 70, 229, 0.3);
-                color: #4f46e5;
+                background: #eef2ff;
+                border-color: #818cf8;
+                border-bottom-color: #4f46e5;
+                color: #4338ca;
+                transform: translateY(-1px);
+            }
+            .lexipro-trans-card-btn:active {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
             }
 
             .lexipro-site-toast {
@@ -6043,43 +6447,53 @@ CRITICAL RULES:
 
             /* ================= 现代极简 · 黑夜模式 (html[data-lexipro-skin="modern"][data-lexipro-theme="dark"]) ================= */
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab {
-                background: rgba(28, 31, 38, 0.92);
+                background: linear-gradient(180deg, rgba(36, 40, 49, 0.96), rgba(24, 27, 34, 0.96));
                 color: #f3f4f6;
-                border-color: rgba(255, 255, 255, 0.14);
-                box-shadow: 0 16px 48px rgba(0, 0, 0, 0.52);
+                border: 2px solid rgba(255, 255, 255, 0.18);
+                border-bottom: 5px solid rgba(0, 0, 0, 0.72);
+                box-shadow: 0 14px 36px rgba(0, 0, 0, 0.52);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:hover {
-                background: rgba(34, 38, 47, 0.98);
-                border-color: rgba(129, 140, 248, 0.62);
+                background: linear-gradient(180deg, rgba(44, 49, 61, 0.98), rgba(30, 34, 44, 0.98));
+                border-color: rgba(129, 140, 248, 0.65);
+                border-bottom-color: #4f46e5;
                 color: #ffffff;
                 transform: translateY(-2px) scale(1.02);
-                box-shadow: 0 18px 42px rgba(99, 102, 241, 0.32), 0 6px 16px rgba(0, 0, 0, 0.45);
+                box-shadow: 0 16px 38px rgba(99, 102, 241, 0.32), 0 6px 16px rgba(0, 0, 0, 0.45);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-fab:not(.dragging):active {
-                transform: translateY(2px) scale(0.95);
+                transform: translateY(3px) scale(0.96);
+                border-bottom-width: 2px;
                 border-color: rgba(129, 140, 248, 0.85);
-                box-shadow: 0 5px 16px rgba(99, 102, 241, 0.25), inset 0 2px 6px rgba(0, 0, 0, 0.45);
+                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-fab-ripple {
                 background: radial-gradient(circle, rgba(129, 140, 248, 0.36) 0%, rgba(59, 130, 246, 0.18) 55%, transparent 72%);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-logo-icon {
                 background: linear-gradient(135deg, #6366f1, #3b82f6);
-                box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+                box-shadow: 0 2px 0 rgba(30, 27, 75, 0.6), 0 4px 12px rgba(99, 102, 241, 0.4);
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn {
-                background: rgba(28, 31, 38, 0.9);
-                border-color: rgba(255, 255, 255, 0.14);
-                color: #9ca3af;
+                background: rgba(34, 38, 47, 0.94);
+                border-color: rgba(255, 255, 255, 0.16);
+                border-bottom-color: rgba(0, 0, 0, 0.68);
+                color: #cbd5e1;
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn:hover {
-                background: rgba(99, 102, 241, 0.18);
-                border-color: rgba(99, 102, 241, 0.45);
+                background: rgba(99, 102, 241, 0.24);
+                border-color: rgba(129, 140, 248, 0.55);
+                border-bottom-color: #4f46e5;
                 color: #ffffff;
             }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn:active {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
+            }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-orig-toggle-btn.showing-orig {
-                background: rgba(99, 102, 241, 0.2);
-                border-color: rgba(99, 102, 241, 0.45);
+                background: rgba(99, 102, 241, 0.22);
+                border-color: rgba(129, 140, 248, 0.5);
+                border-bottom-color: #4f46e5;
                 color: #a5b4fc;
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-underline {
@@ -6096,20 +6510,70 @@ CRITICAL RULES:
                 color: #818cf8;
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-btn {
-                background: rgba(255, 255, 255, 0.08);
-                border-color: rgba(255, 255, 255, 0.12);
+                background: rgba(255, 255, 255, 0.1);
+                border-color: rgba(255, 255, 255, 0.16);
+                border-bottom-color: rgba(0, 0, 0, 0.65);
                 color: #d1d5db;
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-btn:hover {
-                background: rgba(99, 102, 241, 0.22);
-                border-color: rgba(99, 102, 241, 0.45);
+                background: rgba(99, 102, 241, 0.24);
+                border-color: rgba(129, 140, 248, 0.55);
+                border-bottom-color: #4f46e5;
                 color: #ffffff;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-trans-card-btn:active {
+                transform: translateY(1px);
+                border-bottom-width: 1px;
             }
             html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .lexipro-site-toast {
                 background: rgba(28, 31, 38, 0.96);
                 border-color: rgba(255, 255, 255, 0.14);
                 color: #f3f4f6;
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-translation-progress,
+            .fr-translation-progress.fr-dark {
+                border-color: rgba(129, 140, 248, 0.3);
+                background: rgba(24, 27, 34, 0.88);
+                box-shadow: 0 14px 36px rgba(0, 0, 0, 0.48);
+                color: #f3f4f6;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-indicator,
+            .fr-translation-progress.fr-dark .fr-progress-indicator {
+                background: linear-gradient(145deg, rgba(99, 102, 241, 0.28), rgba(79, 70, 229, 0.18));
+                color: #a5b4fc;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-copy strong,
+            .fr-translation-progress.fr-dark .fr-progress-copy strong {
+                color: #f8fafc;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-counts,
+            .fr-translation-progress.fr-dark .fr-progress-counts {
+                color: #9ca3af;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-counts b,
+            .fr-translation-progress.fr-dark .fr-progress-counts b {
+                color: #a5b4fc;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-action,
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-dismiss {
+                background: rgba(255, 255, 255, 0.08);
+                border-color: rgba(255, 255, 255, 0.16);
+                border-bottom-color: rgba(0, 0, 0, 0.65);
+                color: #d1d5db;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-action:hover,
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fr-progress-dismiss:hover {
+                background: rgba(99, 102, 241, 0.24);
+                border-color: rgba(129, 140, 248, 0.55);
+                border-bottom-color: #4f46e5;
+                color: #ffffff;
+            }
+            html[data-lexipro-skin="modern"][data-lexipro-theme="dark"] .fluent-read-failure-action {
+                background: rgba(99, 102, 241, 0.18) !important;
+                border-color: rgba(129, 140, 248, 0.45) !important;
+                border-bottom-color: #4338ca !important;
+                color: #c7d2fe !important;
             }
 
             /* ================= 皮肤二：动森经典风格 (html[data-lexipro-skin="animal_island"]) ================= */
@@ -6213,58 +6677,259 @@ CRITICAL RULES:
                 font-weight: 800;
                 box-shadow: 0 6px 20px rgba(18, 169, 157, 0.35);
             }
+            html[data-lexipro-skin="animal_island"] .fr-translation-progress {
+                font-family: "Nunito", "Noto Sans SC", "Trebuchet MS", sans-serif;
+                border: 2px solid #d8c8ab;
+                background:
+                    radial-gradient(circle, rgba(216, 200, 171, .28) 1.2px, transparent 1.4px) 0 0 / 14px 14px,
+                    rgba(255, 253, 243, 0.96);
+                box-shadow: 0 6px 0 #c4b89e, 0 12px 26px rgba(114, 93, 66, 0.22);
+                color: #725d42;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-indicator {
+                background: linear-gradient(180deg, #e8faf5, #d2f6ec);
+                border: 1px solid #82d5bb;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-copy strong {
+                color: #794f27;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-counts {
+                color: #8b765b;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-counts b {
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-action,
+            html[data-lexipro-skin="animal_island"] .fr-progress-dismiss {
+                background: linear-gradient(180deg, #fffdf3, #fff1c8);
+                border-color: #d8c8ab;
+                border-bottom-color: #c4b89e;
+                color: #725d42;
+            }
+            html[data-lexipro-skin="animal_island"] .fr-progress-action:hover,
+            html[data-lexipro-skin="animal_island"] .fr-progress-dismiss:hover {
+                background: #effdf8;
+                border-color: #82d5bb;
+                border-bottom-color: #60bba5;
+                color: #0b8079;
+            }
+            html[data-lexipro-skin="animal_island"] .fluent-read-failure-action {
+                background: linear-gradient(180deg, #fffdf3, #fff1c8) !important;
+                border-color: #d8c8ab !important;
+                border-bottom-color: #c4b89e !important;
+                color: #725d42 !important;
+            }
+            html[data-lexipro-skin="animal_island"] .fluent-read-loading > i {
+                background: #19c8b9 !important;
+            }
         `);
 
-        // ================= 借鉴开源沉浸式翻译 (Immersive Translate) 核心算法与设计 =================
-        // 沉浸式翻译开源规范：块级语义元素标签白名单
+        // ================= 移植 FluentRead 全文沉浸式翻译核心算法与 UI 设计 =================
+        // 沉浸式翻译基础块级语义标签与排除标签（兼容历史检测与通用回退）
         const IMMERSIVE_BLOCK_TAGS = new Set([
             'P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
             'LI', 'BLOCKQUOTE', 'ARTICLE', 'SECTION',
             'DD', 'DT', 'FIGCAPTION'
         ]);
 
-        // 沉浸式翻译开源规范：排除不可翻译或干扰排版的标签黑名单
         const IMMERSIVE_EXCLUDE_TAGS = new Set([
             'SCRIPT', 'STYLE', 'CODE', 'PRE', 'SVG', 'MATH',
             'NOSCRIPT', 'IFRAME', 'CANVAS', 'VIDEO', 'AUDIO',
             'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'BUTTON'
         ]);
 
-        // 判定元素是否为有效待翻译块级节点（启发式可见性与语义层级检查）
-        function isTranslatableBlock(el) {
-            if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
-            const tag = el.tagName;
-            if (IMMERSIVE_EXCLUDE_TAGS.has(tag)) return false;
-            if (el.isContentEditable) return false;
-            if (el.getAttribute('translate') === 'no' || el.classList.contains('notranslate')) return false;
-            if (el.closest('.lexipro-site-fab-container') || el.closest('.immersive-translate-target-translation') || el.closest('#imt-shadow-host')) return false;
+        // FluentRead 硬剪枝标签、内联受保护代码标签与结构过滤规则
+        const FR_HARD_PRUNE_TAGS = new Set([
+            'HEAD', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME',
+            'INPUT', 'TEXTAREA', 'SELECT', 'OPTION', 'MATH',
+            'SVG', 'CANVAS', 'AUDIO', 'VIDEO', 'OBJECT',
+            'TEMPLATE', 'XMP', 'IMG', 'BR', 'HR'
+        ]);
+        const FR_PROTECTED_INLINE_TAGS = new Set(['PRE', 'CODE', 'KBD', 'SAMP', 'VAR', 'TIME']);
+        const FR_STRUCTURAL_EXCLUSION_TAGS = new Set(['NAV', 'FOOTER', 'HEADER']);
+        const FR_SEMANTIC_HEADING_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6']);
+        const FR_LEAF_TEXT_TAGS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI', 'BLOCKQUOTE', 'DD', 'DT', 'FIGCAPTION', 'TD', 'TH']);
+        const FR_MIXED_CONTAINER_TAGS = new Set(['DIV', 'ARTICLE', 'SECTION', 'MAIN']);
+        const FR_CALLOUT_HINT_PATTERN = /\b(note|tip|warning|caution|important|callout|admonition|aside-note)\b/i;
+        const FR_ICON_FONT_PATTERN = /(Material\s*(?:Icons|Symbols)|Font\s*Awesome|Google\s*Symbols|Glyphicons|icomoon|codicon|lucide|heroicon|feather)/i;
+        const FR_MATH_SELECTOR = 'mjx-container, .MathJax, .MathJax_Display, .katex, .mwe-math-element, .ltx_Math';
+        const FR_FOREIGN_TRANSLATION_SELECTOR = '.immersive-translate-target-translation, .immersive-translate-target-wrapper, .fluent-read-bilingual-content, .lexipro-site-fab-container, #imt-shadow-host, #fr-progress-panel';
+        const FR_INTERACTIVE_CONTROL_SELECTOR = 'button, [role="button"], [role="tab"], [role="switch"], [role="menuitem"], [role="checkbox"], [role="radio"], .btn, .button';
 
-            // 检查元素可见性（避免翻译隐藏元素）
-            if (el.offsetParent === null && el.offsetWidth === 0 && el.offsetHeight === 0) return false;
+        // FluentRead 视口优先调度与防饥饿常量
+        const FR_PREFETCH_MARGIN_PX = 600;
+        const FR_BACKGROUND_MAX_WAIT_MS = 8000;
+        const FR_FOREGROUND_DISPATCH_QUOTA = 8;
 
-            if (IMMERSIVE_BLOCK_TAGS.has(tag)) {
+        const pageTranslationCache = new Map();
+        const frVisibleIds = new Set();
+        const frNearIds = new Set();
+        let frScrollDirection = 'forward';
+        let frLastScrollY = typeof window !== 'undefined' && typeof window.scrollY === 'number' ? window.scrollY : 0;
+        let frForegroundDispatchedSinceBg = 0;
+        let frProgressPanel = null;
+        let frProgressDismissed = false;
+        let frProgressAutoHideTimer = null;
+        let frIntersectionObserver = null;
+
+        function safeClosest(el, selector) {
+            if (!el || typeof el.closest !== 'function') return null;
+            try { return el.closest(selector); } catch (e) { return null; }
+        }
+
+        function safeMatches(el, selector) {
+            if (!el || typeof el.matches !== 'function') return false;
+            try { return el.matches(selector); } catch (e) { return false; }
+        }
+
+        function getComputedStyleSafe(el) {
+            if (!el || typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') return null;
+            try { return window.getComputedStyle(el); } catch (e) { return null; }
+        }
+
+        // FluentRead 图标字体与 MathJax/KaTeX 数学公式保护判定
+        function isFluentIconOrMathElement(el) {
+            if (!el || el.nodeType !== 1) return false;
+            if (safeMatches(el, FR_MATH_SELECTOR) || safeClosest(el, FR_MATH_SELECTOR)) return true;
+            const cls = typeof el.className === 'string' ? el.className : '';
+            if (/\b(?:material-icons|material-symbols|fa|fas|far|fab|fal|fad|glyphicon|codicon)\b/i.test(cls)) {
                 return true;
             }
+            const style = getComputedStyleSafe(el);
+            if (style && style.fontFamily) {
+                const primaryFont = style.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+                if (FR_ICON_FONT_PATTERN.test(primaryFont)) return true;
+            }
+            return false;
+        }
 
-            // 对普通 div 或 role="article"/"paragraph"，仅当其不包含块级子节点且具有足够文本量时作为段落
-            if (tag === 'DIV' || el.getAttribute('role') === 'article' || el.getAttribute('role') === 'paragraph') {
-                const hasBlockChild = el.querySelector('p, h1, h2, h3, h4, h5, h6, article, section, blockquote, li');
-                if (!hasBlockChild) {
-                    const text = (el.innerText || '').trim();
-                    if (text.length >= 20 && /[a-zA-Z]{3,}/.test(text)) {
-                        return true;
+        // FluentRead 结构区域排除（nav/footer/header 默认不译，但保留其内部 semantic h1-h6 标题及正文中的 callout/aside）
+        function isFluentStructuralExcluded(el) {
+            if (!el || el.nodeType !== 1) return false;
+            let current = el;
+            let inHeading = false;
+            while (current && current.nodeType === 1) {
+                const tag = (current.tagName || '').toUpperCase();
+                if (FR_SEMANTIC_HEADING_TAGS.has(tag)) inHeading = true;
+                if (FR_STRUCTURAL_EXCLUSION_TAGS.has(tag)) {
+                    if (tag === 'HEADER' && inHeading) return false;
+                    return true;
+                }
+                if (tag === 'ASIDE') {
+                    const cls = typeof current.className === 'string' ? current.className : '';
+                    const role = typeof current.getAttribute === 'function' ? (current.getAttribute('role') || '') : '';
+                    const inArticle = Boolean(safeClosest(current, 'article'));
+                    const isMainCallout = Boolean(safeClosest(current, 'main')) && (FR_CALLOUT_HINT_PATTERN.test(cls) || /note/i.test(role));
+                    if (!inArticle && !isMainCallout) return true;
+                }
+                if (tag === 'BODY' || tag === 'HTML') break;
+                current = current.parentElement;
+            }
+            return false;
+        }
+
+        // 控件标签过滤：跳过短按钮/菜单开关文案，保留长文章卡片链接与按钮外正文
+        function isFluentInteractiveControl(el, text) {
+            if (!el || el.nodeType !== 1) return false;
+            const ctrl = safeMatches(el, FR_INTERACTIVE_CONTROL_SELECTOR) ? el : safeClosest(el, FR_INTERACTIVE_CONTROL_SELECTOR);
+            if (!ctrl) return false;
+            const content = (text !== undefined ? text : (el.innerText || el.textContent || '')).trim();
+            return content.length <= 64;
+        }
+
+        function isNotranslateGuardTriggered(el) {
+            let cur = el;
+            while (cur && cur.nodeType === 1) {
+                const tag = (cur.tagName || '').toUpperCase();
+                if (tag === 'HTML' || tag === 'BODY') break;
+                const tr = typeof cur.getAttribute === 'function' ? cur.getAttribute('translate') : null;
+                if (tr === 'no') return true;
+                if (cur.classList && typeof cur.classList.contains === 'function' && cur.classList.contains('notranslate')) return true;
+                if (typeof cur.getAttribute === 'function' && cur.getAttribute('aria-hidden') === 'true') return true;
+                cur = cur.parentElement;
+            }
+            return false;
+        }
+
+        function isElementVisibleSafe(el) {
+            if (!el || el.nodeType !== 1) return false;
+            if (el.style && (el.style.display === 'none' || el.style.visibility === 'hidden')) return false;
+            const cs = getComputedStyleSafe(el);
+            if (cs) {
+                if (cs.display === 'none' || cs.visibility === 'hidden' || cs.opacity === '0') return false;
+            }
+            if (el.offsetParent === null && el.offsetWidth === 0 && el.offsetHeight === 0 && !cs) {
+                return false;
+            }
+            return true;
+        }
+
+        function hasReadableBlockChild(el) {
+            if (!el || typeof el.querySelector !== 'function') return false;
+            return Boolean(el.querySelector('p, h1, h2, h3, h4, h5, h6, article, section, blockquote, li, dd, dt, figcaption'));
+        }
+
+        function hasDirectReadableText(el) {
+            const nodes = el.childNodes ? Array.from(el.childNodes) : [];
+            if (nodes.length === 0) {
+                return isValidTranslatableText(el.innerText || el.textContent || '');
+            }
+            let directText = '';
+            for (const child of nodes) {
+                if (child.nodeType === 3) {
+                    directText += child.nodeValue || '';
+                } else if (child.nodeType === 1) {
+                    const cTag = (child.tagName || '').toUpperCase();
+                    if (!FR_MIXED_CONTAINER_TAGS.has(cTag) && !FR_LEAF_TEXT_TAGS.has(cTag) && !FR_HARD_PRUNE_TAGS.has(cTag)) {
+                        directText += ' ' + (child.innerText || child.textContent || '');
                     }
+                }
+            }
+            return isValidTranslatableText(directText);
+        }
+
+        // 判定元素是否为有效待翻译块级节点（融合 FluentRead DOM 保护与语义分类）
+        function isTranslatableBlock(el) {
+            if (!el || el.nodeType !== 1) return false;
+            const tag = (el.tagName || '').toUpperCase();
+            if (FR_HARD_PRUNE_TAGS.has(tag) || IMMERSIVE_EXCLUDE_TAGS.has(tag)) return false;
+            if (FR_PROTECTED_INLINE_TAGS.has(tag)) return false;
+            if (el.isContentEditable) return false;
+            if (isNotranslateGuardTriggered(el)) return false;
+            if (safeClosest(el, FR_FOREIGN_TRANSLATION_SELECTOR)) return false;
+            if (safeClosest(el, '[data-lexipro-site-id]') || (typeof el.querySelector === 'function' && el.querySelector('[data-lexipro-site-id]'))) {
+                return false;
+            }
+            if (!isElementVisibleSafe(el)) return false;
+            if (isFluentIconOrMathElement(el)) return false;
+            if (isFluentStructuralExcluded(el)) return false;
+
+            const rawText = (el.innerText || el.textContent || '').trim();
+            if (isFluentInteractiveControl(el, rawText)) return false;
+
+            if (FR_LEAF_TEXT_TAGS.has(tag)) {
+                return true;
+            }
+            if (IMMERSIVE_BLOCK_TAGS.has(tag) || tag === 'DIV' || (typeof el.getAttribute === 'function' && (el.getAttribute('role') === 'article' || el.getAttribute('role') === 'paragraph'))) {
+                if (!hasReadableBlockChild(el) && rawText.length >= 16 && hasDirectReadableText(el)) {
+                    return true;
                 }
             }
             return false;
         }
 
-        // 沉浸式翻译开源规范：有效可翻译文本启发式校验（排除纯数字、代码标识、纯链接或中文主体文本）
+        // FluentRead 有效文本校验与标识符排除（排除 URL、纯数字、哈希、版本号、@提及、中文主文）
         function isValidTranslatableText(text) {
             if (!text) return false;
             const trimmed = text.trim();
             if (trimmed.length < 3) return false;
             if (/^https?:\/\/\S+$/i.test(trimmed)) return false;
+            if (/^@[a-zA-Z0-9_.-]+$/.test(trimmed)) return false;
+            if (/^#[a-zA-Z0-9_-]+$/.test(trimmed) || /^#\d+$/.test(trimmed)) return false;
+            if (/^[0-9a-f]{7,40}$/i.test(trimmed)) return false;
+            if (/^v?\d+(?:\.\d+){1,3}(?:-[\w.-]+)?$/i.test(trimmed)) return false;
+            if (/^[\w./-]+\.(?:js|ts|tsx|jsx|css|scss|html|json|md|py|go|rs|java|c|cpp|yml|yaml|lock)$/i.test(trimmed)) return false;
             if (/^[\d\s.,;:'"\/\\()\[\]{}#@!%&*+=_-]+$/.test(trimmed)) return false;
             if (!/[a-zA-Z]{2,}/.test(trimmed)) return false;
             const chineseChars = trimmed.match(/[\u4e00-\u9fa5]/g) || [];
@@ -6272,47 +6937,196 @@ CRITICAL RULES:
             return true;
         }
 
-        // DOM 元素收集（针对专有站点深度定制 + 通用网页全自动语义提取）
-        function collectSiteElements() {
+        // FluentRead 混合节点内联运行拆分：为包含块级子节点同时带直接文本的容器隔离独立行片段
+        function getDirectInlineRuns(el) {
+            if (!el || el.nodeType !== 1 || !el.childNodes || !hasReadableBlockChild(el)) return [];
+            const tag = (el.tagName || '').toUpperCase();
+            if (!FR_MIXED_CONTAINER_TAGS.has(tag) && tag !== 'LI') return [];
+            if (el.dataset?.lexiproSiteId || safeClosest(el, '[data-lexipro-site-id]') || safeClosest(el, FR_FOREIGN_TRANSLATION_SELECTOR)) return [];
+            if (isNotranslateGuardTriggered(el) || isFluentStructuralExcluded(el)) return [];
+
+            const nodes = Array.from(el.childNodes);
+            const runs = [];
+            let currentNodes = [];
+            let currentText = '';
+
+            const flush = () => {
+                if (currentNodes.length > 0 && currentText.trim().length >= 12 && isValidTranslatableText(currentText)) {
+                    const alreadyWrapped = currentNodes.length === 1 && currentNodes[0].nodeType === 1 &&
+                        typeof currentNodes[0].getAttribute === 'function' &&
+                        currentNodes[0].getAttribute('data-fr-translation-segment') === 'true';
+                    if (alreadyWrapped) {
+                        runs.push(currentNodes[0]);
+                    } else if (typeof document.createElement === 'function' && typeof el.insertBefore === 'function') {
+                        const seg = document.createElement('span');
+                        seg.className = 'fluent-read-source-line';
+                        seg.setAttribute('data-fr-translation-segment', 'true');
+                        el.insertBefore(seg, currentNodes[0]);
+                        currentNodes.forEach(n => seg.appendChild(n));
+                        runs.push(seg);
+                    }
+                }
+                currentNodes = [];
+                currentText = '';
+            };
+
+            for (const child of nodes) {
+                if (child.nodeType === 3) {
+                    currentNodes.push(child);
+                    currentText += child.nodeValue || '';
+                } else if (child.nodeType === 1) {
+                    const cTag = (child.tagName || '').toUpperCase();
+                    if (cTag === 'BR' || FR_MIXED_CONTAINER_TAGS.has(cTag) || FR_LEAF_TEXT_TAGS.has(cTag) ||
+                        safeMatches(child, FR_FOREIGN_TRANSLATION_SELECTOR) ||
+                        (typeof child.getAttribute === 'function' && child.getAttribute('data-lexipro-site-id'))) {
+                        flush();
+                    } else {
+                        currentNodes.push(child);
+                        currentText += ' ' + (child.innerText || child.textContent || '');
+                    }
+                }
+            }
+            flush();
+            return runs;
+        }
+
+        // FluentRead 内联代码与公式占位保护（防止 LLM 篡改 code/kbd/MathJax 内容）
+        function protectInlineCodeAndFormulas(el) {
+            if (!el || !el.childNodes || typeof el.childNodes.length !== 'number') {
+                return { text: (el?.innerText || el?.textContent || '').trim(), tokens: [] };
+            }
+            const tokens = [];
+            function walk(node) {
+                if (!node) return '';
+                if (node.nodeType === 3) return node.nodeValue || '';
+                if (node.nodeType !== 1) return '';
+                const tag = (node.tagName || '').toUpperCase();
+                if (tag === 'BR') return '\n';
+                if (safeMatches(node, FR_FOREIGN_TRANSLATION_SELECTOR)) return '';
+                if (FR_PROTECTED_INLINE_TAGS.has(tag) || safeMatches(node, FR_MATH_SELECTOR)) {
+                    const val = (node.innerText || node.textContent || '').trim();
+                    if (!val) return '';
+                    const tokenKey = `{{FR_P${tokens.length}}}`;
+                    tokens.push({ key: tokenKey, text: val, tagName: tag });
+                    return tokenKey;
+                }
+                let buf = '';
+                const children = Array.from(node.childNodes || []);
+                for (const ch of children) buf += walk(ch);
+                return buf;
+            }
+            const raw = walk(el).replace(/[ \t]+\n/g, '\n').replace(/\n[ \t]+/g, '\n').trim();
+            const text = raw || (el.innerText || el.textContent || '').trim();
+            return { text, tokens };
+        }
+
+        function renderProtectedTextInto(container, translatedText, tokens = []) {
+            if (!container) return;
+            const source = String(translatedText || '');
+            if (!tokens || tokens.length === 0 || typeof document.createTextNode !== 'function') {
+                container.innerText = source;
+                return;
+            }
+            const tokenMap = new Map(tokens.map(t => [t.key, t]));
+            const parts = source.split(/(\{\{FR_P\d+\}\})/g);
+            parts.forEach(part => {
+                if (!part) return;
+                const tok = tokenMap.get(part);
+                if (tok) {
+                    const span = document.createElement('span');
+                    span.className = 'fr-preserved-inline-token';
+                    span.innerText = tok.text;
+                    container.appendChild(span);
+                } else {
+                    const lines = part.split('\n');
+                    lines.forEach((line, idx) => {
+                        if (line) container.appendChild(document.createTextNode(line));
+                        if (idx < lines.length - 1) container.appendChild(document.createElement('br'));
+                    });
+                }
+            });
+        }
+
+        // FluentRead 后序 Light DOM + Open Shadow DOM 遍历器
+        function walkFluentDiscovery(root, visitor, visited = new Set()) {
+            if (!root || visited.has(root)) return;
+            visited.add(root);
+
+            const children = root.children ? Array.from(root.children) : [];
+            for (const child of children) {
+                const tag = (child.tagName || '').toUpperCase();
+                if (FR_HARD_PRUNE_TAGS.has(tag)) continue;
+                if (safeMatches(child, FR_FOREIGN_TRANSLATION_SELECTOR)) continue;
+                if (child.shadowRoot) {
+                    walkFluentDiscovery(child.shadowRoot, visitor, visited);
+                }
+                walkFluentDiscovery(child, visitor, visited);
+            }
+            if (root.nodeType === 1) {
+                visitor(root);
+            }
+        }
+
+        function collectSiteElements(roots = null) {
             const newlyCollected = [];
 
-            if (siteConfig.isReddit) {
-                // 1. 帖子大标题
-                document.querySelectorAll('shreddit-post [slot="title"], shreddit-post a[slot="title"], h1[slot="title"], [data-testid="post-title"], div[data-testid="post-container"] h1, p.title a.title').forEach(el => {
-                    addSiteItem(el, 'title', newlyCollected);
-                });
-
-                // 2. 帖子正文（优先精准提取真正放文本的内部段落/容器，防止破坏外层插槽结构）
-                document.querySelectorAll('shreddit-post [slot="text-body"] div[id*="-post-rtjson-content"], shreddit-post [slot="text-body"] > div, shreddit-post [slot="text-body"] p, [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
-                    addSiteItem(el, 'body', newlyCollected);
-                });
-                document.querySelectorAll('shreddit-post [slot="text-body"]').forEach(el => {
-                    addSiteItem(el, 'body', newlyCollected);
-                });
-
-                // 3. 各级评论
-                document.querySelectorAll('shreddit-comment [slot="comment"], shreddit-comment div[id*="-comment-rtjson-content"], div[data-testid="comment"], div.Comment, div.comment div.usertext-body').forEach(el => {
-                    addSiteItem(el, 'comment', newlyCollected);
-                });
-                document.querySelectorAll('shreddit-comment p').forEach(el => {
-                    if (el.closest('[slot="comment"]') || el.closest('div[id*="-comment-rtjson-content"]')) return;
-                    addSiteItem(el, 'comment', newlyCollected);
-                });
-            } else if (siteConfig.isReuters) {
-                document.querySelectorAll('h1[data-testid="Heading"], header h1, h1.article-header__title, article h1').forEach(el => {
-                    addSiteItem(el, 'title', newlyCollected);
-                });
-                document.querySelectorAll('p[data-testid*="paragraph-0"], p[data-testid="Paragraph"], header p').forEach(el => {
-                    addSiteItem(el, 'lead', newlyCollected);
-                });
-                document.querySelectorAll('article div[data-testid*="paragraph-"], article p[data-testid*="paragraph-"], div[class*="article-body__content"] p, div[data-testid="article-body"] p').forEach(el => {
-                    const text = (el.innerText || '').trim();
-                    if (text.startsWith('Reporting by') || text.startsWith('Editing by') || text.includes('Our Standards:')) return;
-                    addSiteItem(el, 'paragraph', newlyCollected);
-                });
+            if (!roots) {
+                if (siteConfig.isReddit) {
+                    document.querySelectorAll('shreddit-post [slot="title"], shreddit-post a[slot="title"], h1[slot="title"], [data-testid="post-title"], div[data-testid="post-container"] h1, p.title a.title').forEach(el => {
+                        addSiteItem(el, 'title', newlyCollected);
+                    });
+                    document.querySelectorAll('shreddit-post [slot="text-body"] div[id*="-post-rtjson-content"], shreddit-post [slot="text-body"] > div, shreddit-post [slot="text-body"] p, [data-testid="post-body"], div[data-click-id="text"], div.expando div.usertext-body').forEach(el => {
+                        addSiteItem(el, 'body', newlyCollected);
+                    });
+                    document.querySelectorAll('shreddit-post [slot="text-body"]').forEach(el => {
+                        addSiteItem(el, 'body', newlyCollected);
+                    });
+                    document.querySelectorAll('shreddit-comment [slot="comment"], shreddit-comment div[id*="-comment-rtjson-content"], div[data-testid="comment"], div.Comment, div.comment div.usertext-body').forEach(el => {
+                        addSiteItem(el, 'comment', newlyCollected);
+                    });
+                    document.querySelectorAll('shreddit-comment p').forEach(el => {
+                        if (safeClosest(el, '[slot="comment"]') || safeClosest(el, 'div[id*="-comment-rtjson-content"]')) return;
+                        addSiteItem(el, 'comment', newlyCollected);
+                    });
+                } else if (siteConfig.isReuters) {
+                    document.querySelectorAll('h1[data-testid="Heading"], header h1, h1.article-header__title, article h1').forEach(el => {
+                        addSiteItem(el, 'title', newlyCollected);
+                    });
+                    document.querySelectorAll('p[data-testid*="paragraph-0"], p[data-testid="Paragraph"], header p').forEach(el => {
+                        addSiteItem(el, 'lead', newlyCollected);
+                    });
+                    document.querySelectorAll('article div[data-testid*="paragraph-"], article p[data-testid*="paragraph-"], div[class*="article-body__content"] p, div[data-testid="article-body"] p').forEach(el => {
+                        const text = (el.innerText || '').trim();
+                        if (text.startsWith('Reporting by') || text.startsWith('Editing by') || text.includes('Our Standards:')) return;
+                        addSiteItem(el, 'paragraph', newlyCollected);
+                    });
+                }
             }
 
-            // 沉浸式翻译开源设计：通用块级语义段落抓取（适配任意通用网页以及专有站点的补充正文）
+            // FluentRead 通用块与混合内联运行提取
+            const scanRoots = roots && roots.length > 0 ? roots : (document.body ? [document.body] : []);
+            const visitedNodes = new Set();
+            scanRoots.forEach(root => {
+                walkFluentDiscovery(root, (el) => {
+                    if (typeof el.getAttribute === 'function' && el.getAttribute('data-fr-translation-segment') === 'true') {
+                        return;
+                    }
+                    const segments = getDirectInlineRuns(el);
+                    if (segments.length > 0) {
+                        segments.forEach(seg => {
+                            if (isValidTranslatableText(seg.innerText || seg.textContent || '')) {
+                                addSiteItem(seg, 'general_block', newlyCollected);
+                            }
+                        });
+                    }
+                    if (!isTranslatableBlock(el)) return;
+                    const text = (el.innerText || el.textContent || '').trim();
+                    if (!isValidTranslatableText(text)) return;
+                    addSiteItem(el, 'general_block', newlyCollected);
+                }, visitedNodes);
+            });
+
+            // 兼容回退：保障 querySelectorAll 通用块选择器覆盖（包括简化 DOM 测试环境）
             const generalBlocks = document.querySelectorAll(`
                 p, h1, h2, h3, h4, h5, h6,
                 blockquote, article p, section p, main p,
@@ -6321,23 +7135,64 @@ CRITICAL RULES:
             `);
             generalBlocks.forEach(el => {
                 if (!isTranslatableBlock(el)) return;
-                const text = (el.innerText || '').trim();
+                const text = (el.innerText || el.textContent || '').trim();
                 if (!isValidTranslatableText(text)) return;
                 addSiteItem(el, 'general_block', newlyCollected);
             });
 
+            observeItemsInViewport(newlyCollected);
             return newlyCollected;
         }
 
+        function ensureIntersectionObserver() {
+            if (frIntersectionObserver || typeof IntersectionObserver !== 'function') return frIntersectionObserver;
+            try {
+                frIntersectionObserver = new IntersectionObserver((entries) => {
+                    const vh = typeof window !== 'undefined' && typeof window.innerHeight === 'number' ? window.innerHeight : 800;
+                    entries.forEach(entry => {
+                        const id = entry.target?.dataset?.lexiproSiteId;
+                        if (!id) return;
+                        if (entry.isIntersecting) {
+                            frNearIds.add(id);
+                            const r = entry.boundingClientRect;
+                            if (r && r.bottom >= 0 && r.top <= vh) {
+                                frVisibleIds.add(id);
+                            } else {
+                                frVisibleIds.delete(id);
+                            }
+                        } else {
+                            frNearIds.delete(id);
+                            frVisibleIds.delete(id);
+                        }
+                    });
+                }, { rootMargin: `${FR_PREFETCH_MARGIN_PX}px 0px` });
+            } catch (e) {
+                frIntersectionObserver = null;
+            }
+            return frIntersectionObserver;
+        }
+
+        function observeItemsInViewport(items) {
+            if (!items || items.length === 0) return;
+            const obs = ensureIntersectionObserver();
+            if (!obs) return;
+            items.forEach(it => {
+                if (it && it.element) {
+                    try { obs.observe(it.element); } catch (e) {}
+                }
+            });
+        }
+
         function addSiteItem(element, type, collectorArray) {
-            if (!element || element.dataset.lexiproSiteId) return;
-            if (element.closest('.lexipro-site-fab-container') || element.closest('.lexipro-trans-card') || element.closest('.lexipro-trans-underline') || element.closest('#imt-shadow-host')) return;
+            if (!element || !element.dataset || element.dataset.lexiproSiteId) return;
+            if (safeClosest(element, FR_FOREIGN_TRANSLATION_SELECTOR)) return;
 
-            // 核心防御：防止父子节点重复收集、互踩覆盖造成帖子正文在滚动后凭空消失
+            // 核心防御：防止父子节点重复收集、互踩覆盖
             if (element.closest('[data-lexipro-site-id]')) return;
-            if (element.querySelector('[data-lexipro-site-id]')) return;
+            if (typeof element.querySelector === 'function' && element.querySelector('[data-lexipro-site-id]')) return;
 
-            const text = (element.innerText || '').trim();
+            const protectedPayload = protectInlineCodeAndFormulas(element);
+            const text = (protectedPayload.text || '').trim();
             if (!text || text.length < 2) return;
             if (/^https?:\/\/\S+$/i.test(text)) return;
 
@@ -6351,8 +7206,16 @@ CRITICAL RULES:
                 origWrapper: null,
                 transContainer: null,
                 originalText: text,
+                cacheKey: text.replace(/\s+/g, ' ').trim(),
+                protectedTokens: protectedPayload.tokens,
                 translatedText: null,
                 injectedNode: null,
+                retryWrapper: null,
+                lastError: '',
+                enqueuedAt: Date.now(),
+                _loadingTimer: null,
+                _loadingEl: null,
+                _savedClampStyles: null,
                 isShowingOriginal: false,
                 status: 'pending' // pending | translating | done | failed
             };
@@ -6361,23 +7224,55 @@ CRITICAL RULES:
             collectorArray.push(item);
         }
 
-        // 视口空间绝对排序：确保页面自顶向下（标题、正文、前排热评）优先出屏
-        function sortPendingItemsByVisualOrder(items) {
-            return items.slice().sort((a, b) => {
-                if (a.type === 'title' && b.type !== 'title') return -1;
-                if (b.type === 'title' && a.type !== 'title') return 1;
-                if (a.type === 'body' && b.type !== 'body') return -1;
-                if (b.type === 'body' && a.type !== 'body') return 1;
+        // FluentRead 三级视口优先评分算法（visible=0 > near(<=600px,含滚动方向加权)=1 > background=2，支持防饥饿提升）
+        function scoreFullPageCandidatePriority(item, now = Date.now()) {
+            const vh = typeof window !== 'undefined' && typeof window.innerHeight === 'number' ? window.innerHeight : 800;
+            const sy = typeof window !== 'undefined' && typeof window.scrollY === 'number' ? window.scrollY : 0;
+            let rectTop = 0;
+            let rectBottom = 0;
+            let hasRect = false;
+            if (item.element && typeof item.element.getBoundingClientRect === 'function') {
+                const r = item.element.getBoundingClientRect();
+                rectTop = r.top || 0;
+                rectBottom = r.bottom !== undefined ? r.bottom : rectTop;
+                hasRect = true;
+            }
 
-                const rectA = a.element ? a.element.getBoundingClientRect() : { top: 0 };
-                const rectB = b.element ? b.element.getBoundingClientRect() : { top: 0 };
-                const topA = rectA.top + (window.scrollY || 0);
-                const topB = rectB.top + (window.scrollY || 0);
-                return topA - topB;
+            const isVisible = frVisibleIds.has(item.id) || (hasRect && rectBottom >= 0 && rectTop <= vh);
+            const isNear = !isVisible && (frNearIds.has(item.id) || (hasRect && rectBottom >= -FR_PREFETCH_MARGIN_PX && rectTop <= vh + FR_PREFETCH_MARGIN_PX));
+
+            let band = isVisible ? 0 : (isNear ? 1 : 2);
+            const waitedMs = now - (item.enqueuedAt || now);
+            const isStarved = band === 2 && (waitedMs >= FR_BACKGROUND_MAX_WAIT_MS || frForegroundDispatchedSinceBg >= FR_FOREGROUND_DISPATCH_QUOTA);
+            if (isStarved) {
+                band = 1;
+            }
+
+            let directionPenalty = 0;
+            if (band === 1 && hasRect) {
+                if (frScrollDirection === 'forward' && rectBottom < 0) directionPenalty = 1;
+                else if (frScrollDirection === 'backward' && rectTop > vh) directionPenalty = 1;
+            }
+
+            const typeRank = item.type === 'title' ? 0 : (item.type === 'body' ? 1 : 2);
+            const absTop = rectTop + sy;
+            return { band, directionPenalty, typeRank, absTop, enqueuedAt: item.enqueuedAt || 0 };
+        }
+
+        // 视口与语义排序：结合 FluentRead 三级优先级、滚动预取方向、标题正文优先与防饥饿公平调度
+        function sortPendingItemsByVisualOrder(items) {
+            const now = Date.now();
+            return items.slice().sort((a, b) => {
+                const sa = scoreFullPageCandidatePriority(a, now);
+                const sb = scoreFullPageCandidatePriority(b, now);
+                if (sa.band !== sb.band) return sa.band - sb.band;
+                if (sa.directionPenalty !== sb.directionPenalty) return sa.directionPenalty - sb.directionPenalty;
+                if (sa.typeRank !== sb.typeRank) return sa.typeRank - sb.typeRank;
+                if (sa.absTop !== sb.absTop) return sa.absTop - sb.absTop;
+                return sa.enqueuedAt - sb.enqueuedAt;
             });
         }
 
-        // 批次拆分构造器
         function createBatches(items, maxPerBatch = 6) {
             const batches = [];
             let curBatch = [];
@@ -6406,20 +7301,376 @@ CRITICAL RULES:
             return batches;
         }
 
-        // 核心渲染逻辑：应用 3 种翻译样式（保留原 DOM 树，杜绝 innerHTML 反序列化破坏事件与状态）
-        function applyItemStyle(item) {
-            if (!item.element || !item.translatedText) return;
+        function takeNextPriorityBatch(pool, maxPerBatch = 6) {
+            if (!pool || pool.length === 0) return null;
+            const now = Date.now();
+            pool.sort((a, b) => {
+                const sa = scoreFullPageCandidatePriority(a, now);
+                const sb = scoreFullPageCandidatePriority(b, now);
+                if (sa.band !== sb.band) return sa.band - sb.band;
+                if (sa.directionPenalty !== sb.directionPenalty) return sa.directionPenalty - sb.directionPenalty;
+                if (sa.typeRank !== sb.typeRank) return sa.typeRank - sb.typeRank;
+                if (sa.absTop !== sb.absTop) return sa.absTop - sb.absTop;
+                return sa.enqueuedAt - sb.enqueuedAt;
+            });
 
-            // 清理已存在的辅助独立节点
+            const first = pool.shift();
+            const firstBand = scoreFullPageCandidatePriority(first, now).band;
+            if (firstBand >= 2) {
+                frForegroundDispatchedSinceBg = 0;
+            } else {
+                frForegroundDispatchedSinceBg++;
+            }
+
+            if (first.originalText.length > 350 || first.type === 'body') {
+                return [first];
+            }
+            const batch = [first];
+            let curLen = first.originalText.length;
+            while (pool.length > 0 && batch.length < maxPerBatch) {
+                const next = pool[0];
+                if (next.originalText.length > 350 || next.type === 'body') break;
+                if (curLen + next.originalText.length > 800) break;
+                pool.shift();
+                batch.push(next);
+                curLen += next.originalText.length;
+            }
+            return batch;
+        }
+
+        // FluentRead 180ms 延迟加载指示器（避免缓存命中或极速响应闪烁）
+        function showDeferredLoadingIndicator(item) {
+            hideLoadingIndicator(item);
+            if (!item || !item.element || typeof document.createElement !== 'function') return;
+            item._loadingTimer = setTimeout(() => {
+                if (!item || item.status !== 'translating' || item.element.isConnected === false) return;
+                if (!item._loadingEl) {
+                    const loader = document.createElement('span');
+                    loader.className = 'fluent-read-loading';
+                    loader.setAttribute('data-fr-translation-owned', 'true');
+                    loader.setAttribute('aria-hidden', 'true');
+                    loader.appendChild(document.createElement('i'));
+                    loader.appendChild(document.createElement('i'));
+                    loader.appendChild(document.createElement('i'));
+                    item.element.appendChild(loader);
+                    item._loadingEl = loader;
+                }
+            }, 180);
+        }
+
+        function hideLoadingIndicator(item) {
+            if (!item) return;
+            if (item._loadingTimer) {
+                clearTimeout(item._loadingTimer);
+                item._loadingTimer = null;
+            }
+            if (item._loadingEl) {
+                try {
+                    if (item._loadingEl.parentNode) item._loadingEl.remove();
+                } catch (e) {}
+                item._loadingEl = null;
+            }
+        }
+
+        // FluentRead 排版防挤压保护：自动解除 line-clamp 截断并在 flex/grid/inline-block 盒子启用 contain: inline-size
+        function applyLayoutProtections(item) {
+            const el = item?.element;
+            if (!el || !el.style) return;
+            const cs = getComputedStyleSafe(el);
+            if (cs) {
+                const clamp = cs.webkitLineClamp || cs.lineClamp;
+                const needsUnclamp = (clamp && clamp !== 'none' && clamp !== 'unset') ||
+                    (cs.overflow === 'hidden' && cs.maxHeight && cs.maxHeight !== 'none');
+                if (needsUnclamp && !item._savedClampStyles) {
+                    item._savedClampStyles = {
+                        webkitLineClamp: el.style.webkitLineClamp || '',
+                        maxHeight: el.style.maxHeight || '',
+                        overflow: el.style.overflow || ''
+                    };
+                    el.style.webkitLineClamp = 'unset';
+                    el.style.maxHeight = 'none';
+                    el.style.overflow = 'visible';
+                }
+                const disp = (cs.display || '').toLowerCase();
+                if (/^(?:inline-block|flex|inline-flex|grid|inline-grid|table-cell)$/.test(disp) || (cs.cssFloat && cs.cssFloat !== 'none')) {
+                    if (typeof el.setAttribute === 'function') {
+                        el.setAttribute('data-fr-flow-contained', 'true');
+                    }
+                }
+            }
+        }
+
+        function restoreLayoutProtections(item) {
+            const el = item?.element;
+            if (!el) return;
+            if (typeof el.removeAttribute === 'function') {
+                try { el.removeAttribute('data-fr-flow-contained'); } catch (e) {}
+            }
+            if (item._savedClampStyles && el.style) {
+                el.style.webkitLineClamp = item._savedClampStyles.webkitLineClamp;
+                el.style.maxHeight = item._savedClampStyles.maxHeight;
+                el.style.overflow = item._savedClampStyles.overflow;
+                item._savedClampStyles = null;
+            }
+        }
+
+        // FluentRead 单段落失败重试控件（.fluent-read-retry-wrapper）
+        function clearItemRetryControl(item) {
+            if (!item || !item.retryWrapper) return;
+            try {
+                if (item.retryWrapper.parentNode) item.retryWrapper.remove();
+            } catch (e) {}
+            item.retryWrapper = null;
+        }
+
+        function attachItemRetryControl(item) {
+            if (!item || !item.element || typeof document.createElement !== 'function') return;
+            clearItemRetryControl(item);
+            const wrapper = document.createElement('span');
+            wrapper.className = 'fluent-read-retry-wrapper';
+            wrapper.setAttribute('data-fr-translation-owned', 'true');
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'fluent-read-failure-action';
+            btn.title = item.lastError ? `翻译失败: ${item.lastError}` : '点击重试此段落';
+            const lbl = document.createElement('span');
+            lbl.className = 'fluent-read-action-label';
+            lbl.innerText = '↻ 重试';
+            btn.appendChild(lbl);
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                retrySingleSiteItem(item);
+            });
+            wrapper.appendChild(btn);
+            item.element.appendChild(wrapper);
+            item.retryWrapper = wrapper;
+        }
+
+        async function retrySingleSiteItem(item) {
+            if (!item || item.status === 'translating') return;
+            const thisGen = siteGeneration;
+            clearItemRetryControl(item);
+            item.status = 'translating';
+            isSiteShowingTranslation = true;
+            showDeferredLoadingIndicator(item);
+            updateProgressPanel();
+            try {
+                await processSiteBatch([item], 0, thisGen);
+            } finally {
+                updateSiteFabState();
+                updateProgressPanel();
+            }
+        }
+
+        function locateFirstFailedSiteItem() {
+            const firstFailed = Array.from(siteItemsMap.values()).find(it => it.status === 'failed' || it.status === 'error');
+            if (!firstFailed || !firstFailed.element) {
+                showSiteToast('当前没有失败条目');
+                return;
+            }
+            if (typeof firstFailed.element.scrollIntoView === 'function') {
+                firstFailed.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            if (firstFailed.element.classList) {
+                firstFailed.element.classList.remove('fr-locate-highlight');
+                void firstFailed.element.offsetWidth;
+                firstFailed.element.classList.add('fr-locate-highlight');
+                setTimeout(() => firstFailed.element?.classList?.remove('fr-locate-highlight'), 1700);
+            }
+        }
+
+        function removeProgressPanel() {
+            if (frProgressAutoHideTimer) {
+                clearTimeout(frProgressAutoHideTimer);
+                frProgressAutoHideTimer = null;
+            }
+            if (frProgressPanel && frProgressPanel.parentNode) {
+                frProgressPanel.remove();
+            }
+            frProgressPanel = null;
+        }
+
+        // FluentRead 浮动毛玻璃全文进度面板 (.fr-translation-progress)
+        function updateProgressPanel() {
+            if (frProgressDismissed) {
+                if (frProgressPanel && frProgressPanel.classList) {
+                    frProgressPanel.classList.add('fr-hidden');
+                }
+                return;
+            }
+            const total = siteItemsMap.size;
+            if (total === 0) return;
+
+            let running = 0;
+            let completed = 0;
+            let failed = 0;
+            let pending = 0;
+            siteItemsMap.forEach(it => {
+                if (it.status === 'translating') running++;
+                else if (it.status === 'done') completed++;
+                else if (it.status === 'failed' || it.status === 'error') failed++;
+                else pending++;
+            });
+            const remaining = pending + running;
+
+            if (!isSiteTranslating && completed === 0 && failed === 0) return;
+
+            if (!frProgressPanel || !frProgressPanel.isConnected) {
+                if (typeof document.createElement !== 'function' || !document.body) return;
+                const aside = document.createElement('aside');
+                aside.id = 'fr-progress-panel';
+                aside.className = 'fr-translation-progress';
+
+                const indicator = document.createElement('span');
+                indicator.className = 'fr-progress-indicator';
+                indicator.setAttribute('aria-hidden', 'true');
+                indicator.appendChild(document.createElement('i'));
+                indicator.appendChild(document.createElement('i'));
+                indicator.appendChild(document.createElement('i'));
+
+                const copy = document.createElement('span');
+                copy.className = 'fr-progress-copy';
+                const titleEl = document.createElement('strong');
+                titleEl.innerText = '全文翻译';
+                const countsRow1 = document.createElement('span');
+                countsRow1.className = 'fr-progress-counts';
+                const countsRow2 = document.createElement('span');
+                countsRow2.className = 'fr-progress-counts';
+                const actionsRow = document.createElement('span');
+                actionsRow.className = 'fr-progress-actions';
+
+                const btnRetry = document.createElement('button');
+                btnRetry.type = 'button';
+                btnRetry.className = 'fr-progress-action fr-btn-retry';
+                btnRetry.innerText = '重试失败';
+                btnRetry.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    runSiteTranslation({ retryFailedOnly: true });
+                });
+
+                const btnLocate = document.createElement('button');
+                btnLocate.type = 'button';
+                btnLocate.className = 'fr-progress-action fr-btn-locate';
+                btnLocate.innerText = '定位失败';
+                btnLocate.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    locateFirstFailedSiteItem();
+                });
+
+                actionsRow.appendChild(btnRetry);
+                actionsRow.appendChild(btnLocate);
+                copy.appendChild(titleEl);
+                copy.appendChild(countsRow1);
+                copy.appendChild(countsRow2);
+                copy.appendChild(actionsRow);
+
+                const dismissBtn = document.createElement('button');
+                dismissBtn.type = 'button';
+                dismissBtn.className = 'fr-progress-dismiss';
+                dismissBtn.setAttribute('aria-label', '隐藏进度面板');
+                dismissBtn.title = '暂时收起';
+                dismissBtn.innerText = '✕';
+                dismissBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    frProgressDismissed = true;
+                    aside.classList.add('fr-hidden');
+                });
+
+                aside.appendChild(indicator);
+                aside.appendChild(copy);
+                aside.appendChild(dismissBtn);
+                document.body.appendChild(aside);
+                frProgressPanel = aside;
+                frProgressPanel._els = { indicator, titleEl, countsRow1, countsRow2, actionsRow };
+            }
+
+            if (fabWrapper && fabWrapper.style) {
+                const baseRight = parseInt(fabWrapper.style.right, 10);
+                const baseBottom = parseInt(fabWrapper.style.bottom, 10);
+                if (!Number.isNaN(baseRight)) frProgressPanel.style.right = baseRight + 'px';
+                if (!Number.isNaN(baseBottom)) frProgressPanel.style.bottom = (baseBottom + 68) + 'px';
+            }
+
+            const isModernDark = currentUiSkin === 'modern' &&
+                typeof document !== 'undefined' &&
+                document.documentElement?.getAttribute?.('data-lexipro-theme') === 'dark';
+            frProgressPanel.classList.toggle('fr-dark', Boolean(isModernDark));
+            frProgressPanel.classList.toggle('fr-failed', failed > 0);
+            frProgressPanel.classList.toggle('fr-idle', !isSiteTranslating && remaining === 0);
+            frProgressPanel.classList.remove('fr-hidden');
+
+            const els = frProgressPanel._els;
+            if (els) {
+                els.titleEl.innerText = isSiteTranslating
+                    ? '沉浸翻译中...'
+                    : (failed > 0 ? `完成 ${completed} · ${failed} 项失败` : `本页翻译完成 (${completed})`);
+
+                els.countsRow1.innerHTML = '';
+                const sRun = document.createElement('span');
+                sRun.innerHTML = `进行中 <b>${running}</b>`;
+                const div1 = document.createElement('span');
+                div1.className = 'fr-progress-divider';
+                const sRem = document.createElement('span');
+                sRem.innerHTML = `待处理 <b>${remaining}</b>`;
+                els.countsRow1.appendChild(sRun);
+                els.countsRow1.appendChild(div1);
+                els.countsRow1.appendChild(sRem);
+
+                if (completed > 0 || failed > 0) {
+                    els.countsRow2.style.display = 'flex';
+                    els.countsRow2.innerHTML = '';
+                    const sDone = document.createElement('span');
+                    sDone.innerHTML = `完成 <b>${completed}</b>`;
+                    const div2 = document.createElement('span');
+                    div2.className = 'fr-progress-divider';
+                    const sFail = document.createElement('span');
+                    sFail.innerHTML = `失败 <b>${failed}</b>`;
+                    els.countsRow2.appendChild(sDone);
+                    els.countsRow2.appendChild(div2);
+                    els.countsRow2.appendChild(sFail);
+                } else {
+                    els.countsRow2.style.display = 'none';
+                }
+
+                els.actionsRow.style.display = failed > 0 ? 'flex' : 'none';
+            }
+
+            if (frProgressAutoHideTimer) {
+                clearTimeout(frProgressAutoHideTimer);
+                frProgressAutoHideTimer = null;
+            }
+            if (!isSiteTranslating && remaining === 0 && failed === 0 && completed > 0) {
+                frProgressAutoHideTimer = setTimeout(() => {
+                    if (frProgressPanel && !isSiteTranslating) {
+                        frProgressPanel.classList.add('fr-hidden');
+                    }
+                }, 4200);
+            }
+        }
+
+        // 核心渲染逻辑：应用 3 种翻译样式（保留原 DOM 树，应用 FluentRead 排版防挤压与内联公式代码还原）
+        function applyItemStyle(item) {
+            if (!item || !item.element) return;
+            hideLoadingIndicator(item);
+
             if (item.injectedNode && item.injectedNode.parentNode) {
                 item.injectedNode.remove();
                 item.injectedNode = null;
             }
 
+            if (!item.translatedText) {
+                restoreLayoutProtections(item);
+                return;
+            }
+            clearItemRetryControl(item);
+
             // 初始化或取得原生子节点的包装器（保留所有子节点及绑定在上面的原生事件监听）
             let origWrapper = item.origWrapper;
             if (!origWrapper || !origWrapper.isConnected) {
-                origWrapper = item.element.querySelector(':scope > .lexipro-orig-wrapper');
+                origWrapper = typeof item.element.querySelector === 'function'
+                    ? item.element.querySelector(':scope > .lexipro-orig-wrapper')
+                    : null;
                 if (!origWrapper) {
                     origWrapper = document.createElement('span');
                     origWrapper.className = 'lexipro-orig-wrapper';
@@ -6433,24 +7684,32 @@ CRITICAL RULES:
 
             let transContainer = item.transContainer;
             if (!transContainer || !transContainer.isConnected) {
-                transContainer = item.element.querySelector(':scope > .lexipro-trans-container');
+                transContainer = typeof item.element.querySelector === 'function'
+                    ? item.element.querySelector(':scope > .lexipro-trans-container')
+                    : null;
                 item.transContainer = transContainer;
             }
 
             if (!isSiteShowingTranslation) {
-                // 还原状态：显示原生内容，隐藏译文
                 item.isShowingOriginal = false;
                 if (origWrapper) origWrapper.style.display = '';
                 if (transContainer) transContainer.style.display = 'none';
+                restoreLayoutProtections(item);
                 return;
             }
 
+            if (item.isShowingOriginal) {
+                restoreLayoutProtections(item);
+            } else {
+                applyLayoutProtections(item);
+            }
+
             if (siteTranslationStyle === 'replace') {
-                // 模式 1: 沉浸式中文阅读（原节点保留隐藏，展示中文与切换胶囊）
                 if (!transContainer) {
                     transContainer = document.createElement('font');
-                    transContainer.className = 'immersive-translate-target-translation lexipro-trans-container';
+                    transContainer.className = 'immersive-translate-target-translation fluent-read-bilingual-content lexipro-trans-container';
                     transContainer.setAttribute('data-immersive-translate-translation-element-mark', '_');
+                    transContainer.setAttribute('data-fr-translation-owned', 'true');
                     item.element.appendChild(transContainer);
                     item.transContainer = transContainer;
                 }
@@ -6477,15 +7736,15 @@ CRITICAL RULES:
                                 const pEl = document.createElement('p');
                                 pEl.style.margin = '0 0 10px 0';
                                 pEl.style.lineHeight = '1.7';
-                                pEl.innerText = p.trim();
+                                renderProtectedTextInto(pEl, p.trim(), item.protectedTokens);
                                 textSpan.appendChild(pEl);
                             });
                         } else {
-                            textSpan.innerText = item.translatedText;
                             textSpan.style.whiteSpace = 'pre-line';
+                            renderProtectedTextInto(textSpan, item.translatedText, item.protectedTokens);
                         }
                     } else {
-                        textSpan.innerText = item.translatedText;
+                        renderProtectedTextInto(textSpan, item.translatedText, item.protectedTokens);
                     }
                     transContainer.appendChild(textSpan);
                 }
@@ -6496,7 +7755,7 @@ CRITICAL RULES:
                 toggleBtn.setAttribute('role', 'button');
                 toggleBtn.setAttribute('tabindex', '0');
                 toggleBtn.setAttribute('title', isShowingOrig ? '点击返回中文译文' : '点击查看英文原文');
-                toggleBtn.innerHTML = isShowingOrig 
+                toggleBtn.innerHTML = isShowingOrig
                     ? '<span class="lexipro-orig-toggle-icon">⇄</span> 中文'
                     : '<span class="lexipro-orig-toggle-icon">⇄</span> 原文';
 
@@ -6509,41 +7768,44 @@ CRITICAL RULES:
 
                 transContainer.appendChild(toggleBtn);
             } else if (siteTranslationStyle === 'underline') {
-                // 模式 2: 下划线双语对照
                 if (origWrapper) origWrapper.style.display = '';
                 if (transContainer) transContainer.style.display = 'none';
 
                 const under = document.createElement('div');
-                under.className = 'immersive-translate-target-translation lexipro-trans-underline';
+                under.className = 'immersive-translate-target-translation fluent-read-bilingual-content lexipro-trans-underline';
                 under.setAttribute('data-immersive-translate-translation-element-mark', '_');
+                under.setAttribute('data-fr-translation-owned', 'true');
                 under.style.color = 'inherit';
                 under.style.fontWeight = 'inherit';
                 under.style.fontSize = 'inherit';
                 under.style.lineHeight = 'inherit';
                 under.style.fontFamily = 'inherit';
                 under.style.opacity = '1';
-                under.innerText = item.translatedText;
+                renderProtectedTextInto(under, item.translatedText, item.protectedTokens);
                 item.element.appendChild(under);
                 item.injectedNode = under;
             } else if (siteTranslationStyle === 'card') {
-                // 模式 3: 独立卡片对照
                 if (origWrapper) origWrapper.style.display = '';
                 if (transContainer) transContainer.style.display = 'none';
 
                 const card = document.createElement('div');
-                card.className = 'immersive-translate-target-translation lexipro-trans-card';
+                card.className = 'immersive-translate-target-translation fluent-read-bilingual-content lexipro-trans-card';
                 card.setAttribute('data-immersive-translate-translation-element-mark', '_');
+                card.setAttribute('data-fr-translation-owned', 'true');
                 card.innerHTML = `
                     <div class="lexipro-trans-card-header">
                         <span class="lexipro-trans-card-badge">中文译文</span>
                         <button class="lexipro-trans-card-btn" type="button">复制</button>
                     </div>
-                    <div class="lexipro-trans-card-body">${escapeHtml(item.translatedText).replace(/\n/g, '<br>')}</div>
+                    <div class="lexipro-trans-card-body"></div>
                 `;
+                const bodyEl = card.querySelector('.lexipro-trans-card-body');
+                renderProtectedTextInto(bodyEl, item.translatedText, item.protectedTokens);
                 const copyBtn = card.querySelector('.lexipro-trans-card-btn');
                 copyBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    navigator.clipboard.writeText(item.translatedText);
+                    const plainCopy = restorePlainProtectedText(item.translatedText, item.protectedTokens);
+                    navigator.clipboard.writeText(plainCopy);
                     copyBtn.innerText = '已复制';
                     setTimeout(() => { copyBtn.innerText = '复制'; }, 2000);
                 });
@@ -6552,7 +7814,17 @@ CRITICAL RULES:
             }
         }
 
-        // 核心翻译调度器（支持失败项单独重试、视口自顶向下流式上屏、请求作用域隔离）
+        function restorePlainProtectedText(translatedText, tokens = []) {
+            let out = String(translatedText || '');
+            if (Array.isArray(tokens)) {
+                tokens.forEach(tok => {
+                    if (tok && tok.key) out = out.split(tok.key).join(tok.text);
+                });
+            }
+            return out;
+        }
+
+        // 核心翻译调度器（FluentRead 三级视口优先 + 防饥饿调度 + 180ms 延迟 Loading + 会话缓存）
         async function runSiteTranslation({ retryFailedOnly = false } = {}) {
             if (isSiteTranslating) {
                 showSiteToast('正在翻译中，请稍候...');
@@ -6560,11 +7832,14 @@ CRITICAL RULES:
             }
 
             collectSiteElements();
+            frProgressDismissed = false;
 
             if (retryFailedOnly) {
-                // 仅将失败项重新置入待翻译状态，绝不重复翻译已成功的条目
                 siteItemsMap.forEach(it => {
                     if (it.status === 'failed' || it.status === 'error') {
+                        clearItemRetryControl(it);
+                        it.lastError = '';
+                        it.enqueuedAt = Date.now();
                         it.status = 'pending';
                     }
                 });
@@ -6584,6 +7859,7 @@ CRITICAL RULES:
                 isSiteShowingTranslation = true;
                 siteItemsMap.forEach(it => { if (it.status === 'done') applyItemStyle(it); });
                 updateSiteFabState();
+                updateProgressPanel();
                 return;
             }
 
@@ -6591,39 +7867,55 @@ CRITICAL RULES:
             isSiteShowingTranslation = true;
             siteTotalCount = siteItemsMap.size;
             siteUntranslatedNewCount = 0;
+            frForegroundDispatchedSinceBg = 0;
             updateSiteFabState();
+            updateProgressPanel();
 
             const thisGen = siteGeneration;
 
             try {
-                // 1. 严格自顶向下视觉排序：保证最上面的帖子标题、正文与前排热评排在最前面
-                const sortedItems = sortPendingItemsByVisualOrder(pendingItems);
+                // 0. 命中本地页内缓存的条目直接瞬间上屏
+                const uncachedPending = [];
+                pendingItems.forEach(it => {
+                    const cached = pageTranslationCache.get(it.cacheKey);
+                    if (cached) {
+                        it.translatedText = cached;
+                        it.status = 'done';
+                        applyItemStyle(it);
+                    } else {
+                        uncachedPending.push(it);
+                    }
+                });
+                siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
 
-                // 2. 核心优先队列：提取前 10 条作为第一高优先级批次（用户当前眼前看到的内容）
+                // 1. 结合 FluentRead 视口评分排序待翻译队列
+                const sortedItems = sortPendingItemsByVisualOrder(uncachedPending);
+
+                // 2. 提取前 10 条高优可见区条目作为首波并发快车
                 const priorityItems = sortedItems.slice(0, 10);
-                const remainingItems = sortedItems.slice(10);
+                const remainingPool = sortedItems.slice(10);
 
-                // 前 10 条分拆为小批次并发竞速，完成后立即上屏呈现给用户
                 const priorityBatches = createBatches(priorityItems, 5);
                 if (priorityBatches.length > 0) {
                     await Promise.all(priorityBatches.map((b, idx) => processSiteBatch(b, idx, thisGen)));
                     if (thisGen !== siteGeneration) return;
                     updateSiteFabState();
+                    updateProgressPanel();
                 }
 
-                // 3. 后续批次（第 11 条往后）进入后台 Worker 并发池，边翻译边动态上屏
-                if (remainingItems.length > 0) {
-                    const backgroundBatches = createBatches(remainingItems, 6);
-                    let bIdx = 0;
-                    const concurrency = Math.min(4, Math.max(2, backgroundBatches.length));
+                // 3. 动态优先级调度池：每次按最新滚动方向、可视距离与防饥饿配额动态抽取下一批
+                if (remainingPool.length > 0) {
+                    const concurrency = Math.min(4, Math.max(2, Math.ceil(remainingPool.length / 6)));
+                    let seq = 0;
                     const workers = Array.from({ length: concurrency }, async (_, workerId) => {
-                        while (bIdx < backgroundBatches.length) {
+                        while (remainingPool.length > 0) {
                             if (thisGen !== siteGeneration) break;
-                            const currentBatchIdx = bIdx++;
-                            const batch = backgroundBatches[currentBatchIdx];
-                            await processSiteBatch(batch, workerId + currentBatchIdx, thisGen);
+                            const batch = takeNextPriorityBatch(remainingPool, 6);
+                            if (!batch || batch.length === 0) break;
+                            await processSiteBatch(batch, workerId + (++seq), thisGen);
                             if (thisGen !== siteGeneration) break;
                             updateSiteFabState();
+                            updateProgressPanel();
                         }
                     });
                     await Promise.all(workers);
@@ -6635,7 +7927,7 @@ CRITICAL RULES:
                 siteTranslatedCount = Array.from(siteItemsMap.values()).filter(it => it.status === 'done').length;
 
                 if (finalFailed > 0) {
-                    showSiteToast(`已翻译 ${siteTranslatedCount} 条，${finalFailed} 条暂未完成（可重试）`);
+                    showSiteToast(`已翻译 ${siteTranslatedCount} 条，${finalFailed} 条暂未完成（可点击重试）`);
                 } else {
                     showSiteToast(`🎉 成功翻译 ${siteTranslatedCount} 条内容！`);
                 }
@@ -6646,6 +7938,7 @@ CRITICAL RULES:
                 if (thisGen === siteGeneration) {
                     isSiteTranslating = false;
                     updateSiteFabState();
+                    updateProgressPanel();
                 }
             }
         }
@@ -6655,12 +7948,15 @@ CRITICAL RULES:
 
             const primaryModel = getModelForBatch(seedIndex);
             const fallbackModel = getModelForBatch(seedIndex + 1);
+            const placeholderNote = 'Keep any {{FR_P0}}, {{FR_P1}}, ... tokens unchanged in their natural position.';
 
             if (batch.length === 1) {
                 const it = batch[0];
                 try {
                     it.status = 'translating';
-                    const prompt = `Translate the following ${siteConfig.name} text into natural Simplified Chinese. Return ONLY the translation without quotes, notes, or markdown blocks.\n\n"${it.originalText}"`;
+                    showDeferredLoadingIndicator(it);
+                    updateProgressPanel();
+                    const prompt = `Translate the following ${siteConfig.name} text into natural Simplified Chinese. ${placeholderNote} Return ONLY the translation without quotes, notes, or markdown blocks.\n\n"${it.originalText}"`;
                     let res;
                     try {
                         res = await requestLLMChatCompletion({
@@ -6686,20 +7982,31 @@ CRITICAL RULES:
                         });
                     }
                     if (gen !== siteGeneration) return;
-                    it.translatedText = cleanSiteTrans(res);
+                    const cleaned = cleanSiteTrans(res);
+                    it.translatedText = cleaned;
                     it.status = 'done';
+                    if (cleaned) pageTranslationCache.set(it.cacheKey, cleaned);
                     siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
                     applyItemStyle(it);
                 } catch (e) {
                     if (gen !== siteGeneration) return;
+                    hideLoadingIndicator(it);
                     it.status = 'failed';
+                    it.lastError = e?.message || String(e || '请求失败');
+                    attachItemRetryControl(it);
                 }
                 return;
             }
 
+            batch.forEach(it => {
+                it.status = 'translating';
+                showDeferredLoadingIndicator(it);
+            });
+            updateProgressPanel();
+
             try {
                 const itemsPayload = batch.map(it => ({ id: it.id, text: it.originalText }));
-                const sysPrompt = `Translate these ${siteConfig.name} contents into fluent Simplified Chinese. Return RAW JSON ONLY matching this format:\n{\n  "translations": [\n    { "id": "item_id", "text": "Translated Chinese text" }\n  ]\n}`;
+                const sysPrompt = `Translate these ${siteConfig.name} contents into fluent Simplified Chinese. ${placeholderNote} Return RAW JSON ONLY matching this format:\n{\n  "translations": [\n    { "id": "item_id", "text": "Translated Chinese text" }\n  ]\n}`;
                 const userPrompt = JSON.stringify(itemsPayload, null, 2);
 
                 let res;
@@ -6748,13 +8055,14 @@ CRITICAL RULES:
                     if (trans) {
                         it.translatedText = trans;
                         it.status = 'done';
+                        pageTranslationCache.set(it.cacheKey, trans);
                         siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
                         applyItemStyle(it);
                     } else {
                         try {
                             const single = await requestLLMChatCompletion({
                                 messages: [
-                                    { role: "system", content: "Translate to Simplified Chinese. Return ONLY translated text." },
+                                    { role: "system", content: `Translate to Simplified Chinese. ${placeholderNote} Return ONLY translated text.` },
                                     { role: "user", content: it.originalText }
                                 ],
                                 temperature: 0.2,
@@ -6763,13 +8071,18 @@ CRITICAL RULES:
                                 requestScope: 'page'
                             });
                             if (gen !== siteGeneration) return;
-                            it.translatedText = cleanSiteTrans(single);
+                            const cleanedSingle = cleanSiteTrans(single);
+                            it.translatedText = cleanedSingle;
                             it.status = 'done';
+                            if (cleanedSingle) pageTranslationCache.set(it.cacheKey, cleanedSingle);
                             siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
                             applyItemStyle(it);
                         } catch (se) {
                             if (gen !== siteGeneration) return;
+                            hideLoadingIndicator(it);
                             it.status = 'failed';
+                            it.lastError = se?.message || String(se || '请求失败');
+                            attachItemRetryControl(it);
                         }
                     }
                 }
@@ -6779,7 +8092,7 @@ CRITICAL RULES:
                     try {
                         const single = await requestLLMChatCompletion({
                             messages: [
-                                { role: "system", content: "Translate to Simplified Chinese. Return ONLY translated text." },
+                                { role: "system", content: `Translate to Simplified Chinese. ${placeholderNote} Return ONLY translated text.` },
                                 { role: "user", content: it.originalText }
                             ],
                             temperature: 0.2,
@@ -6788,13 +8101,18 @@ CRITICAL RULES:
                             requestScope: 'page'
                         });
                         if (gen !== siteGeneration) return;
-                        it.translatedText = cleanSiteTrans(single);
+                        const cleanedSingle = cleanSiteTrans(single);
+                        it.translatedText = cleanedSingle;
                         it.status = 'done';
+                        if (cleanedSingle) pageTranslationCache.set(it.cacheKey, cleanedSingle);
                         siteTranslatedCount = Array.from(siteItemsMap.values()).filter(x => x.status === 'done').length;
                         applyItemStyle(it);
                     } catch (se) {
                         if (gen !== siteGeneration) return;
+                        hideLoadingIndicator(it);
                         it.status = 'failed';
+                        it.lastError = se?.message || String(se || '请求失败');
+                        attachItemRetryControl(it);
                     }
                 }
             }
@@ -6813,8 +8131,11 @@ CRITICAL RULES:
         function restoreSiteOriginal() {
             isSiteShowingTranslation = false;
             siteItemsMap.forEach(it => {
+                hideLoadingIndicator(it);
+                clearItemRetryControl(it);
                 applyItemStyle(it);
             });
+            removeProgressPanel();
             updateSiteFabState();
             showSiteToast('已切换为原生英文内容');
         }
@@ -6844,8 +8165,8 @@ CRITICAL RULES:
             const savedPos = GM_getValue('lexipro_site_fab_pos', null);
             let b = 40, r = 32;
             if (savedPos && typeof savedPos.bottom === 'number' && typeof savedPos.right === 'number') {
-                b = Math.max(16, Math.min(window.innerHeight - 80, savedPos.bottom));
-                r = Math.max(16, Math.min(Math.max(16, window.innerWidth - 200), savedPos.right));
+                b = Math.max(16, Math.min((window.innerHeight || 800) - 80, savedPos.bottom));
+                r = Math.max(16, Math.min(Math.max(16, (window.innerWidth || 1280) - 200), savedPos.right));
             }
             fabWrapper.style.bottom = b + 'px';
             fabWrapper.style.right = r + 'px';
@@ -6917,7 +8238,6 @@ CRITICAL RULES:
                     if (!hasDone && hasFailed) {
                         runSiteTranslation({ retryFailedOnly: true });
                     } else {
-                        // 已翻译状态下点击主按钮快速切换原文与中文
                         const isShowingOrig = Array.from(siteItemsMap.values()).some(it => it.isShowingOriginal);
                         siteItemsMap.forEach(it => {
                             it.isShowingOriginal = !isShowingOrig;
@@ -6968,8 +8288,8 @@ CRITICAL RULES:
                 startY = e.clientY;
 
                 const rect = container.getBoundingClientRect();
-                initRight = window.innerWidth - rect.right;
-                initBottom = window.innerHeight - rect.bottom;
+                initRight = (window.innerWidth || 1280) - rect.right;
+                initBottom = (window.innerHeight || 800) - rect.bottom;
 
                 function onMove(ev) {
                     const dx = ev.clientX - startX;
@@ -6978,11 +8298,15 @@ CRITICAL RULES:
                         dragging = true;
                         handle.classList.add('dragging');
                         const fabWidth = handle.offsetWidth || 180;
-                        const maxRight = Math.max(12, window.innerWidth - fabWidth - 12);
+                        const maxRight = Math.max(12, (window.innerWidth || 1280) - fabWidth - 12);
                         const newR = Math.max(12, Math.min(maxRight, initRight - dx));
-                        const newB = Math.max(12, Math.min(window.innerHeight - 80, initBottom - dy));
+                        const newB = Math.max(12, Math.min((window.innerHeight || 800) - 80, initBottom - dy));
                         container.style.right = newR + 'px';
                         container.style.bottom = newB + 'px';
+                        if (frProgressPanel && frProgressPanel.style) {
+                            frProgressPanel.style.right = newR + 'px';
+                            frProgressPanel.style.bottom = (newB + 68) + 'px';
+                        }
                     }
                 }
 
@@ -6993,8 +8317,8 @@ CRITICAL RULES:
                     if (dragging) {
                         suppressNextClick = true;
                         setTimeout(() => { suppressNextClick = false; }, 120);
-                        const r = window.innerWidth - container.getBoundingClientRect().right;
-                        const b = window.innerHeight - container.getBoundingClientRect().bottom;
+                        const r = (window.innerWidth || 1280) - container.getBoundingClientRect().right;
+                        const b = (window.innerHeight || 800) - container.getBoundingClientRect().bottom;
                         GM_setValue('lexipro_site_fab_pos', { right: Math.round(r), bottom: Math.round(b) });
                     }
                 }
@@ -7053,28 +8377,66 @@ CRITICAL RULES:
             setTimeout(() => { toast.classList.remove('show'); }, 3000);
         }
 
+        // FluentRead SPA 增量扫描合并器（>= 32 脏根合并全量扫，防止 DOM 风暴阻塞主线程）
         let observerTimer = null;
-        const siteObserver = new MutationObserver(() => {
+        const frDirtyRoots = new Set();
+        const siteObserver = new MutationObserver((mutations) => {
+            if (Array.isArray(mutations)) {
+                mutations.forEach(m => {
+                    if (m.type === 'childList' && m.addedNodes) {
+                        m.addedNodes.forEach(n => {
+                            if (n && n.nodeType === 1 &&
+                                !safeMatches(n, FR_FOREIGN_TRANSLATION_SELECTOR) &&
+                                !safeMatches(n, '.fluent-read-source-line, .fluent-read-loading, .fluent-read-retry-wrapper')) {
+                                frDirtyRoots.add(n);
+                            }
+                        });
+                    }
+                });
+            }
             if (observerTimer) clearTimeout(observerTimer);
             observerTimer = setTimeout(() => {
-                const found = collectSiteElements();
+                const scanTargets = frDirtyRoots.size >= 32 || frDirtyRoots.size === 0 ? null : Array.from(frDirtyRoots);
+                frDirtyRoots.clear();
+                const found = collectSiteElements(scanTargets);
                 if (found.length > 0 && isSiteShowingTranslation) {
                     siteUntranslatedNewCount += found.length;
                     updateSiteFabState();
+                    updateProgressPanel();
                 }
             }, 600);
         });
 
+        const onScrollDirectionTrack = () => {
+            if (typeof window.scrollY !== 'number') return;
+            const cur = window.scrollY;
+            if (cur > frLastScrollY + 4) frScrollDirection = 'forward';
+            else if (cur < frLastScrollY - 4) frScrollDirection = 'backward';
+            frLastScrollY = cur;
+        };
+
         // SPA 换页检测与生命周期隔离处理
         function onSiteUrlChange() {
             siteGeneration++;
-            // 取消属于上一页的所有未完成请求
             activePageRequests.forEach(req => {
                 try { req.abort(); } catch (e) {}
             });
             activePageRequests.clear();
 
+            siteItemsMap.forEach(it => {
+                hideLoadingIndicator(it);
+                clearItemRetryControl(it);
+            });
             siteItemsMap.clear();
+            frVisibleIds.clear();
+            frNearIds.clear();
+            frDirtyRoots.clear();
+            if (frIntersectionObserver) {
+                try { frIntersectionObserver.disconnect(); } catch (e) {}
+                frIntersectionObserver = null;
+            }
+            removeProgressPanel();
+
             siteItemCounter = 0;
             siteTranslatedCount = 0;
             siteTotalCount = 0;
@@ -7099,17 +8461,30 @@ CRITICAL RULES:
             }
         }, 800);
         window.addEventListener('popstate', onSiteUrlChange);
+        if (typeof window.addEventListener === 'function') {
+            window.addEventListener('scroll', onScrollDirectionTrack, { passive: true });
+        }
 
         function destroySiteSpecificTranslator() {
             restoreSiteOriginal();
             if (siteObserver) {
                 try { siteObserver.disconnect(); } catch (e) {}
             }
+            if (frIntersectionObserver) {
+                try { frIntersectionObserver.disconnect(); } catch (e) {}
+                frIntersectionObserver = null;
+            }
+            if (typeof window.removeEventListener === 'function') {
+                try { window.removeEventListener('scroll', onScrollDirectionTrack); } catch (e) {}
+            }
+            removeProgressPanel();
             if (fabWrapper && fabWrapper.parentNode) {
                 fabWrapper.remove();
                 fabWrapper = null;
             }
             siteItemsMap.clear();
+            frVisibleIds.clear();
+            frNearIds.clear();
             siteGeneration++;
             isSiteTranslating = false;
             isSiteShowingTranslation = false;
@@ -7151,12 +8526,14 @@ CRITICAL RULES:
         window.__lexipro_set_display_mode = (mode) => setTranslationStyle(mode);
         window.__lexipro_sync_site_theme = (skin) => {
             siteUITheme = normalizeUiSkin(skin);
+            updateProgressPanel();
         };
         window.__lexipro_set_theme = (theme) => {
             const nextSkin = normalizeUiSkin(theme);
             siteUITheme = nextSkin;
             GM_setValue('lexipro_ui_theme', nextSkin);
             applyUISkin(nextSkin);
+            updateProgressPanel();
         };
         window.__lexipro_update_auto_status = () => {
             siteAutoTranslate = isCurrentSiteAutoTranslate();
@@ -7179,6 +8556,9 @@ CRITICAL RULES:
             } else if (key === 'lexipro_ui_theme' && value) {
                 siteUITheme = normalizeUiSkin(value);
                 applyUISkin(siteUITheme);
+                updateProgressPanel();
+            } else if (key === 'lexipro_modern_color_mode') {
+                updateProgressPanel();
             }
         };
 
@@ -7190,7 +8570,6 @@ CRITICAL RULES:
                 siteObserver.observe(document.body, { childList: true, subtree: true });
             }
 
-            // 进站自动翻译特性支持：严格限制在白名单中，默认绝不自动翻译！
             if (isCurrentSiteAutoTranslate()) {
                 setTimeout(() => {
                     runSiteTranslation();

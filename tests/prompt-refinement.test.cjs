@@ -23,8 +23,11 @@ assert.match(systemPrompt, /"translation":/, 'SYSTEM_PROMPT must keep translatio
 assert.match(systemPrompt, /"examples":/, 'SYSTEM_PROMPT must keep bilingual examples');
 assert.match(systemPrompt, /"phonetic":/, 'SYSTEM_PROMPT must keep phonetic symbol');
 
-// 4. Ensure explicit negative constraint is in place
+// 4. Ensure explicit negative constraint and >= 2 examples rule are in place
 assert.match(systemPrompt, /Do NOT include synonyms, antonyms/i, 'SYSTEM_PROMPT should include explicit rule forbidding synonyms/antonyms');
+assert.match(systemPrompt, /at least 2 diverse, natural bilingual example sentences/i, 'SYSTEM_PROMPT must explicitly mandate at least 2 bilingual example sentences per entry');
+assert.match(systemPrompt, /Natural English example sentence 1[\s\S]*Natural English example sentence 2/, 'Mode 1 template must demonstrate 2 bilingual examples');
+assert.match(systemPrompt, /自然中文例句 1[\s\S]*不同语境中文例句 2/, 'Mode 2 template must demonstrate 2 bilingual examples');
 
 // 5. Ensure rendering logic does not render synonyms or antonyms
 const renderWordMatch = source.match(/if \(data\.mode === "en_word"\) \{([\s\S]*?)return html;\s*\}/);

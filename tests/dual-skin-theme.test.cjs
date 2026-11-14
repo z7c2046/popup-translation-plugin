@@ -181,7 +181,7 @@ test('Dual Skin Content & Userscript: runtime theme resolution, Shadow DOM skins
     }
 });
 
-test('Modern Skin Speaker Alignment: .imt-speaker and .imt-ex-speaker match toolbar .imt-action-btn tactile hover/press physics', () => {
+test('Modern Skin Tactile & Speaker Alignment: buttons and speakers share Animal Island 3D tactile geometry & hover/press physics across popup and page', () => {
     for (const [name, source] of [['content.js', contentJs], ['userscript', userscript]]) {
         const modernBlock = section(
             source,
@@ -189,30 +189,35 @@ test('Modern Skin Speaker Alignment: .imt-speaker and .imt-ex-speaker match tool
             ':host([data-skin="modern"]) .imt-section {'
         );
 
-        assert.doesNotMatch(
+        assert.match(
             modernBlock,
-            /\.imt-speaker[\s\S]*border-bottom:\s*3px/,
-            `${name}: modern skin speakers must use 1px modern border instead of 3px cartoon border`
-        );
-        assert.doesNotMatch(
-            modernBlock,
-            /\.imt-speaker[\s\S]*transform:\s*translateY\(2px\)/,
-            `${name}: modern skin speakers must not use old Animal Island translateY(2px) active transform`
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-action-btn\s*\{[\s\S]*?border-bottom-width:\s*3px;[\s\S]*?border-radius:\s*999px;/,
+            `${name}: modern .imt-action-btn must keep Animal Island 999px circular 3px 3D bottom lip`
         );
         assert.match(
             modernBlock,
-            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker\s*\{[\s\S]*?border:\s*1px solid var\(--modern-divider\);[\s\S]*?border-bottom-width:\s*1px;/,
-            `${name}: modern speakers must inherit uniform 1px modern border and surface`
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker\s*\{[\s\S]*?border-bottom-width:\s*3px;[\s\S]*?border-radius:\s*999px;/,
+            `${name}: modern speakers must inherit Animal Island 999px circular 3px 3D bottom lip`
         );
         assert.match(
             modernBlock,
-            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:hover,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:hover\s*\{[\s\S]*?transform:\s*translateY\(-1px\);[\s\S]*?box-shadow:\s*0 4px 10px var\(--modern-accent-glow\);/,
-            `${name}: modern speaker hover must match .imt-action-btn lift and indigo glow`
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:hover,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:hover\s*\{[\s\S]*?transform:\s*translateY\(-1px\);/,
+            `${name}: modern speaker hover must match Animal Island & .imt-action-btn translateY(-1px) lift`
         );
         assert.match(
             modernBlock,
-            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:active,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:active[\s\S]*?transform:\s*translateY\(1px\)\s*scale\(0\.95\);[\s\S]*?border-bottom-width:\s*1px;[\s\S]*?box-shadow:\s*none;/,
-            `${name}: modern speaker active press must match .imt-action-btn scale(0.95) + translateY(1px) + box-shadow: none`
+            /:host\(\[data-skin="modern"\]\)\s*\.imt-speaker:active,\s*:host\(\[data-skin="modern"\]\)\s*\.imt-speaker\.imt-ex-speaker:active[\s\S]*?transform:\s*translateY\(2px\);[\s\S]*?border-bottom-width:\s*1px;/,
+            `${name}: modern speaker active press must match Animal Island & .imt-action-btn translateY(2px) + 1px bottom lip depression`
+        );
+        assert.match(
+            source,
+            /\.lexipro-site-fab\s*\{[\s\S]*?border:\s*2px solid #cbd5e1;[\s\S]*?border-bottom:\s*5px solid #94a3b8;[\s\S]*?\.lexipro-site-fab:not\(\.dragging\):active\s*\{[\s\S]*?transform:\s*translateY\(3px\) scale\(0\.96\);[\s\S]*?border-bottom-width:\s*2px;/,
+            `${name}: modern page FAB must share Animal Island 5px->2px 3D tactile click physics`
+        );
+        assert.match(
+            source,
+            /\.lexipro-orig-toggle-btn\s*\{[\s\S]*?border-radius:\s*999px;[\s\S]*?border-bottom:\s*2\.5px solid/,
+            `${name}: modern .lexipro-orig-toggle-btn must share Animal Island pill radius and 3D bottom lip`
         );
     }
 });
